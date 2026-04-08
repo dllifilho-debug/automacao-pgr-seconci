@@ -487,7 +487,7 @@ elif "2️⃣" in modulo_selecionado:
                     """
                     
                     try:
-                        # 3. AUTO-DISCOVERY DO MODELO (Concatenado puro para evitar hidden chars)
+                        # 3. AUTO-DISCOVERY DO MODELO
                         url_lista = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
                         resp_lista = requests.get(url_lista)
                         
@@ -504,7 +504,7 @@ elif "2️⃣" in modulo_selecionado:
                             if not modelo_escolhido and modelos_texto:
                                 modelo_escolhido = modelos_texto[0]
                                 
-                            # 4. REQUISIÇÃO MULTIMODAL COM JSON NATIVO (Concatenado puro)
+                            # 4. REQUISIÇÃO MULTIMODAL
                             url_google = "https://generativelanguage.googleapis.com/v1beta/" + modelo_escolhido + ":generateContent?key=" + CHAVE_API_GOOGLE
                             payload = {
                                 "contents": [
@@ -542,17 +542,28 @@ elif "2️⃣" in modulo_selecionado:
                                     else:
                                         st.success(f"✅ Extração Concluída via Visão Computacional! (Motor: {modelo_escolhido.split('/')[-1]})")
                                         
+                                        # Processa os dados
                                         df_pcmso_gerado = processar_pcmso(json_pgr)
-                                        st.dataframe(df_pcmso_gerado, use_container_width=True)
-                                        
                                         html_final = gerar_html_pcmso(df_pcmso_gerado)
-                                        st.download_button(
-                                            label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                                            data=html_final.encode('utf-8'), 
-                                            file_name="PCMSO_Gerado.doc", 
-                                            mime="application/msword", 
-                                            use_container_width=True
-                                        )
+                                        
+                                        # NOVA INTERFACE COM ABAS (TABS)
+                                        aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
+                                        
+                                        with aba_dados:
+                                            st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                            
+                                        with aba_preview:
+                                            components.html(html_final, height=600, scrolling=True)
+                                            
+                                        with aba_download:
+                                            st.info("Clique no botão abaixo para baixar a Matriz PCMSO pronta para o Microsoft Word.")
+                                            st.download_button(
+                                                label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                                                data=html_final.encode('utf-8'), 
+                                                file_name="PCMSO_Gerado.doc", 
+                                                mime="application/msword", 
+                                                use_container_width=True
+                                            )
                                     
                                 except json.JSONDecodeError:
                                     st.error("A IA leu o documento, mas quebrou a formatação dos dados.")
