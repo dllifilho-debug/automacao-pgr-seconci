@@ -64,7 +64,7 @@ else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECON
 
 st.sidebar.markdown("---")
 st.sidebar.title("🧩 Módulos do Sistema")
-modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", ["1️⃣ Engenharia: FISPQ ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"])
+modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", ["1️⃣ Engenharia: FISPQ / FDS ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"])
 
 st.sidebar.markdown("---")
 st.sidebar.title("📂 Histórico de Laudos")
@@ -153,19 +153,22 @@ dicionario_cas = {
     "136-51-6": {"agente": "Octoato de Cálcio", "nr15_lt": "Não Estabelecido", "nr09_acao": "Não Estabelecido", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
 }
 
-dicionario_fis_bio = {
-    "Ruído Contínuo/Intermitente": {
+# Expandido com Físicos, Biológicos, Ergonômicos e Acidentes
+dicionario_campo = {
+    # Riscos Físicos
+    "Físico: Ruído Contínuo/Intermitente": {
         "agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos (Linha 2.0.1)", "esocial_24": "02.01.001",
         "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"
     },
-    "Vibração de Mãos e Braços (VMB)": {
+    "Físico: Vibração de Mãos e Braços (VMB)": {
         "agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.002",
         "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"
     },
-    "Vibração de Corpo Inteiro (VCI)": {
+    "Físico: Vibração de Corpo Inteiro (VCI)": {
         "agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.003",
         "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"
     },
+    # Riscos Biológicos
     "Biológico: Esgoto / Fossas": {
         "agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.005",
         "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"
@@ -177,6 +180,28 @@ dicionario_fis_bio = {
     "Biológico: Estab. Saúde": {
         "agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.001",
         "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"
+    },
+    # Riscos Ergonômicos (PGR Obrigatório, eSocial Dispensado)
+    "Ergonômico: Postura Inadequada": {
+        "agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
+        "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"
+    },
+    "Ergonômico: Levantamento/Transporte de Peso": {
+        "agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
+        "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"
+    },
+    # Riscos de Acidentes / Mecânicos (PGR Obrigatório, eSocial Dispensado)
+    "Acidente: Queda de Altura": {
+        "agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
+        "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"
+    },
+    "Acidente: Choque Elétrico": {
+        "agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
+        "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"
+    },
+    "Acidente: Máquinas e Equipamentos": {
+        "agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
+        "perigo": "Operação de máquinas com risco de corte ou esmagamento", "sev": 4, "epi": "Luvas de Proteção, Óculos, Botas de Segurança"
     }
 }
 
@@ -319,7 +344,7 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos):
         
         pgr_ghe = df_pgr[df_pgr['GHE'] == ghe] if not df_pgr.empty else pd.DataFrame()
         if not pgr_ghe.empty:
-            html_content += "<h4>Inventário de Risco (NR-01)</h4><table class='funcao-mini-table'><thead><tr><th>Origem / FISPQ</th><th>Perigo Identificado</th><th>Sev.</th><th>Prob.</th><th>Nível de Risco</th><th>EPI Recomendado (NR-06)</th></tr></thead><tbody>"
+            html_content += "<h4>Inventário de Risco (NR-01)</h4><table class='funcao-mini-table'><thead><tr><th>Origem / FISPQ / FDS</th><th>Perigo Identificado</th><th>Sev.</th><th>Prob.</th><th>Nível de Risco</th><th>EPI Recomendado (NR-06)</th></tr></thead><tbody>"
             for _, row in pgr_ghe.iterrows():
                 html_content += f"<tr><td>{row['Arquivo Origem']}</td><td>{row['Código GHS']} {row['Perigo Identificado']}</td><td>{row['Severidade']}</td><td>{row['Probabilidade']}</td><td>{row['NÍVEL DE RISCO']}</td><td>{row['EPI (NR-06)']}</td></tr>"
             html_content += "</tbody></table>"
@@ -365,12 +390,12 @@ if historico_selecionado:
     with aba_download: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
 
 # ==========================================
-# MÓDULO 1: ENGENHARIA (FISPQS -> PGR)
+# MÓDULO 1: ENGENHARIA (FISPQS / FDS -> PGR)
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
-    st.header("Módulo de Engenharia: Extrator de FISPQs")
+    st.header("Módulo de Engenharia: Extrator de FISPQs / FDS")
     
-    arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
+    arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
     df_editado = pd.DataFrame()
     ghe_opcoes = ["Nenhum GHE definido"]
@@ -384,28 +409,28 @@ elif "1️⃣" in modulo_selecionado:
 
         st.markdown("### 2️⃣ Definição de GHEs Químicos")
         nomes_arquivos = [arq.name for arq in arquivos_fispq]
-        dados_iniciais = [{"GHE": "GHE 01 - Digite a Função", "Arquivo FISPQ": nome, "Probabilidade": 3} for nome in nomes_arquivos]
+        dados_iniciais = [{"GHE": "GHE 01 - Digite a Função", "Arquivo FISPQ/FDS": nome, "Probabilidade": 3} for nome in nomes_arquivos]
         df_mapeamento = pd.DataFrame(dados_iniciais)
         
         df_editado = st.data_editor(
             df_mapeamento, num_rows="dynamic",
             column_config={
                 "GHE": st.column_config.TextColumn("Nome do GHE", required=True),
-                "Arquivo FISPQ": st.column_config.SelectboxColumn("Arquivo (FISPQ)", options=nomes_arquivos, required=True),
+                "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo (FISPQ/FDS)", options=nomes_arquivos, required=True),
                 "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
             }, width="stretch"
         )
         ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
 
-    st.markdown("### 3️⃣ Avaliações de Campo: Agentes Físicos e Biológicos")
-    agentes_opcoes = list(dicionario_fis_bio.keys())
+    st.markdown("### 3️⃣ Avaliações de Campo: Físicos, Biológicos, Ergonômicos e Acidentes")
+    agentes_opcoes = list(dicionario_campo.keys())
     df_fis_bio_inicial = pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_opcoes[0], "Probabilidade": 3}])
 
     df_fis_bio_editado = st.data_editor(
         df_fis_bio_inicial, num_rows="dynamic",
         column_config={
             "GHE": st.column_config.SelectboxColumn("GHE de Destino", options=ghe_opcoes, required=True),
-            "Agente": st.column_config.SelectboxColumn("Agente Físico/Biológico", options=agentes_opcoes, required=True),
+            "Agente": st.column_config.SelectboxColumn("Agente / Fator de Risco", options=agentes_opcoes, required=True),
             "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
         }, width="stretch"
     )
@@ -416,7 +441,7 @@ elif "1️⃣" in modulo_selecionado:
             
             if not df_editado.empty:
                 for index, row in df_editado.iterrows():
-                    nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ"], int(row["Probabilidade"])
+                    nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ/FDS"], int(row["Probabilidade"])
                     if nome_arq in textos_pdfs:
                         texto_completo = textos_pdfs[nome_arq]
                         cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
@@ -447,17 +472,17 @@ elif "1️⃣" in modulo_selecionado:
             if not df_fis_bio_editado.empty and df_fis_bio_editado["GHE"].iloc[0] != "Nenhum GHE definido":
                 for index, row in df_fis_bio_editado.iterrows():
                     nome_ghe, nome_agente, v_prob = row["GHE"], row["Agente"], int(row["Probabilidade"])
-                    if nome_agente in dicionario_fis_bio:
-                        dados_fis = dicionario_fis_bio[nome_agente]
+                    if nome_agente in dicionario_campo:
+                        dados_fis = dicionario_campo[nome_agente]
                         resultados_medicos.append({
-                            "GHE": nome_ghe, "Arquivo Origem": "Campo", "Nº CAS": "-",
+                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Nº CAS": "-",
                             "Agente Químico": dados_fis["agente"], "Lim. Tolerância (NR-15)": dados_fis["nr15_lt"],
                             "Nível de Ação (NR-09)": dados_fis["nr09_acao"], "IBE (NR-07)": dados_fis["nr07_ibe"],
                             "Dec 3048": dados_fis["dec_3048"], "eSocial": dados_fis["esocial_24"]
                         })
                         nivel_risco = matriz_oficial.get((dados_fis["sev"], v_prob), "N/A")
                         resultados_pgr.append({
-                            "GHE": nome_ghe, "Arquivo Origem": "Campo", "Código GHS": "-",
+                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Código GHS": "-",
                             "Perigo Identificado": dados_fis["perigo"], "Severidade": texto_sev.get(dados_fis["sev"], str(dados_fis["sev"])),
                             "Probabilidade": str(v_prob), "NÍVEL DE RISCO": nivel_risco,
                             "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_fis["epi"]
