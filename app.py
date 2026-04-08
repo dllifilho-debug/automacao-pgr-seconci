@@ -17,65 +17,35 @@ st.set_page_config(page_title="Automação SST - Seconci GO", layout="wide", pag
 css_personalizado = """
 <style>
     /* Tipografia e espaçamento geral */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
     
     /* Estilização Premium dos Botões */
     .stButton > button {
-        background-color: #084D22;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        font-weight: 600;
-        padding: 0.5rem 1rem;
+        background-color: #084D22; color: white; border-radius: 8px; border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease; font-weight: 600; padding: 0.5rem 1rem;
     }
     .stButton > button:hover {
-        background-color: #1AA04B;
-        color: white;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        transform: translateY(-2px);
-        border-color: #1AA04B;
+        background-color: #1AA04B; color: white; box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px); border-color: #1AA04B;
     }
     
     /* Cores dos Títulos (Identidade Seconci) */
-    h1, h2, h3 {
-        color: #084D22 !important;
-    }
+    h1, h2, h3 { color: #084D22 !important; }
     
     /* Estilização da Barra Lateral */
-    [data-testid="stSidebar"] {
-        background-color: #F4F8F5;
-        border-right: 1px solid #E0ECE4;
-    }
+    [data-testid="stSidebar"] { background-color: #F4F8F5; border-right: 1px solid #E0ECE4; }
     
     /* Estilização da Caixa de Upload de Arquivos */
     [data-testid="stFileUploadDropzone"] {
-        border: 2px dashed #1AA04B;
-        border-radius: 12px;
-        background-color: #FAFFFA;
-        transition: all 0.3s ease;
+        border: 2px dashed #1AA04B; border-radius: 12px; background-color: #FAFFFA; transition: all 0.3s ease;
     }
-    [data-testid="stFileUploadDropzone"]:hover {
-        background-color: #F0FDF4;
-        border-color: #084D22;
-    }
+    [data-testid="stFileUploadDropzone"]:hover { background-color: #F0FDF4; border-color: #084D22; }
     
     /* Caixas de Informação (Alertas) */
-    .stAlert {
-        border-radius: 8px;
-        border-left: 5px solid #084D22;
-    }
+    .stAlert { border-radius: 8px; border-left: 5px solid #084D22; }
     
     /* Dataframes e Tabelas do Streamlit */
-    [data-testid="stDataFrame"] {
-        border: 1px solid #E0ECE4;
-        border-radius: 8px;
-        overflow: hidden;
-    }
+    [data-testid="stDataFrame"] { border: 1px solid #E0ECE4; border-radius: 8px; overflow: hidden; }
 </style>
 """
 st.markdown(css_personalizado, unsafe_allow_html=True)
@@ -564,34 +534,57 @@ elif "2️⃣" in modulo_selecionado:
                     """
                     
                     try:
-                        url_google = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={CHAVE_API_GOOGLE}"
-                        payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
-                        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                        # 1. AUTO-DISCOVERY: Acha o melhor modelo disponível na sua chave
+                        url_lista = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
+                        resp_lista = requests.get(url_lista)
                         
-                        if resposta.status_code == 200:
-                            resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                            resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                        if resp_lista.status_code == 200:
+                            modelos = resp_lista.json().get('models', [])
+                            modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
                             
-                            try:
-                                json_pgr = json.loads(resultado_texto)
-                                st.success("✅ Extração Semântica Concluída! Matriz de Exames Gerada com Sucesso.")
+                            modelo_escolhido = None
+                            # Procura do mais potente para o mais básico
+                            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro']:
+                                if pref in modelos_texto:
+                                    modelo_escolhido = pref
+                                    break
+                            
+                            if not modelo_escolhido and modelos_texto:
+                                modelo_escolhido = modelos_texto[0] # Fallback de segurança
                                 
-                                df_pcmso_gerado = processar_pcmso(json_pgr)
-                                st.dataframe(df_pcmso_gerado, use_container_width=True)
+                            # 2. FAZ A REQUISIÇÃO COM O MODELO CORRETO
+                            url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
+                            payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
+                            resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                            
+                            if resposta.status_code == 200:
+                                resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
                                 
-                                html_final = gerar_html_pcmso(df_pcmso_gerado)
-                                st.download_button(
-                                    label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                                    data=html_final.encode('utf-8'), 
-                                    file_name="PCMSO_Gerado.doc", 
-                                    mime="application/msword", 
-                                    use_container_width=True
-                                )
-                                
-                            except json.JSONDecodeError:
-                                st.error("Erro na conversão para JSON. O modelo retornou texto livre. Tente com um PDF mais limpo.")
-                                st.code(resultado_texto)
+                                try:
+                                    json_pgr = json.loads(resultado_texto)
+                                    st.success(f"✅ Extração Semântica Concluída! Matriz de Exames Gerada com Sucesso. (Motor: {modelo_escolhido.split('/')[-1]})")
+                                    
+                                    df_pcmso_gerado = processar_pcmso(json_pgr)
+                                    st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                    
+                                    html_final = gerar_html_pcmso(df_pcmso_gerado)
+                                    st.download_button(
+                                        label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                                        data=html_final.encode('utf-8'), 
+                                        file_name="PCMSO_Gerado.doc", 
+                                        mime="application/msword", 
+                                        use_container_width=True
+                                    )
+                                    
+                                except json.JSONDecodeError:
+                                    st.error("Erro na conversão para JSON. O modelo retornou texto livre. Tente com um PDF mais limpo.")
+                                    with st.expander("Ver resposta bruta da IA"):
+                                        st.code(resultado_texto)
+                            else:
+                                 st.error(f"Erro na geração de conteúdo: {resposta.text}")
                         else:
-                             st.error(f"Erro na API do Google: {resposta.text}")
+                            st.error(f"Falha ao listar modelos do Google. Verifique sua chave de API. Erro: {resp_lista.text}")
+                            
                     except Exception as e:
-                        st.error(f"Falha na comunicação: {e}")
+                        st.error(f"Falha na comunicação de rede: {e}")
