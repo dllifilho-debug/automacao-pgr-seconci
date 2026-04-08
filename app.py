@@ -8,7 +8,7 @@ from datetime import datetime
 import os
 import requests
 import json
-import base64  # <--- ADICIONE ESTA LINHA AQUI
+import base64
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E CSS (UI/UX)
@@ -33,7 +33,8 @@ st.markdown(css_personalizado, unsafe_allow_html=True)
 # ==========================================
 # CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
 # ==========================================
-CHAVE_API_GOOGLE = st.secrets["CHAVE_API_GOOGLE"]
+# Blindagem: Removemos espaços, quebras de linha ou aspas acidentais que possam vir do cofre.
+CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
 
 # ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
@@ -486,8 +487,8 @@ elif "2️⃣" in modulo_selecionado:
                     """
                     
                     try:
-                        # 3. AUTO-DISCOVERY DO MODELO
-                        url_lista = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
+                        # 3. AUTO-DISCOVERY DO MODELO (Concatenado puro para evitar hidden chars)
+                        url_lista = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
                         resp_lista = requests.get(url_lista)
                         
                         if resp_lista.status_code == 200:
@@ -503,8 +504,8 @@ elif "2️⃣" in modulo_selecionado:
                             if not modelo_escolhido and modelos_texto:
                                 modelo_escolhido = modelos_texto[0]
                                 
-                            # 4. REQUISIÇÃO MULTIMODAL COM TRAVA DE JSON NATIVO
-                            url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
+                            # 4. REQUISIÇÃO MULTIMODAL COM JSON NATIVO (Concatenado puro)
+                            url_google = "https://generativelanguage.googleapis.com/v1beta/" + modelo_escolhido + ":generateContent?key=" + CHAVE_API_GOOGLE
                             payload = {
                                 "contents": [
                                     {
@@ -521,7 +522,7 @@ elif "2️⃣" in modulo_selecionado:
                                 ],
                                 "generationConfig": {
                                     "temperature": 0.0,
-                                    "responseMimeType": "application/json" # <-- A MÁGICA ACONTECE AQUI
+                                    "responseMimeType": "application/json"
                                 }
                             }
                             
@@ -529,16 +530,13 @@ elif "2️⃣" in modulo_selecionado:
                             
                             if resposta.status_code == 200:
                                 resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                                # Limpeza extra por segurança
                                 resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
                                 
                                 try:
                                     json_pgr = json.loads(resultado_texto)
                                     
-                                    # Se a IA devolver uma lista vazia, ligamos o Raio-X
                                     if not json_pgr or len(json_pgr) == 0:
                                         st.error("⚠️ A IA analisou o documento, mas não conseguiu estruturar as tabelas.")
-                                        st.warning("Diagnóstico: O PDF pode estar muito ilegível (resolução baixa) ou o layout é completamente diferente do padrão de SST.")
                                         with st.expander("🔍 Ver o que a IA devolveu (Modo Raio-X)"):
                                             st.code(resultado_texto)
                                     else:
@@ -561,7 +559,7 @@ elif "2️⃣" in modulo_selecionado:
                                     with st.expander("🔍 Ver resposta bruta da IA"):
                                         st.code(resultado_texto)
                             else:
-                                 st.error(f"Erro na geração de conteúdo. Detalhes da API: {resposta.text}")
+                                 st.error(f"Erro na geração de conteúdo. Detalhes: {resposta.text}")
                         else:
                             st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
                             
