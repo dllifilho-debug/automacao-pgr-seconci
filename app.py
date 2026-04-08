@@ -16,35 +16,14 @@ st.set_page_config(page_title="Automação SST - Seconci GO", layout="wide", pag
 
 css_personalizado = """
 <style>
-    /* Tipografia e espaçamento geral */
     .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-    
-    /* Estilização Premium dos Botões */
-    .stButton > button {
-        background-color: #084D22; color: white; border-radius: 8px; border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease; font-weight: 600; padding: 0.5rem 1rem;
-    }
-    .stButton > button:hover {
-        background-color: #1AA04B; color: white; box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        transform: translateY(-2px); border-color: #1AA04B;
-    }
-    
-    /* Cores dos Títulos (Identidade Seconci) */
+    .stButton > button { background-color: #084D22; color: white; border-radius: 8px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease; font-weight: 600; padding: 0.5rem 1rem; }
+    .stButton > button:hover { background-color: #1AA04B; color: white; box-shadow: 0 6px 12px rgba(0,0,0,0.15); transform: translateY(-2px); border-color: #1AA04B; }
     h1, h2, h3 { color: #084D22 !important; }
-    
-    /* Estilização da Barra Lateral */
     [data-testid="stSidebar"] { background-color: #F4F8F5; border-right: 1px solid #E0ECE4; }
-    
-    /* Estilização da Caixa de Upload de Arquivos */
-    [data-testid="stFileUploadDropzone"] {
-        border: 2px dashed #1AA04B; border-radius: 12px; background-color: #FAFFFA; transition: all 0.3s ease;
-    }
+    [data-testid="stFileUploadDropzone"] { border: 2px dashed #1AA04B; border-radius: 12px; background-color: #FAFFFA; transition: all 0.3s ease; }
     [data-testid="stFileUploadDropzone"]:hover { background-color: #F0FDF4; border-color: #084D22; }
-    
-    /* Caixas de Informação (Alertas) */
     .stAlert { border-radius: 8px; border-left: 5px solid #084D22; }
-    
-    /* Dataframes e Tabelas do Streamlit */
     [data-testid="stDataFrame"] { border: 1px solid #E0ECE4; border-radius: 8px; overflow: hidden; }
 </style>
 """
@@ -75,26 +54,18 @@ def init_db():
 init_db()
 
 # ==========================================
-# BARRA LATERAL (MENU, MÓDULOS E HISTÓRICO)
+# BARRA LATERAL (MENU E HISTÓRICO)
 # ==========================================
-if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", width="stretch")
-elif os.path.exists("logo.jpg"):
-    st.sidebar.image("logo.jpg", width="stretch")
-else:
-    st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
+if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
+elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
+else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.title("🧩 Módulos do Sistema")
-modulo_selecionado = st.sidebar.radio(
-    "Selecione a funcionalidade:",
-    ["1️⃣ Engenharia: FISPQ ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"]
-)
+modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", ["1️⃣ Engenharia: FISPQ ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"])
 
 st.sidebar.markdown("---")
 st.sidebar.title("📂 Histórico de Laudos")
-st.sidebar.info("Acesse relatórios salvos no banco de dados.")
-
 conn = sqlite3.connect('seconci_banco_dados.db')
 df_historico = pd.read_sql_query("SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
 conn.close()
@@ -103,7 +74,6 @@ historico_selecionado = None
 if not df_historico.empty:
     opcoes_historico = ["Selecione um projeto salvo..."] + [f"{row['id']} - {row['nome_projeto']} ({row['data_salvamento']})" for _, row in df_historico.iterrows()]
     selecao = st.sidebar.selectbox("Carregar projeto antigo:", opcoes_historico)
-    
     if selecao != "Selecione um projeto salvo...":
         id_selecionado = int(selecao.split(" - ")[0])
         conn = sqlite3.connect('seconci_banco_dados.db')
@@ -111,9 +81,8 @@ if not df_historico.empty:
         cursor.execute("SELECT html_relatorio FROM historico_laudos WHERE id = ?", (id_selecionado,))
         historico_selecionado = cursor.fetchone()[0]
         conn.close()
-        st.sidebar.success("✅ Projeto carregado na tela principal.")
-else:
-    st.sidebar.write("Nenhum projeto salvo ainda.")
+        st.sidebar.success("✅ Projeto carregado.")
+else: st.sidebar.write("Nenhum projeto salvo ainda.")
 
 # ==========================================
 # DICIONÁRIOS FASE 1 (ENGENHARIA E QUÍMICA)
@@ -283,51 +252,40 @@ def processar_pcmso(dados_pgr_json):
     return pd.DataFrame(tabela_pcmso)
 
 # ==========================================
-# GERADORES DE HTML
+# GERADORES DE HTML (FORMATADOS PARA MICROSOFT WORD)
 # ==========================================
 def gerar_html_anexo(resultados_pgr, resultados_medicos):
-    css_base = """
+    html_content = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8">
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-      :root {
-        --green-900: #042B13; --green-800: #084D22; --green-700: #0F823B; 
-        --green-100: #D9F585; --white: #FFFFFF; --gray-50: #F8F9FA;
-        --gray-200: #E9ECEF; --gray-900: #212529;
-      }
-      body { font-family: 'Inter', sans-serif; font-size: 10pt; color: var(--gray-900); background: var(--white); padding: 20px; }
-      .anexo-header { background: var(--green-800); color: var(--white); padding: 14px 20px; font-size: 13pt; font-weight: 700; margin-bottom: 20px; border-radius: 2px; text-align: center; text-transform: uppercase; border-bottom: 4px solid var(--green-100); }
-      .funcao-card { border: 1px solid var(--green-800); border-radius: 4px; margin-bottom: 20px; page-break-inside: avoid; }
-      .funcao-card-header { background: var(--green-800); padding: 10px 16px; font-weight: 700; color: var(--white); font-size: 10pt; border-bottom: 2px solid var(--green-100); }
-      .funcao-card-body { padding: 12px 16px; }
-      .funcao-mini-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 8px 0; }
-      .funcao-mini-table th { background: var(--green-700); color: var(--white); padding: 8px; text-align: left; }
-      .funcao-mini-table td { padding: 5px 10px; border: 1px solid var(--gray-200); }
-      .risco-intoleravel { background-color: #FEE2E2 !important; color: #991B1B; font-weight: bold; }
-      .risco-substancial { background-color: #FFF3E0 !important; color: #E8590C; font-weight: bold; }
-      h4 { color: var(--green-800); margin: 15px 0 5px 0; font-size: 9.5pt; text-transform: uppercase; }
-    </style>
+      body { font-family: 'Arial', sans-serif; font-size: 10pt; color: #000; }
+      .anexo-header { background-color: #084D22; color: #FFF; padding: 14px 20px; font-size: 13pt; font-weight: bold; margin-bottom: 20px; text-align: center; }
+      .funcao-card { border: 1px solid #084D22; margin-bottom: 20px; }
+      .funcao-card-header { background-color: #084D22; padding: 10px; font-weight: bold; color: #FFF; font-size: 10pt; }
+      .funcao-mini-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 8px 0; }
+      .funcao-mini-table th { background-color: #0F823B; color: #FFF; padding: 8px; text-align: left; border: 1px solid #000; }
+      .funcao-mini-table td { padding: 5px; border: 1px solid #000; }
+      h4 { color: #084D22; margin: 15px 0 5px 0; font-size: 10pt; }
+    </style></head><body>
+    <div class='anexo-header'>ANEXO I - INVENTÁRIO DE RISCOS E ENQUADRAMENTO PREVIDENCIÁRIO</div>
     """
-    html_content = f"<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'>{css_base}</head><body>"
-    html_content += "<div class='anexo-header'>ANEXO I - INVENTÁRIO DE RISCOS E ENQUADRAMENTO PREVIDENCIÁRIO</div>"
-    
     df_pgr = pd.DataFrame(resultados_pgr)
     df_med = pd.DataFrame(resultados_medicos)
     ghes = set(df_pgr['GHE'].unique().tolist() + df_med['GHE'].unique().tolist() if not df_med.empty else [])
     
     for ghe in sorted(ghes):
-        html_content += f"<div class='funcao-card'><div class='funcao-card-header'>📁 {ghe}</div><div class='funcao-card-body'>"
+        html_content += f"<div class='funcao-card'><div class='funcao-card-header'>GHE: {ghe}</div><div>"
         
         pgr_ghe = df_pgr[df_pgr['GHE'] == ghe] if not df_pgr.empty else pd.DataFrame()
         if not pgr_ghe.empty:
-            html_content += "<h4>⚙️ Inventário de Risco (NR-01)</h4><table class='funcao-mini-table'><thead><tr><th>Origem / FISPQ</th><th>Perigo Identificado</th><th>Sev.</th><th>Prob.</th><th>Nível de Risco</th><th>EPI Recomendado (NR-06)</th></tr></thead><tbody>"
+            html_content += "<h4>Inventário de Risco (NR-01)</h4><table class='funcao-mini-table'><thead><tr><th>Origem / FISPQ</th><th>Perigo Identificado</th><th>Sev.</th><th>Prob.</th><th>Nível de Risco</th><th>EPI Recomendado (NR-06)</th></tr></thead><tbody>"
             for _, row in pgr_ghe.iterrows():
-                classe_risco = "risco-intoleravel" if row['NÍVEL DE RISCO'] == "INTOLERÁVEL" else "risco-substancial" if row['NÍVEL DE RISCO'] == "SUBSTANCIAL" else ""
-                html_content += f"<tr><td>{row['Arquivo Origem']}</td><td>{row['Código GHS']} {row['Perigo Identificado']}</td><td>{row['Severidade']}</td><td>{row['Probabilidade']}</td><td class='{classe_risco}'>{row['NÍVEL DE RISCO']}</td><td>{row['EPI (NR-06)']}</td></tr>"
+                html_content += f"<tr><td>{row['Arquivo Origem']}</td><td>{row['Código GHS']} {row['Perigo Identificado']}</td><td>{row['Severidade']}</td><td>{row['Probabilidade']}</td><td>{row['NÍVEL DE RISCO']}</td><td>{row['EPI (NR-06)']}</td></tr>"
             html_content += "</tbody></table>"
             
         med_ghe = df_med[df_med['GHE'] == ghe] if not df_med.empty else pd.DataFrame()
         if not med_ghe.empty:
-            html_content += "<h4>🩺 Diretrizes Médicas e Previdenciárias</h4><table class='funcao-mini-table'><thead><tr><th>Cód / CAS</th><th>Agente</th><th>Lim. Tol. (NR-15)</th><th>Nível Ação (NR-09)</th><th>Exame/IBE (NR-07)</th><th>Dec 3048</th><th>eSocial</th></tr></thead><tbody>"
+            html_content += "<h4>Diretrizes Médicas e Previdenciárias</h4><table class='funcao-mini-table'><thead><tr><th>Cód / CAS</th><th>Agente</th><th>Lim. Tol. (NR-15)</th><th>Nível Ação (NR-09)</th><th>Exame/IBE (NR-07)</th><th>Dec 3048</th><th>eSocial</th></tr></thead><tbody>"
             for _, row in med_ghe.iterrows():
                 html_content += f"<tr><td>{row['Nº CAS']}</td><td>{row['Agente Químico']}</td><td>{row['Lim. Tolerância (NR-15)']}</td><td>{row['Nível de Ação (NR-09)']}</td><td>{row['IBE (NR-07)']}</td><td>{row['Dec 3048']}</td><td>{row['eSocial']}</td></tr>"
             html_content += "</tbody></table>"
@@ -337,21 +295,21 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos):
     return html_content
 
 def gerar_html_pcmso(df_pcmso):
-    html = """
+    html = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8">
     <style>
-      body { font-family: 'Inter', sans-serif; color: #212529; }
-      .header { background: #084D22; color: #FFF; padding: 14px; text-align: center; font-weight: bold; font-size: 16px; border-radius: 4px; margin-bottom: 20px;}
+      body { font-family: 'Arial', sans-serif; color: #000000; }
+      .header { background-color: #084D22; color: #FFFFFF; padding: 14px; text-align: center; font-weight: bold; font-size: 16px; margin-bottom: 20px;}
       table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-      th { background: #1AA04B; color: white; padding: 12px 8px; text-align: left; }
-      td { border: 1px solid #ddd; padding: 10px 8px; }
-      tr:nth-child(even) { background-color: #f8f9fa; }
-    </style>
-    <div class='header'>🩺 MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
+      th { background-color: #1AA04B; color: #FFFFFF; padding: 12px 8px; text-align: left; border: 1px solid #000000; }
+      td { border: 1px solid #000000; padding: 10px 8px; }
+    </style></head><body>
+    <div class='header'>MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
     <table><tr><th>GHE / Setor</th><th>Cargo</th><th>Exame Clínico / Complementar</th><th>Periodicidade</th><th>Justificativa / Agente</th></tr>
     """
     for _, row in df_pcmso.iterrows():
         html += f"<tr><td><strong>{row['GHE / Setor']}</strong></td><td>{row['Cargo']}</td><td>{row['Exame Clínico/Complementar']}</td><td>{row['Periodicidade']}</td><td>{row['Justificativa Legal / Risco']}</td></tr>"
-    html += "</table>"
+    html += "</table></body></html>"
     return html
 
 # ==========================================
@@ -362,10 +320,8 @@ st.title("Sistema Integrado SST - Seconci GO 🚀")
 if historico_selecionado:
     st.markdown("### 🗄️ Visualizando Relatório do Histórico")
     aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar em Word (.doc)"])
-    with aba_preview:
-        components.html(historico_selecionado, height=700, scrolling=True)
-    with aba_download:
-        st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
+    with aba_preview: components.html(historico_selecionado, height=700, scrolling=True)
+    with aba_download: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
 
 # ==========================================
 # MÓDULO 1: ENGENHARIA (FISPQS -> PGR)
@@ -373,7 +329,6 @@ if historico_selecionado:
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs")
     
-    st.markdown("### 1️⃣ Upload das FISPQs (Agentes Químicos)")
     arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
     df_editado = pd.DataFrame()
@@ -383,10 +338,9 @@ elif "1️⃣" in modulo_selecionado:
         with st.spinner("Lendo o conteúdo dos PDFs..."):
             for arquivo in arquivos_fispq:
                 with pdfplumber.open(arquivo) as pdf:
-                    texto = "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
+                    texto = "\n".join([p.extract_text() or "" for p in pdf.pages])
                     textos_pdfs[arquivo.name] = texto
 
-        st.markdown("---")
         st.markdown("### 2️⃣ Definição de GHEs Químicos")
         nomes_arquivos = [arq.name for arq in arquivos_fispq]
         dados_iniciais = [{"GHE": "GHE 01 - Digite a Função", "Arquivo FISPQ": nome, "Probabilidade": 3} for nome in nomes_arquivos]
@@ -398,12 +352,10 @@ elif "1️⃣" in modulo_selecionado:
                 "GHE": st.column_config.TextColumn("Nome do GHE", required=True),
                 "Arquivo FISPQ": st.column_config.SelectboxColumn("Arquivo (FISPQ)", options=nomes_arquivos, required=True),
                 "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-            },
-            width="stretch"
+            }, width="stretch"
         )
         ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
 
-    st.markdown("---")
     st.markdown("### 3️⃣ Avaliações de Campo: Agentes Físicos e Biológicos")
     agentes_opcoes = list(dicionario_fis_bio.keys())
     df_fis_bio_inicial = pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_opcoes[0], "Probabilidade": 3}])
@@ -414,16 +366,13 @@ elif "1️⃣" in modulo_selecionado:
             "GHE": st.column_config.SelectboxColumn("GHE de Destino", options=ghe_opcoes, required=True),
             "Agente": st.column_config.SelectboxColumn("Agente Físico/Biológico", options=agentes_opcoes, required=True),
             "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-        },
-        width="stretch"
+        }, width="stretch"
     )
 
-    st.markdown("---")
     if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
         with st.spinner("Consolidando avaliações..."):
             resultados_pgr, resultados_medicos = [], []
             
-            # Processamento Químico
             if not df_editado.empty:
                 for index, row in df_editado.iterrows():
                     nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ"], int(row["Probabilidade"])
@@ -454,7 +403,6 @@ elif "1️⃣" in modulo_selecionado:
                                     "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_h["epi"]
                                 })
 
-            # Processamento Físico e Biológico
             if not df_fis_bio_editado.empty and df_fis_bio_editado["GHE"].iloc[0] != "Nenhum GHE definido":
                 for index, row in df_fis_bio_editado.iterrows():
                     nome_ghe, nome_agente, v_prob = row["GHE"], row["Agente"], int(row["Probabilidade"])
@@ -479,9 +427,7 @@ elif "1️⃣" in modulo_selecionado:
                 st.session_state['ultimo_html'] = html_final
                 st.success("✅ Relatório Consolidado Gerado!")
 
-    # Salvamento Fase 1
     if 'ultimo_html' in st.session_state:
-        st.markdown("### 💾 Salvar Projeto no Banco")
         col1, col2 = st.columns([3, 1])
         with col1: nome_projeto = st.text_input("Nome da Empresa:")
         with col2:
@@ -513,78 +459,88 @@ elif "2️⃣" in modulo_selecionado:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
                 with st.spinner("Motor IA lendo e estruturando o PGR. Isso pode levar alguns segundos..."):
+                    
+                    # Trava de Segurança: Checa se o PDF tem texto ou é só imagem
                     with pdfplumber.open(arquivo_pgr) as pdf:
-                        texto_pgr = "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
+                        texto_pgr = "\n".join([p.extract_text() or "" for p in pdf.pages])
                     
-                    texto_resumo = texto_pgr[:25000]
-                    
-                    prompt_extracao = f"""
-                    Você é um extrator de dados de Segurança do Trabalho. Leia o inventário de riscos abaixo e gere um JSON estrito, sem markdown ou explicações.
-                    O formato exigido é uma lista de dicionários assim:
-                    [
-                      {{
-                        "ghe": "Nome do Setor ou GHE",
-                        "cargos": ["Cargo 1", "Cargo 2"],
-                        "riscos_mapeados": [
-                          {{"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}}
-                        ]
-                      }}
-                    ]
-                    Inventário de Riscos:\n{texto_resumo}
-                    """
-                    
-                    try:
-                        # 1. AUTO-DISCOVERY: Acha o melhor modelo disponível na sua chave
-                        url_lista = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
-                        resp_lista = requests.get(url_lista)
+                    if len(texto_pgr.strip()) < 50:
+                        st.error("⚠️ ALERTA: O PDF enviado parece estar vazio ou é uma imagem escaneada. O sistema precisa de um PDF com texto selecionável para a IA conseguir ler os riscos.")
+                    else:
+                        texto_resumo = texto_pgr[:25000]
                         
-                        if resp_lista.status_code == 200:
-                            modelos = resp_lista.json().get('models', [])
-                            modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
+                        prompt_extracao = f"""
+                        Você é um extrator de dados de Segurança do Trabalho. Leia o inventário de riscos abaixo e gere um JSON estrito, sem markdown ou explicações.
+                        O formato exigido é uma lista de dicionários assim:
+                        [
+                          {{
+                            "ghe": "Nome do Setor ou GHE",
+                            "cargos": ["Cargo 1", "Cargo 2"],
+                            "riscos_mapeados": [
+                              {{"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}}
+                            ]
+                          }}
+                        ]
+                        SEJA PRECISO. EXTRAIA TODOS OS RISCOS QUÍMICOS E FÍSICOS MENCIONADOS.
+                        Inventário de Riscos:\n{texto_resumo}
+                        """
+                        
+                        try:
+                            # 1. AUTO-DISCOVERY
+                            url_lista = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
+                            resp_lista = requests.get(url_lista)
                             
-                            modelo_escolhido = None
-                            # Procura do mais potente para o mais básico
-                            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro']:
-                                if pref in modelos_texto:
-                                    modelo_escolhido = pref
-                                    break
-                            
-                            if not modelo_escolhido and modelos_texto:
-                                modelo_escolhido = modelos_texto[0] # Fallback de segurança
+                            if resp_lista.status_code == 200:
+                                modelos = resp_lista.json().get('models', [])
+                                modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
                                 
-                            # 2. FAZ A REQUISIÇÃO COM O MODELO CORRETO
-                            url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
-                            payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
-                            resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
-                            
-                            if resposta.status_code == 200:
-                                resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                                modelo_escolhido = None
+                                for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro']:
+                                    if pref in modelos_texto:
+                                        modelo_escolhido = pref
+                                        break
                                 
-                                try:
-                                    json_pgr = json.loads(resultado_texto)
-                                    st.success(f"✅ Extração Semântica Concluída! Matriz de Exames Gerada com Sucesso. (Motor: {modelo_escolhido.split('/')[-1]})")
+                                if not modelo_escolhido and modelos_texto:
+                                    modelo_escolhido = modelos_texto[0]
                                     
-                                    df_pcmso_gerado = processar_pcmso(json_pgr)
-                                    st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                # 2. REQUISIÇÃO
+                                url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
+                                payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
+                                resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                                
+                                if resposta.status_code == 200:
+                                    resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+                                    resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
                                     
-                                    html_final = gerar_html_pcmso(df_pcmso_gerado)
-                                    st.download_button(
-                                        label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                                        data=html_final.encode('utf-8'), 
-                                        file_name="PCMSO_Gerado.doc", 
-                                        mime="application/msword", 
-                                        use_container_width=True
-                                    )
-                                    
-                                except json.JSONDecodeError:
-                                    st.error("Erro na conversão para JSON. O modelo retornou texto livre. Tente com um PDF mais limpo.")
-                                    with st.expander("Ver resposta bruta da IA"):
-                                        st.code(resultado_texto)
+                                    try:
+                                        json_pgr = json.loads(resultado_texto)
+                                        
+                                        # Trava 2: Verifica se a IA retornou uma lista vazia
+                                        if not json_pgr:
+                                            st.warning("⚠️ O PDF foi lido, mas a Inteligência Artificial não encontrou nenhuma tabela de GHEs ou Riscos no formato esperado.")
+                                        else:
+                                            st.success(f"✅ Extração Semântica Concluída! (Motor: {modelo_escolhido.split('/')[-1]})")
+                                            
+                                            df_pcmso_gerado = processar_pcmso(json_pgr)
+                                            st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                            
+                                            html_final = gerar_html_pcmso(df_pcmso_gerado)
+                                            st.download_button(
+                                                label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                                                data=html_final.encode('utf-8'), 
+                                                file_name="PCMSO_Gerado.doc", 
+                                                mime="application/msword", 
+                                                use_container_width=True
+                                            )
+                                        
+                                    except json.JSONDecodeError:
+                                        st.error("Erro na conversão para JSON.")
+                                        with st.expander("Ver resposta bruta da IA"):
+                                            st.code(resultado_texto)
+                                else:
+                                     st.error(f"Erro na geração de conteúdo: {resposta.text}")
                             else:
-                                 st.error(f"Erro na geração de conteúdo: {resposta.text}")
-                        else:
-                            st.error(f"Falha ao listar modelos do Google. Verifique sua chave de API. Erro: {resp_lista.text}")
-                            
-                    except Exception as e:
-                        st.error(f"Falha na comunicação de rede: {e}")
+                                st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
+                                
+                        except Exception as e:
+                            st.error(f"Falha na comunicação de rede: {e}")
