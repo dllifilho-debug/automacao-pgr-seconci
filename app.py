@@ -53,7 +53,7 @@ st.markdown(css_personalizado, unsafe_allow_html=True)
 # ==========================================
 # CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
 # ==========================================
-CHAVE_API_GOOGLE = "AIzaSyCZAnvkvmOlxinMKP4i-mpEzoq4bPKxC7o"
+CHAVE_API_GOOGLE = st.secrets["CHAVE_API_GOOGLE"]
 
 # ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
