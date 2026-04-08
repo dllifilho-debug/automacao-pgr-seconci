@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import requests
 import json
+import base64  # <--- ADICIONE ESTA LINHA AQUI
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E CSS (UI/UX)
@@ -450,7 +451,7 @@ elif "1️⃣" in modulo_selecionado:
 # ==========================================
 elif "2️⃣" in modulo_selecionado:
     st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
-    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A Inteligência Artificial fará a leitura e o cruzamento automático com as matrizes da NR-07.")
+    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A Inteligência Artificial fará a leitura visual e o cruzamento automático com as matrizes da NR-07, mesmo em PDFs escaneados.")
     
     with st.container():
         arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
@@ -458,89 +459,101 @@ elif "2️⃣" in modulo_selecionado:
         if arquivo_pgr:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-                with st.spinner("Motor IA lendo e estruturando o PGR. Isso pode levar alguns segundos..."):
+                with st.spinner("Motor IA lendo visualmente o PGR (OCR nativo). Isso pode levar alguns segundos..."):
                     
-                    # Trava de Segurança: Checa se o PDF tem texto ou é só imagem
-                    with pdfplumber.open(arquivo_pgr) as pdf:
-                        texto_pgr = "\n".join([p.extract_text() or "" for p in pdf.pages])
+                    # 1. EMPACOTA O PDF (Transforma em Base64 para a IA 'ver' o arquivo)
+                    pdf_bytes = arquivo_pgr.getvalue()
+                    pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     
-                    if len(texto_pgr.strip()) < 50:
-                        st.error("⚠️ ALERTA: O PDF enviado parece estar vazio ou é uma imagem escaneada. O sistema precisa de um PDF com texto selecionável para a IA conseguir ler os riscos.")
-                    else:
-                        texto_resumo = texto_pgr[:25000]
-                        
-                        prompt_extracao = f"""
-                        Você é um extrator de dados de Segurança do Trabalho. Leia o inventário de riscos abaixo e gere um JSON estrito, sem markdown ou explicações.
-                        O formato exigido é uma lista de dicionários assim:
-                        [
-                          {{
-                            "ghe": "Nome do Setor ou GHE",
-                            "cargos": ["Cargo 1", "Cargo 2"],
-                            "riscos_mapeados": [
-                              {{"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}}
-                            ]
-                          }}
+                    prompt_extracao = """
+                    Você é um extrator de dados de Segurança do Trabalho e Médico do Trabalho. 
+                    Analise as imagens e o texto do documento PDF em anexo (Inventário de Riscos Ocupacionais).
+                    Sua missão é extrair todos os riscos avaliados e gerar um JSON estrito, sem formatação markdown (```json).
+                    
+                    O formato exigido é uma lista de dicionários estrita assim:
+                    [
+                      {
+                        "ghe": "Nome do Setor ou GHE",
+                        "cargos": ["Cargo 1", "Cargo 2"],
+                        "riscos_mapeados": [
+                          {"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}
                         ]
-                        SEJA PRECISO. EXTRAIA TODOS OS RISCOS QUÍMICOS E FÍSICOS MENCIONADOS.
-                        Inventário de Riscos:\n{texto_resumo}
-                        """
+                      }
+                    ]
+                    SEJA PRECISO. LEIA AS TABELAS ESCANEADAS E EXTRAIA TODOS OS RISCOS QUÍMICOS E FÍSICOS MENCIONADOS.
+                    """
+                    
+                    try:
+                        # 2. AUTO-DISCOVERY DO MODELO
+                        url_lista = f"[https://generativelanguage.googleapis.com/v1beta/models?key=](https://generativelanguage.googleapis.com/v1beta/models?key=){CHAVE_API_GOOGLE}"
+                        resp_lista = requests.get(url_lista)
                         
-                        try:
-                            # 1. AUTO-DISCOVERY
-                            url_lista = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
-                            resp_lista = requests.get(url_lista)
+                        if resp_lista.status_code == 200:
+                            modelos = resp_lista.json().get('models', [])
+                            modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
                             
-                            if resp_lista.status_code == 200:
-                                modelos = resp_lista.json().get('models', [])
-                                modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
+                            modelo_escolhido = None
+                            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash']:
+                                if pref in modelos_texto:
+                                    modelo_escolhido = pref
+                                    break
+                            
+                            if not modelo_escolhido and modelos_texto:
+                                modelo_escolhido = modelos_texto[0]
                                 
-                                modelo_escolhido = None
-                                for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash', 'models/gemini-pro']:
-                                    if pref in modelos_texto:
-                                        modelo_escolhido = pref
-                                        break
+                            # 3. REQUISIÇÃO MULTIMODAL (Enviando o PDF inteiro para a IA ler)
+                            url_google = f"[https://generativelanguage.googleapis.com/v1beta/](https://generativelanguage.googleapis.com/v1beta/){modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
+                            payload = {
+                                "contents": [
+                                    {
+                                        "parts": [
+                                            {"text": prompt_extracao},
+                                            {
+                                                "inlineData": {
+                                                    "mimeType": "application/pdf",
+                                                    "data": pdf_b64
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "generationConfig": {"temperature": 0.0}
+                            }
+                            
+                            resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                            
+                            if resposta.status_code == 200:
+                                resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
                                 
-                                if not modelo_escolhido and modelos_texto:
-                                    modelo_escolhido = modelos_texto[0]
+                                try:
+                                    json_pgr = json.loads(resultado_texto)
                                     
-                                # 2. REQUISIÇÃO
-                                url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
-                                payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
-                                resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
-                                
-                                if resposta.status_code == 200:
-                                    resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                                    resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                                    if not json_pgr:
+                                        st.warning("⚠️ O PDF foi analisado, mas a Inteligência Artificial não conseguiu localizar a tabela do Inventário de Riscos. Verifique se as páginas da matriz de riscos estão legíveis.")
+                                    else:
+                                        st.success(f"✅ Extração Semântica Concluída via Visão Computacional! (Motor: {modelo_escolhido.split('/')[-1]})")
+                                        
+                                        df_pcmso_gerado = processar_pcmso(json_pgr)
+                                        st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                        
+                                        html_final = gerar_html_pcmso(df_pcmso_gerado)
+                                        st.download_button(
+                                            label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                                            data=html_final.encode('utf-8'), 
+                                            file_name="PCMSO_Gerado.doc", 
+                                            mime="application/msword", 
+                                            use_container_width=True
+                                        )
                                     
-                                    try:
-                                        json_pgr = json.loads(resultado_texto)
-                                        
-                                        # Trava 2: Verifica se a IA retornou uma lista vazia
-                                        if not json_pgr:
-                                            st.warning("⚠️ O PDF foi lido, mas a Inteligência Artificial não encontrou nenhuma tabela de GHEs ou Riscos no formato esperado.")
-                                        else:
-                                            st.success(f"✅ Extração Semântica Concluída! (Motor: {modelo_escolhido.split('/')[-1]})")
-                                            
-                                            df_pcmso_gerado = processar_pcmso(json_pgr)
-                                            st.dataframe(df_pcmso_gerado, use_container_width=True)
-                                            
-                                            html_final = gerar_html_pcmso(df_pcmso_gerado)
-                                            st.download_button(
-                                                label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                                                data=html_final.encode('utf-8'), 
-                                                file_name="PCMSO_Gerado.doc", 
-                                                mime="application/msword", 
-                                                use_container_width=True
-                                            )
-                                        
-                                    except json.JSONDecodeError:
-                                        st.error("Erro na conversão para JSON.")
-                                        with st.expander("Ver resposta bruta da IA"):
-                                            st.code(resultado_texto)
-                                else:
-                                     st.error(f"Erro na geração de conteúdo: {resposta.text}")
+                                except json.JSONDecodeError:
+                                    st.error("A IA leu o documento, mas não conseguiu formatar os dados corretamente.")
+                                    with st.expander("Ver resposta bruta da IA"):
+                                        st.code(resultado_texto)
                             else:
-                                st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
-                                
-                        except Exception as e:
-                            st.error(f"Falha na comunicação de rede: {e}")
+                                 st.error(f"Erro na geração de conteúdo: {resposta.text}")
+                        else:
+                            st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
+                            
+                    except Exception as e:
+                        st.error(f"Falha na comunicação de rede: {e}")
