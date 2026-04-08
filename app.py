@@ -182,13 +182,20 @@ dicionario_fis_bio = {
 
 # ==========================================
 # DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
+# ATUALIZADO COM MATRIZES DA DRA. PATRÍCIA (LABORATÓRIO E CONSTRUÇÃO)
 # ==========================================
 matriz_risco_exame = {
     "TOLUENO": {"exame": "Ortocresol na Urina", "periodico": "6 MESES"},
     "RUÍDO": {"exame": "Audiometria", "periodico": "12 MESES"},
     "SÍLICA": {"exame": "Raio-X de Tórax (OIT) + Espirometria", "periodico": "12 a 24 MESES"},
     "VIBRAÇÃO": {"exame": "Avaliação Clínica e Osteomuscular", "periodico": "12 MESES"},
-    "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"}
+    "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"},
+    # Matriz Laboratorial / Infecciosa
+    "BIOLÓGIC": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "SANGUE": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "VÍRUS": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "BACTÉRIA": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "QUÍMIC": {"exame": "Hemograma Completo / Avaliação Hepática", "periodico": "12 MESES"}
 }
 
 matriz_funcao_exame = {
@@ -204,11 +211,37 @@ matriz_funcao_exame = {
         {"exame": "Exame Clínico", "periodicidade": "6 MESES"},
         {"exame": "Audiometria", "periodicidade": "12 MESES"},
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
-        {"exame": "ECG", "periodicidade": "12 MESES"}
+        {"exame": "ECG", "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
+        {"exame": "Hemograma", "periodicidade": "12 MESES"},
+        {"exame": "Espirometria", "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT", "periodicidade": "12 MESES"}
     ],
     "ADMINISTRATIVO": [
         {"exame": "Exame Clínico", "periodicidade": "12 MESES"},
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"}
+    ],
+    "RECEPCIONISTA": [
+        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
+    ],
+    "GESTOR": [
+        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
+    ],
+    # Matriz Laboratorial (Dra. Patrícia)
+    "BIOMÉDICO": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
+    ],
+    "LABORATÓRIO": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
+    ],
+    "ENFERMAGEM": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
     ]
 }
 
@@ -223,23 +256,29 @@ def processar_pcmso(dados_pgr_json):
             exames_do_cargo = [{"exame": "Exame Clínico (Anamnese/Físico)", "periodicidade": "12 MESES", "motivo": "NR-07 Básico"}]
             cargo_upper = cargo.upper()
             
+            # Cruzamento 1: Por Função/Cargo
             for funcao_chave, exames in matriz_funcao_exame.items():
                 if funcao_chave in cargo_upper:
                     exames_do_cargo.extend(exames)
             
+            # Cruzamento 2: Por Agente ou Perigo Especifico
             for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
+                perigo = risco.get("perigo_especifico", "").upper()
+                texto_risco_completo = agente + " " + perigo
+                
                 for agente_chave, regra in matriz_risco_exame.items():
-                    if agente_chave in agente:
+                    if agente_chave in texto_risco_completo:
                         exames_do_cargo.append({
                             "exame": regra["exame"],
                             "periodicidade": regra["periodico"],
                             "motivo": f"Exposição a {agente_chave}"
                         })
                 
-                if "ALTURA" in risco.get("perigo_especifico", "").upper():
+                if "ALTURA" in texto_risco_completo:
                      exames_do_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
             
+            # Remove duplicatas baseadas no nome do exame
             exames_unicos = {v['exame']:v for v in exames_do_cargo}.values()
             
             for ex in exames_unicos:
@@ -452,7 +491,7 @@ elif "1️⃣" in modulo_selecionado:
 # ==========================================
 elif "2️⃣" in modulo_selecionado:
     st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
-    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A IA fará a leitura visual e o cruzamento com as matrizes da NR-07, mesmo em PDFs escaneados.")
+    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A IA fará a leitura visual e o cruzamento com as matrizes da NR-07 (Laboratorial e Construção).")
     
     with st.container():
         arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
@@ -460,19 +499,20 @@ elif "2️⃣" in modulo_selecionado:
         if arquivo_pgr:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-                with st.spinner("Motor IA analisando as imagens do documento... Isso pode levar até 1 minuto para PDFs grandes."):
+                with st.spinner("Motor IA analisando as imagens do documento e cruzando protocolos médicos... Isso pode levar até 1 minuto."):
                     
                     # 1. EMPACOTA O PDF (Base64)
                     pdf_bytes = arquivo_pgr.getvalue()
                     pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     
-                    # 2. PROMPT AGRESSIVO E FLEXÍVEL
+                    # 2. PROMPT AGRESSIVO (Instrui a IA a padronizar os nomes dos riscos)
                     prompt_extracao = """
                     Você é um médico do trabalho e engenheiro de segurança. Analise este documento PDF (Inventário de Riscos Ocupacionais).
                     Sua missão é CAÇAR qualquer relação entre Funções/Cargos e Agentes Nocivos (Físicos, Químicos, Biológicos).
                     
-                    Se não houver a palavra "GHE", agrupe pelo nome do "Setor" ou da "Função". 
-                    NUNCA retorne vazio se o documento contiver cargos e riscos.
+                    CRÍTICO: Para cada risco encontrado, tente classificar o "nome_agente" de forma clara (ex: "Risco Biológico", "Vírus e Bactérias", "Produtos Químicos", "Ruído").
+                    
+                    Se não houver a palavra "GHE", agrupe pelo nome do "Setor" ou da "Função". NUNCA retorne vazio.
                     
                     Retorne EXATAMENTE este formato JSON (uma lista de objetos):
                     [
@@ -480,7 +520,7 @@ elif "2️⃣" in modulo_selecionado:
                         "ghe": "Nome do Setor, GHE ou Função",
                         "cargos": ["Nome do Cargo 1", "Nome do Cargo 2"],
                         "riscos_mapeados": [
-                          {"nome_agente": "Ex: Ruído / Tolueno", "perigo_especifico": "Ex: Físico / Químico"}
+                          {"nome_agente": "Ex: Risco Biológico / Produtos Químicos", "perigo_especifico": "Ex: Exposição a vírus / Manuseio de formol"}
                         ]
                       }
                     ]
@@ -540,13 +580,13 @@ elif "2️⃣" in modulo_selecionado:
                                         with st.expander("🔍 Ver o que a IA devolveu (Modo Raio-X)"):
                                             st.code(resultado_texto)
                                     else:
-                                        st.success(f"✅ Extração Concluída via Visão Computacional! (Motor: {modelo_escolhido.split('/')[-1]})")
+                                        st.success(f"✅ Protocolos Médicos Cruzados com Sucesso! (Motor: {modelo_escolhido.split('/')[-1]})")
                                         
-                                        # Processa os dados
+                                        # Processa os dados com a nova inteligência da Dra. Patrícia
                                         df_pcmso_gerado = processar_pcmso(json_pgr)
                                         html_final = gerar_html_pcmso(df_pcmso_gerado)
                                         
-                                        # NOVA INTERFACE COM ABAS (TABS)
+                                        # INTERFACE COM ABAS (TABS)
                                         aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
                                         
                                         with aba_dados:
@@ -560,7 +600,7 @@ elif "2️⃣" in modulo_selecionado:
                                             st.download_button(
                                                 label="📄 Baixar Matriz PCMSO em Word (.doc)",
                                                 data=html_final.encode('utf-8'), 
-                                                file_name="PCMSO_Gerado.doc", 
+                                                file_name="PCMSO_Gerado_Seconci.doc", 
                                                 mime="application/msword", 
                                                 use_container_width=True
                                             )
