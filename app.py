@@ -9,8 +9,76 @@ import os
 import requests
 import json
 
-# Configuração da página
-st.set_page_config(page_title="Automação SST - Seconci GO", layout="wide")
+# ==========================================
+# CONFIGURAÇÃO DA PÁGINA E CSS (UI/UX)
+# ==========================================
+st.set_page_config(page_title="Automação SST - Seconci GO", layout="wide", page_icon="🛡️")
+
+css_personalizado = """
+<style>
+    /* Tipografia e espaçamento geral */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Estilização Premium dos Botões */
+    .stButton > button {
+        background-color: #084D22;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+    }
+    .stButton > button:hover {
+        background-color: #1AA04B;
+        color: white;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+        border-color: #1AA04B;
+    }
+    
+    /* Cores dos Títulos (Identidade Seconci) */
+    h1, h2, h3 {
+        color: #084D22 !important;
+    }
+    
+    /* Estilização da Barra Lateral */
+    [data-testid="stSidebar"] {
+        background-color: #F4F8F5;
+        border-right: 1px solid #E0ECE4;
+    }
+    
+    /* Estilização da Caixa de Upload de Arquivos */
+    [data-testid="stFileUploadDropzone"] {
+        border: 2px dashed #1AA04B;
+        border-radius: 12px;
+        background-color: #FAFFFA;
+        transition: all 0.3s ease;
+    }
+    [data-testid="stFileUploadDropzone"]:hover {
+        background-color: #F0FDF4;
+        border-color: #084D22;
+    }
+    
+    /* Caixas de Informação (Alertas) */
+    .stAlert {
+        border-radius: 8px;
+        border-left: 5px solid #084D22;
+    }
+    
+    /* Dataframes e Tabelas do Streamlit */
+    [data-testid="stDataFrame"] {
+        border: 1px solid #E0ECE4;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+</style>
+"""
+st.markdown(css_personalizado, unsafe_allow_html=True)
 
 # ==========================================
 # CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
@@ -55,7 +123,7 @@ modulo_selecionado = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.title("📂 Histórico de Laudos")
-st.sidebar.info("Acesse relatórios salvos no banco de dados para consulta ou envio ao eSocial.")
+st.sidebar.info("Acesse relatórios salvos no banco de dados.")
 
 conn = sqlite3.connect('seconci_banco_dados.db')
 df_historico = pd.read_sql_query("SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
@@ -172,7 +240,7 @@ dicionario_fis_bio = {
 }
 
 # ==========================================
-# DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO - Baseados na Dra. Patrícia e NR-07)
+# DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
 # ==========================================
 matriz_risco_exame = {
     "TOLUENO": {"exame": "Ortocresol na Urina", "periodico": "6 MESES"},
@@ -245,7 +313,7 @@ def processar_pcmso(dados_pgr_json):
     return pd.DataFrame(tabela_pcmso)
 
 # ==========================================
-# GERADORES DE HTML (FASE 1 e FASE 2)
+# GERADORES DE HTML
 # ==========================================
 def gerar_html_anexo(resultados_pgr, resultados_medicos):
     css_base = """
@@ -302,17 +370,17 @@ def gerar_html_pcmso(df_pcmso):
     html = """
     <style>
       body { font-family: 'Inter', sans-serif; color: #212529; }
-      .header { background: #084D22; color: #FFF; padding: 10px; text-align: center; font-weight: bold; }
-      table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-      th { background: #1AA04B; color: white; padding: 8px; }
-      td { border: 1px solid #ddd; padding: 8px; }
-      tr:nth-child(even) { background-color: #f2f2f2; }
+      .header { background: #084D22; color: #FFF; padding: 14px; text-align: center; font-weight: bold; font-size: 16px; border-radius: 4px; margin-bottom: 20px;}
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+      th { background: #1AA04B; color: white; padding: 12px 8px; text-align: left; }
+      td { border: 1px solid #ddd; padding: 10px 8px; }
+      tr:nth-child(even) { background-color: #f8f9fa; }
     </style>
-    <div class='header'>MATRIZ DE EXAMES - PCMSO GERADO AUTOMATICAMENTE</div>
-    <table><tr><th>GHE / Setor</th><th>Cargo</th><th>Exame</th><th>Periodicidade</th><th>Justificativa</th></tr>
+    <div class='header'>🩺 MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
+    <table><tr><th>GHE / Setor</th><th>Cargo</th><th>Exame Clínico / Complementar</th><th>Periodicidade</th><th>Justificativa / Agente</th></tr>
     """
     for _, row in df_pcmso.iterrows():
-        html += f"<tr><td>{row['GHE / Setor']}</td><td>{row['Cargo']}</td><td>{row['Exame Clínico/Complementar']}</td><td>{row['Periodicidade']}</td><td>{row['Justificativa Legal / Risco']}</td></tr>"
+        html += f"<tr><td><strong>{row['GHE / Setor']}</strong></td><td>{row['Cargo']}</td><td>{row['Exame Clínico/Complementar']}</td><td>{row['Periodicidade']}</td><td>{row['Justificativa Legal / Risco']}</td></tr>"
     html += "</table>"
     return html
 
@@ -381,7 +449,7 @@ elif "1️⃣" in modulo_selecionado:
     )
 
     st.markdown("---")
-    if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch"):
+    if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
         with st.spinner("Consolidando avaliações..."):
             resultados_pgr, resultados_medicos = [], []
             
@@ -448,7 +516,7 @@ elif "1️⃣" in modulo_selecionado:
         with col1: nome_projeto = st.text_input("Nome da Empresa:")
         with col2:
             st.write(""); st.write("")
-            if st.button("Gravar", width="stretch") and nome_projeto:
+            if st.button("Gravar no Banco de Dados", width="stretch") and nome_projeto:
                 conn = sqlite3.connect('seconci_banco_dados.db')
                 c = conn.cursor()
                 c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
@@ -465,60 +533,65 @@ elif "1️⃣" in modulo_selecionado:
 # MÓDULO 2: MEDICINA (PGR -> PCMSO)
 # ==========================================
 elif "2️⃣" in modulo_selecionado:
-    st.header("Módulo Médico: Importador de PGR e Gerador de PCMSO")
-    st.markdown("Faça o upload do Inventário de Riscos (PGR) de terceiros para extração e cruzamento com as matrizes da NR-07.")
+    st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
+    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A Inteligência Artificial fará a leitura e o cruzamento automático com as matrizes da NR-07.")
     
-    arquivo_pgr = st.file_uploader("Insira o PGR em PDF", type=["pdf"])
-    
-    if arquivo_pgr:
-        if st.button("🪄 Extrair Riscos e Gerar PCMSO", type="primary"):
-            with st.spinner("Motor IA lendo e estruturando o PGR. Isso pode levar alguns segundos..."):
-                with pdfplumber.open(arquivo_pgr) as pdf:
-                    texto_pgr = "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
-                
-                texto_resumo = texto_pgr[:25000]
-                
-                prompt_extracao = f"""
-                Você é um extrator de dados de Segurança do Trabalho. Leia o inventário de riscos abaixo e gere um JSON estrito, sem markdown ou explicações.
-                O formato exigido é uma lista de dicionários assim:
-                [
-                  {{
-                    "ghe": "Nome do Setor ou GHE",
-                    "cargos": ["Cargo 1", "Cargo 2"],
-                    "riscos_mapeados": [
-                      {{"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}}
-                    ]
-                  }}
-                ]
-                Inventário de Riscos:\n{texto_resumo}
-                """
-                
-                try:
-                    url_google = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={CHAVE_API_GOOGLE}"
-                    payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
-                    resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+    with st.container():
+        arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
+        
+        if arquivo_pgr:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
+                with st.spinner("Motor IA lendo e estruturando o PGR. Isso pode levar alguns segundos..."):
+                    with pdfplumber.open(arquivo_pgr) as pdf:
+                        texto_pgr = "\n".join([p.extract_text() for p in pdf.pages if p.extract_text()])
                     
-                    if resposta.status_code == 200:
-                        resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                        resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                    texto_resumo = texto_pgr[:25000]
+                    
+                    prompt_extracao = f"""
+                    Você é um extrator de dados de Segurança do Trabalho. Leia o inventário de riscos abaixo e gere um JSON estrito, sem markdown ou explicações.
+                    O formato exigido é uma lista de dicionários assim:
+                    [
+                      {{
+                        "ghe": "Nome do Setor ou GHE",
+                        "cargos": ["Cargo 1", "Cargo 2"],
+                        "riscos_mapeados": [
+                          {{"nome_agente": "Nome do risco/agente", "perigo_especifico": "Classificação do perigo"}}
+                        ]
+                      }}
+                    ]
+                    Inventário de Riscos:\n{texto_resumo}
+                    """
+                    
+                    try:
+                        url_google = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={CHAVE_API_GOOGLE}"
+                        payload = {"contents": [{"parts": [{"text": prompt_extracao}]}], "generationConfig": {"temperature": 0.0}}
+                        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
                         
-                        try:
-                            json_pgr = json.loads(resultado_texto)
-                            st.success("✅ Extração Semântica Concluída! Cruzando com Matriz Médica...")
+                        if resposta.status_code == 200:
+                            resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+                            resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
                             
-                            df_pcmso_gerado = processar_pcmso(json_pgr)
-                            st.dataframe(df_pcmso_gerado, use_container_width=True)
-                            
-                            html_final = gerar_html_pcmso(df_pcmso_gerado)
-                            st.download_button(
-                                label="📄 Baixar Matriz PCMSO em Word",
-                                data=html_final.encode('utf-8'), file_name="PCMSO_Gerado.doc", mime="application/msword", width="stretch"
-                            )
-                            
-                        except json.JSONDecodeError:
-                            st.error("Erro na conversão para JSON. O modelo retornou texto livre. Tente com um PDF mais limpo.")
-                            st.code(resultado_texto)
-                    else:
-                         st.error(f"Erro na API do Google: {resposta.text}")
-                except Exception as e:
-                    st.error(f"Falha na comunicação: {e}")
+                            try:
+                                json_pgr = json.loads(resultado_texto)
+                                st.success("✅ Extração Semântica Concluída! Matriz de Exames Gerada com Sucesso.")
+                                
+                                df_pcmso_gerado = processar_pcmso(json_pgr)
+                                st.dataframe(df_pcmso_gerado, use_container_width=True)
+                                
+                                html_final = gerar_html_pcmso(df_pcmso_gerado)
+                                st.download_button(
+                                    label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                                    data=html_final.encode('utf-8'), 
+                                    file_name="PCMSO_Gerado.doc", 
+                                    mime="application/msword", 
+                                    use_container_width=True
+                                )
+                                
+                            except json.JSONDecodeError:
+                                st.error("Erro na conversão para JSON. O modelo retornou texto livre. Tente com um PDF mais limpo.")
+                                st.code(resultado_texto)
+                        else:
+                             st.error(f"Erro na API do Google: {resposta.text}")
+                    except Exception as e:
+                        st.error(f"Falha na comunicação: {e}")
