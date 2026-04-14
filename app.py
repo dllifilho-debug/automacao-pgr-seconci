@@ -223,21 +223,25 @@ matriz_funcao_exame = {
 }
 
 # ==========================================
-# FUNÇÕES DE INTELIGÊNCIA E PROCESSAMENTO
+# FUNÇÕES DE INTELIGÊNCIA E PROCESSAMENTO (CORRIGIDO)
 # ==========================================
 def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
     if not cas_faltantes:
         return {}
     
-    prompt = f"""
-    Você é um Higienista Ocupacional. Leia o texto desta FISPQ/FDS.
-    Sua missão é procurar a 'Seção 3' ou a composição do produto e identificar o NOME QUÍMICO correspondente a estes números CAS exatos: {', '.join(cas_faltantes)}.
+    # Limpa os espaços dos CAS para evitar erros de busca
+    cas_faltantes_limpos = [c.strip() for c in cas_faltantes]
     
-    Retorne APENAS um objeto JSON onde a chave é o número CAS e o valor é o nome do produto químico.
-    Exemplo: {{"1317-65-3": "Carbonato de Cálcio", "1305-78-8": "Óxido de Cálcio"}}
+    prompt = f"""
+    Sua missão é ler o texto de uma FISPQ/FDS e identificar o NOME QUÍMICO exato para os seguintes números CAS: {', '.join(cas_faltantes_limpos)}.
+    
+    Retorne APENAS um objeto JSON válido.
+    Chave = Número CAS. Valor = Nome do produto químico em português.
+    Se não achar algum, coloque "Não encontrado na FDS".
+    Exemplo: {{"1317-65-3": "Carbonato de Cálcio"}}
     
     Texto da FISPQ:
-    {texto_fispq[:15000]}
+    {texto_fispq[:50000]} 
     """
     
     try:
@@ -250,10 +254,15 @@ def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
         
         if resposta.status_code == 200:
             resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+            # MÁGICA DE LIMPEZA: Remove o markdown indesejado que a IA as vezes insere
+            resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
             return json.loads(resultado_texto)
+        else:
+            st.warning(f"⚠️ Erro de comunicação com a IA: Código {resposta.status_code}")
+            return {}
     except Exception as e:
-        pass
-    return {}
+        st.warning(f"⚠️ Ocorreu um erro no processamento da IA: {e}")
+        return {}
 
 def processar_pcmso(dados_pgr_json):
     tabela_pcmso = []
@@ -603,7 +612,6 @@ elif "2️⃣" in modulo_selecionado:
                                         df_pcmso_gerado = processar_pcmso(json_pgr)
                                         html_final = gerar_html_pcmso(df_pcmso_gerado)
                                         
-                                        # Salvando na sessão para gravar no banco
                                         st.session_state['ultimo_html_med'] = html_final
                                         st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
                                         
@@ -619,7 +627,6 @@ elif "2️⃣" in modulo_selecionado:
                     except Exception as e:
                         st.error(f"Falha na comunicação de rede ou processamento: {e}")
 
-        # MOSTRA A INTERFACE SE A IA JÁ TERMINOU DE PROCESSAR (Fora do Spinner)
         if 'ultimo_html_med' in st.session_state:
             col1, col2 = st.columns([3, 1])
             with col1: nome_projeto_med = st.text_input("Nome da Empresa / Projeto:")
