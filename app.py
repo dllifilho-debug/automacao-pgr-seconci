@@ -223,25 +223,27 @@ matriz_funcao_exame = {
 }
 
 # ==========================================
-# FUNÇÕES DE INTELIGÊNCIA E PROCESSAMENTO (CORRIGIDO)
+# MUDANÇA DE PARADIGMA: IA CONSULTANDO O BANCO GLOBAL (SEM LER O PDF)
 # ==========================================
-def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
+def buscar_nomes_faltantes_ia(cas_faltantes):
     if not cas_faltantes:
         return {}
     
-    # Limpa os espaços dos CAS para evitar erros de busca
-    cas_faltantes_limpos = [c.strip() for c in cas_faltantes]
+    # Prepara a lista de números CAS
+    cas_limpos = [str(c).strip() for c in cas_faltantes]
+    lista_cas_str = ", ".join(cas_limpos)
     
+    # Nova instrução: A IA atua como Enciclopédia Química, ignorando erros de formatação do PDF
     prompt = f"""
-    Sua missão é ler o texto de uma FISPQ/FDS e identificar o NOME QUÍMICO exato para os seguintes números CAS: {', '.join(cas_faltantes_limpos)}.
+    Você é um especialista em toxicologia e banco de dados químicos internacionais.
+    Forneça o NOME QUÍMICO OFICIAL (em português brasileiro) para os seguintes números CAS: {lista_cas_str}.
     
-    Retorne APENAS um objeto JSON válido.
-    Chave = Número CAS. Valor = Nome do produto químico em português.
-    Se não achar algum, coloque "Não encontrado na FDS".
-    Exemplo: {{"1317-65-3": "Carbonato de Cálcio"}}
-    
-    Texto da FISPQ:
-    {texto_fispq[:50000]} 
+    Retorne EXATAMENTE UM JSON válido. Não inclua NENHUM texto antes ou depois.
+    Formato obrigatório:
+    {{
+        "CAS_1": "Nome Químico 1",
+        "CAS_2": "Nome Químico 2"
+    }}
     """
     
     try:
@@ -250,18 +252,28 @@ def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
         }
-        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+        
+        # Aumentamos o tempo de limite para evitar falhas silenciosas de conexão
+        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
         
         if resposta.status_code == 200:
-            resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-            # MÁGICA DE LIMPEZA: Remove o markdown indesejado que a IA as vezes insere
-            resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
-            return json.loads(resultado_texto)
+            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+            # Tratamento blindado contra lixo de formatação (markdown)
+            texto_ia = texto_ia.replace('```json', '').replace('```', '').strip()
+            return json.loads(texto_ia)
         else:
-            st.warning(f"⚠️ Erro de comunicação com a IA: Código {resposta.status_code}")
+            # ERRO EXPOSTO: Se a API falhar, o engenheiro vê o porquê.
+            st.error(f"Erro na API da IA (Código {resposta.status_code}): O Google bloqueou ou rejeitou a requisição.")
             return {}
+            
+    except json.JSONDecodeError as e:
+        st.error(f"Erro na arquitetura JSON. A IA não retornou o formato esperado. Erro interno: {e}")
+        return {}
+    except requests.exceptions.Timeout:
+        st.error("O Servidor da IA demorou muito para responder (Timeout). Verifique a conexão.")
+        return {}
     except Exception as e:
-        st.warning(f"⚠️ Ocorreu um erro no processamento da IA: {e}")
+        st.error(f"Falha de conexão não mapeada com a IA: {e}")
         return {}
 
 def processar_pcmso(dados_pgr_json):
@@ -385,7 +397,7 @@ if historico_selecionado:
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs / FDS (com IA Integrada)")
-    st.info("A IA foi ativada neste módulo. Caso uma substância química (CAS) não esteja no banco de dados, o motor visual lerá o nome químico diretamente da FDS.")
+    st.info("A IA consulta o banco de dados químico mundial via CAS para as substâncias não mapeadas internamente.")
     
     arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
@@ -428,7 +440,7 @@ elif "1️⃣" in modulo_selecionado:
     )
 
     if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
-        with st.spinner("Consolidando avaliações químicas com IA..."):
+        with st.spinner("Consolidando avaliações químicas... Processando regras de banco de dados e inteligência artificial."):
             resultados_pgr, resultados_medicos = [], []
             
             if not df_editado.empty:
@@ -437,16 +449,24 @@ elif "1️⃣" in modulo_selecionado:
                     if nome_arq in textos_pdfs:
                         texto_completo = textos_pdfs[nome_arq]
                         
+                        # Extrai todos os CAS
                         cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
                         
+                        # Identifica quais CAS precisam da IA
                         cas_desconhecidos = [c for c in cas_encontrados_linha if c not in dicionario_cas]
-                        nomes_dinamicos_ia = buscar_nomes_faltantes_ia(texto_completo, cas_desconhecidos)
+                        
+                        nomes_dinamicos_ia = {}
+                        if cas_desconhecidos:
+                            st.toast(f"Solicitando Banco de Dados Global para os CAS: {', '.join(cas_desconhecidos)}", icon="🌍")
+                            nomes_dinamicos_ia = buscar_nomes_faltantes_ia(cas_desconhecidos)
                         
                         for cas in cas_encontrados_linha:
+                            # 1. Se estiver no dicionário fixo (eSocial / NR), preenche completo.
                             if cas in dicionario_cas:
                                 dados_med = dicionario_cas[cas]
+                            # 2. Se for desconhecido, usa o nome achado pela IA, mas com tags de "Avaliar" para a médica.
                             else:
-                                nome_agente_ia = nomes_dinamicos_ia.get(cas, "Produto Químico (Avaliar FDS)")
+                                nome_agente_ia = nomes_dinamicos_ia.get(cas, "Produto Químico (Não Localizado na Base)")
                                 dados_med = {
                                     "agente": nome_agente_ia,
                                     "nr15_lt": "Avaliar Anexo 11/12",
@@ -463,6 +483,7 @@ elif "1️⃣" in modulo_selecionado:
                                 "Dec 3048": dados_med.get("dec_3048", "Não Enquadrado"), "eSocial": dados_med.get("esocial_24", "09.01.001")
                             })
                             
+                        # Processa as Frases H normalmente
                         h_encontradas_linha = list(set(re.findall(r'H\d{3}', texto_completo)))
                         for codigo in h_encontradas_linha:
                             if codigo in dicionario_h:
@@ -475,6 +496,7 @@ elif "1️⃣" in modulo_selecionado:
                                     "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_h["epi"]
                                 })
 
+            # Anexa os riscos de campo (Físicos, Biológicos, etc)
             if not df_fis_bio_editado.empty and df_fis_bio_editado["GHE"].iloc[0] != "Nenhum GHE definido":
                 for index, row in df_fis_bio_editado.iterrows():
                     nome_ghe, nome_agente, v_prob = row["GHE"], row["Agente"], int(row["Probabilidade"])
@@ -497,7 +519,7 @@ elif "1️⃣" in modulo_selecionado:
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.session_state['ultimo_html_eng'] = html_final
-                st.success("✅ Relatório Consolidado Gerado com Inteligência Artificial!")
+                st.success("✅ Relatório Consolidado! Os nomes das substâncias químicas foram injetados com sucesso na tabela.")
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
