@@ -33,7 +33,6 @@ st.markdown(css_personalizado, unsafe_allow_html=True)
 # ==========================================
 # CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
 # ==========================================
-# Blindagem: Removemos espaços, quebras de linha ou aspas acidentais que possam vir do cofre.
 CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
 
 # ==========================================
@@ -144,70 +143,25 @@ dicionario_cas = {
     "110-54-3": {"agente": "n-Hexano", "nr15_lt": "50 ppm ou 176 mg/m³", "nr09_acao": "25 ppm ou 88 mg/m³", "nr07_ibe": "2,5-Hexanodiona", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.014"},
     "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "25 anos (Linha 1.0.18)", "esocial_24": "01.18.001"},
     "1332-21-4": {"agente": "Asbesto / Amianto", "nr15_lt": "0,1 f/cm³", "nr09_acao": "0,05 f/cm³", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "20 anos (Linha 1.0.2)", "esocial_24": "01.02.001"},
-    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"},
-    "141-78-6": {"agente": "Acetato de Etila", "nr15_lt": "310 ppm ou 1090 mg/m³", "nr09_acao": "155 ppm ou 545 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "13463-67-7": {"agente": "Dióxido de Titânio", "nr15_lt": "Ausente NR-15 (ACGIH: 10 mg/m³)", "nr09_acao": "5 mg/m³ (Ref. ACGIH)", "nr07_ibe": "Avaliação Clínica / Raio-X", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "1333-86-4": {"agente": "Negro de Fumo (Carbon Black)", "nr15_lt": "Ausente NR-15 (ACGIH: 3 mg/m³)", "nr09_acao": "1,5 mg/m³ (Ref. ACGIH)", "nr07_ibe": "Avaliação Clínica / Espirometria", "dec_3048": "Avaliar Anexo IV (Hidrocarbonetos)", "esocial_24": "01.01.000"},
-    "8052-41-3": {"agente": "Aguarrás Mineral (Stoddard Solvent)", "nr15_lt": "Ausente NR-15 (ACGIH: 100 ppm)", "nr09_acao": "50 ppm (Ref. ACGIH)", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "1309-37-1": {"agente": "Óxido de Ferro", "nr15_lt": "Ausente NR-15 (ACGIH: 5 mg/m³)", "nr09_acao": "2,5 mg/m³ (Ref. ACGIH)", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "136-51-6": {"agente": "Octoato de Cálcio", "nr15_lt": "Não Estabelecido", "nr09_acao": "Não Estabelecido", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
+    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"}
 }
 
-# Expandido com Físicos, Biológicos, Ergonômicos e Acidentes
 dicionario_campo = {
-    # Riscos Físicos
-    "Físico: Ruído Contínuo/Intermitente": {
-        "agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos (Linha 2.0.1)", "esocial_24": "02.01.001",
-        "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"
-    },
-    "Físico: Vibração de Mãos e Braços (VMB)": {
-        "agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.002",
-        "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"
-    },
-    "Físico: Vibração de Corpo Inteiro (VCI)": {
-        "agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.003",
-        "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"
-    },
-    # Riscos Biológicos
-    "Biológico: Esgoto / Fossas": {
-        "agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.005",
-        "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"
-    },
-    "Biológico: Lixo Urbano": {
-        "agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.007",
-        "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"
-    },
-    "Biológico: Estab. Saúde": {
-        "agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.001",
-        "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"
-    },
-    # Riscos Ergonômicos (PGR Obrigatório, eSocial Dispensado)
-    "Ergonômico: Postura Inadequada": {
-        "agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
-        "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"
-    },
-    "Ergonômico: Levantamento/Transporte de Peso": {
-        "agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
-        "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"
-    },
-    # Riscos de Acidentes / Mecânicos (PGR Obrigatório, eSocial Dispensado)
-    "Acidente: Queda de Altura": {
-        "agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
-        "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"
-    },
-    "Acidente: Choque Elétrico": {
-        "agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
-        "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"
-    },
-    "Acidente: Máquinas e Equipamentos": {
-        "agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)",
-        "perigo": "Operação de máquinas com risco de corte ou esmagamento", "sev": 4, "epi": "Luvas de Proteção, Óculos, Botas de Segurança"
-    }
+    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos (Linha 2.0.1)", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"},
+    "Físico: Vibração de Mãos e Braços (VMB)": {"agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.002", "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"},
+    "Físico: Vibração de Corpo Inteiro (VCI)": {"agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.003", "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"},
+    "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.005", "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"},
+    "Biológico: Lixo Urbano": {"agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.007", "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"},
+    "Biológico: Estab. Saúde": {"agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.001", "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"},
+    "Ergonômico: Postura Inadequada": {"agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"},
+    "Ergonômico: Levantamento/Transporte de Peso": {"agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"},
+    "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"},
+    "Acidente: Choque Elétrico": {"agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"},
+    "Acidente: Máquinas e Equipamentos": {"agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Operação de máquinas com risco de corte ou esmagamento", "sev": 4, "epi": "Luvas de Proteção, Óculos, Botas de Segurança"}
 }
 
 # ==========================================
 # DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
-# ATUALIZADO COM MATRIZES DA DRA. PATRÍCIA (LABORATÓRIO E CONSTRUÇÃO)
 # ==========================================
 matriz_risco_exame = {
     "TOLUENO": {"exame": "Ortocresol na Urina", "periodico": "6 MESES"},
@@ -215,7 +169,6 @@ matriz_risco_exame = {
     "SÍLICA": {"exame": "Raio-X de Tórax (OIT) + Espirometria", "periodico": "12 a 24 MESES"},
     "VIBRAÇÃO": {"exame": "Avaliação Clínica e Osteomuscular", "periodico": "12 MESES"},
     "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"},
-    # Matriz Laboratorial / Infecciosa
     "BIOLÓGIC": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
     "SANGUE": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
     "VÍRUS": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
@@ -252,7 +205,6 @@ matriz_funcao_exame = {
     "GESTOR": [
         {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
     ],
-    # Matriz Laboratorial (Dra. Patrícia)
     "BIOMÉDICO": [
         {"exame": "HBsAg", "periodicidade": "12 MESES"},
         {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
@@ -270,6 +222,39 @@ matriz_funcao_exame = {
     ]
 }
 
+# ==========================================
+# FUNÇÕES DE INTELIGÊNCIA E PROCESSAMENTO
+# ==========================================
+def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
+    if not cas_faltantes:
+        return {}
+    
+    prompt = f"""
+    Você é um Higienista Ocupacional. Leia o texto desta FISPQ/FDS.
+    Sua missão é procurar a 'Seção 3' ou a composição do produto e identificar o NOME QUÍMICO correspondente a estes números CAS exatos: {', '.join(cas_faltantes)}.
+    
+    Retorne APENAS um objeto JSON onde a chave é o número CAS e o valor é o nome do produto químico.
+    Exemplo: {{"1317-65-3": "Carbonato de Cálcio", "1305-78-8": "Óxido de Cálcio"}}
+    
+    Texto da FISPQ:
+    {texto_fispq[:15000]}
+    """
+    
+    try:
+        url_google = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
+        }
+        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+        
+        if resposta.status_code == 200:
+            resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+            return json.loads(resultado_texto)
+    except Exception as e:
+        pass
+    return {}
+
 def processar_pcmso(dados_pgr_json):
     tabela_pcmso = []
     for ghe in dados_pgr_json:
@@ -281,12 +266,10 @@ def processar_pcmso(dados_pgr_json):
             exames_do_cargo = [{"exame": "Exame Clínico (Anamnese/Físico)", "periodicidade": "12 MESES", "motivo": "NR-07 Básico"}]
             cargo_upper = cargo.upper()
             
-            # Cruzamento 1: Por Função/Cargo
             for funcao_chave, exames in matriz_funcao_exame.items():
                 if funcao_chave in cargo_upper:
                     exames_do_cargo.extend(exames)
             
-            # Cruzamento 2: Por Agente ou Perigo Especifico
             for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
                 perigo = risco.get("perigo_especifico", "").upper()
@@ -303,7 +286,6 @@ def processar_pcmso(dados_pgr_json):
                 if "ALTURA" in texto_risco_completo:
                      exames_do_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
             
-            # Remove duplicatas baseadas no nome do exame
             exames_unicos = {v['exame']:v for v in exames_do_cargo}.values()
             
             for ex in exames_unicos:
@@ -393,7 +375,8 @@ if historico_selecionado:
 # MÓDULO 1: ENGENHARIA (FISPQS / FDS -> PGR)
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
-    st.header("Módulo de Engenharia: Extrator de FISPQs / FDS")
+    st.header("Módulo de Engenharia: Extrator de FISPQs / FDS (com IA Integrada)")
+    st.info("A IA foi ativada neste módulo. Caso uma substância química (CAS) não esteja no banco de dados, o motor visual lerá o nome químico diretamente da FDS.")
     
     arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
@@ -436,7 +419,7 @@ elif "1️⃣" in modulo_selecionado:
     )
 
     if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
-        with st.spinner("Consolidando avaliações..."):
+        with st.spinner("Consolidando avaliações químicas com IA..."):
             resultados_pgr, resultados_medicos = [], []
             
             if not df_editado.empty:
@@ -444,12 +427,26 @@ elif "1️⃣" in modulo_selecionado:
                     nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ/FDS"], int(row["Probabilidade"])
                     if nome_arq in textos_pdfs:
                         texto_completo = textos_pdfs[nome_arq]
+                        
                         cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
+                        
+                        cas_desconhecidos = [c for c in cas_encontrados_linha if c not in dicionario_cas]
+                        nomes_dinamicos_ia = buscar_nomes_faltantes_ia(texto_completo, cas_desconhecidos)
+                        
                         for cas in cas_encontrados_linha:
-                            dados_med = dicionario_cas.get(cas, {
-                                "agente": "⚠️ NÃO MAPEADO", "nr15_lt": "REVISÃO", "nr09_acao": "REVISÃO", 
-                                "nr07_ibe": "REVISÃO", "dec_3048": "REVISÃO", "esocial_24": "REVISÃO"
-                            })
+                            if cas in dicionario_cas:
+                                dados_med = dicionario_cas[cas]
+                            else:
+                                nome_agente_ia = nomes_dinamicos_ia.get(cas, "Produto Químico (Avaliar FDS)")
+                                dados_med = {
+                                    "agente": nome_agente_ia,
+                                    "nr15_lt": "Avaliar Anexo 11/12",
+                                    "nr09_acao": "Avaliar NR-09", 
+                                    "nr07_ibe": "Avaliar NR-07", 
+                                    "dec_3048": "Avaliar Anexo IV", 
+                                    "esocial_24": "Avaliar Tabela 24"
+                                }
+                                
                             resultados_medicos.append({
                                 "GHE": nome_ghe, "Arquivo Origem": nome_arq, "Nº CAS": cas,
                                 "Agente Químico": dados_med["agente"], "Lim. Tolerância (NR-15)": dados_med["nr15_lt"],
@@ -490,26 +487,26 @@ elif "1️⃣" in modulo_selecionado:
 
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
-                st.session_state['ultimo_html'] = html_final
-                st.success("✅ Relatório Consolidado Gerado!")
+                st.session_state['ultimo_html_eng'] = html_final
+                st.success("✅ Relatório Consolidado Gerado com Inteligência Artificial!")
 
-    if 'ultimo_html' in st.session_state:
+    if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
-        with col1: nome_projeto = st.text_input("Nome da Empresa:")
+        with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:")
         with col2:
             st.write(""); st.write("")
-            if st.button("Gravar no Banco de Dados", width="stretch") and nome_projeto:
+            if st.button("Gravar no Banco de Dados", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
                 conn = sqlite3.connect('seconci_banco_dados.db')
                 c = conn.cursor()
                 c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
-                          (nome_projeto, datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html']))
+                          (nome_projeto_eng + " (PGR)", datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html_eng']))
                 conn.commit()
                 conn.close()
                 st.success("Salvo com sucesso!")
 
         aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
-        with aba_preview: components.html(st.session_state['ultimo_html'], height=500, scrolling=True)
-        with aba_download: st.download_button("Baixar Relatório", st.session_state['ultimo_html'].encode('utf-8'), "PGR_Fase1.doc")
+        with aba_preview: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
+        with aba_download: st.download_button("Baixar Relatório", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
 
 # ==========================================
 # MÓDULO 2: MEDICINA (PGR -> PCMSO)
@@ -526,11 +523,9 @@ elif "2️⃣" in modulo_selecionado:
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
                 with st.spinner("Motor IA analisando as imagens do documento e cruzando protocolos médicos... Isso pode levar até 1 minuto."):
                     
-                    # 1. EMPACOTA O PDF (Base64)
                     pdf_bytes = arquivo_pgr.getvalue()
                     pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     
-                    # 2. PROMPT AGRESSIVO (Instrui a IA a padronizar os nomes dos riscos)
                     prompt_extracao = """
                     Você é um médico do trabalho e engenheiro de segurança. Analise este documento PDF (Inventário de Riscos Ocupacionais).
                     Sua missão é CAÇAR qualquer relação entre Funções/Cargos e Agentes Nocivos (Físicos, Químicos, Biológicos).
@@ -552,7 +547,6 @@ elif "2️⃣" in modulo_selecionado:
                     """
                     
                     try:
-                        # 3. AUTO-DISCOVERY DO MODELO
                         url_lista = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
                         resp_lista = requests.get(url_lista)
                         
@@ -569,7 +563,6 @@ elif "2️⃣" in modulo_selecionado:
                             if not modelo_escolhido and modelos_texto:
                                 modelo_escolhido = modelos_texto[0]
                                 
-                            # 4. REQUISIÇÃO MULTIMODAL
                             url_google = "https://generativelanguage.googleapis.com/v1beta/" + modelo_escolhido + ":generateContent?key=" + CHAVE_API_GOOGLE
                             payload = {
                                 "contents": [
@@ -607,29 +600,13 @@ elif "2️⃣" in modulo_selecionado:
                                     else:
                                         st.success(f"✅ Protocolos Médicos Cruzados com Sucesso! (Motor: {modelo_escolhido.split('/')[-1]})")
                                         
-                                        # Processa os dados com a nova inteligência da Dra. Patrícia
                                         df_pcmso_gerado = processar_pcmso(json_pgr)
                                         html_final = gerar_html_pcmso(df_pcmso_gerado)
                                         
-                                        # INTERFACE COM ABAS (TABS)
-                                        aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
+                                        # Salvando na sessão para gravar no banco
+                                        st.session_state['ultimo_html_med'] = html_final
+                                        st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
                                         
-                                        with aba_dados:
-                                            st.dataframe(df_pcmso_gerado, use_container_width=True)
-                                            
-                                        with aba_preview:
-                                            components.html(html_final, height=600, scrolling=True)
-                                            
-                                        with aba_download:
-                                            st.info("Clique no botão abaixo para baixar a Matriz PCMSO pronta para o Microsoft Word.")
-                                            st.download_button(
-                                                label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                                                data=html_final.encode('utf-8'), 
-                                                file_name="PCMSO_Gerado_Seconci.doc", 
-                                                mime="application/msword", 
-                                                use_container_width=True
-                                            )
-                                    
                                 except json.JSONDecodeError:
                                     st.error("A IA leu o documento, mas quebrou a formatação dos dados.")
                                     with st.expander("🔍 Ver resposta bruta da IA"):
@@ -641,3 +618,36 @@ elif "2️⃣" in modulo_selecionado:
                             
                     except Exception as e:
                         st.error(f"Falha na comunicação de rede ou processamento: {e}")
+
+        # MOSTRA A INTERFACE SE A IA JÁ TERMINOU DE PROCESSAR (Fora do Spinner)
+        if 'ultimo_html_med' in st.session_state:
+            col1, col2 = st.columns([3, 1])
+            with col1: nome_projeto_med = st.text_input("Nome da Empresa / Projeto:")
+            with col2:
+                st.write(""); st.write("")
+                if st.button("Gravar PCMSO no Banco de Dados", key="btn_salvar_med", width="stretch") and nome_projeto_med:
+                    conn = sqlite3.connect('seconci_banco_dados.db')
+                    c = conn.cursor()
+                    c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
+                              (nome_projeto_med + " (PCMSO)", datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html_med']))
+                    conn.commit()
+                    conn.close()
+                    st.success("PCMSO salvo no Histórico com sucesso!")
+
+            aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
+            
+            with aba_dados:
+                st.dataframe(st.session_state['df_pcmso_gerado'], use_container_width=True)
+                
+            with aba_preview:
+                components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
+                
+            with aba_download:
+                st.info("Clique no botão abaixo para baixar a Matriz PCMSO pronta para o Microsoft Word.")
+                st.download_button(
+                    label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                    data=st.session_state['ultimo_html_med'].encode('utf-8'), 
+                    file_name="PCMSO_Gerado_Seconci.doc", 
+                    mime="application/msword", 
+                    use_container_width=True
+                )
