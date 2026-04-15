@@ -133,6 +133,7 @@ acoes_requeridas = {
 
 texto_sev = {1: "1-LEVE", 2: "2-BAIXA", 3: "3-MODERADA", 4: "4-ALTA", 5: "5-EXTREMA"}
 
+# INJEÇÃO DIRETA DOS CAS RECORRENTES DA CONSTRUÇÃO CIVIL (Evita bater na API)
 dicionario_cas = {
     "108-88-3": {"agente": "Tolueno", "nr15_lt": "78 ppm ou 290 mg/m³", "nr09_acao": "39 ppm ou 145 mg/m³", "nr07_ibe": "o-Cresol ou Ácido Hipúrico", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
     "1330-20-7": {"agente": "Xileno", "nr15_lt": "78 ppm ou 340 mg/m³", "nr09_acao": "39 ppm ou 170 mg/m³", "nr07_ibe": "Ácidos Metilhipúricos", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
@@ -143,7 +144,16 @@ dicionario_cas = {
     "110-54-3": {"agente": "n-Hexano", "nr15_lt": "50 ppm ou 176 mg/m³", "nr09_acao": "25 ppm ou 88 mg/m³", "nr07_ibe": "2,5-Hexanodiona", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.014"},
     "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "25 anos (Linha 1.0.18)", "esocial_24": "01.18.001"},
     "1332-21-4": {"agente": "Asbesto / Amianto", "nr15_lt": "0,1 f/cm³", "nr09_acao": "0,05 f/cm³", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "20 anos (Linha 1.0.2)", "esocial_24": "01.02.001"},
-    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"}
+    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"},
+    "65997-15-1": {"agente": "Cimento Portland", "nr15_lt": "Avaliar Anexo 12 (Poeira)", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "Não Enquadrado", "esocial_24": "01.18.001"},
+    "1317-65-3": {"agente": "Carbonato de Cálcio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "1305-78-8": {"agente": "Óxido de Cálcio", "nr15_lt": "2 mg/m³", "nr09_acao": "1 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "12168-85-3": {"agente": "Silicato Tricálcico", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "12042-78-3": {"agente": "Aluminato de Cálcio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "1309-48-4": {"agente": "Óxido de Magnésio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "68334-30-5": {"agente": "Óleo Diesel", "nr15_lt": "Avaliar Qualitativo", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Avaliar Hidrocarbonetos", "esocial_24": "01.01.026"},
+    "112-80-1": {"agente": "Ácido Oleico", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "52-51-7": {"agente": "Bronopol", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
 }
 
 dicionario_campo = {
@@ -198,61 +208,76 @@ matriz_funcao_exame = {
 }
 
 # ==========================================
-# NOVA ARQUITETURA DA IA (PARSING LINHA A LINHA - À PROVA DE FALHAS)
+# NOVA ARQUITETURA DA IA (COM DEBUG RAIO-X E FILTROS DESARMADOS)
 # ==========================================
 def buscar_nomes_faltantes_ia(cas_faltantes):
     if not cas_faltantes:
         return {}
     
-    # 1. Limpa a lista antes de enviar
     cas_limpos = [str(c).strip() for c in cas_faltantes]
     lista_cas_str = ", ".join(cas_limpos)
     
-    # 2. Nova Instrução: Sem JSON. Formato BRUTO de texto.
     prompt = f"""
-    Como especialista em toxicologia química, identifique o NOME OFICIAL em português para os seguintes números CAS: {lista_cas_str}.
+    Identifique o NOME OFICIAL em português para os seguintes números CAS: {lista_cas_str}.
     
-    REGRA ABSOLUTA DE FORMATAÇÃO: Você não deve usar JSON. Você não deve usar markdown. Você não deve explicar a resposta.
-    Sua resposta deve conter APENAS o número CAS seguido de um sinal de igual (=) e o Nome Químico. Uma substância por linha.
-    
-    Exemplo exato do que você deve gerar:
+    REGRA ABSOLUTA: Responda APENAS com o número CAS seguido de um sinal de igual (=) e o Nome Químico correspondente. Sem introdução, sem marcadores.
+    Exemplo:
     1317-65-3=Carbonato de Cálcio
-    1305-78-8=Óxido de Cálcio
     """
     
     try:
         url_google = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.0} # Sem forçar JSON
+            "generationConfig": {"temperature": 0.0},
+            # BLINDAGEM DE SEGURANÇA: Impede que o Google bloqueie os nomes químicos
+            "safetySettings": [
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
+            ]
         }
         
         resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
         
         if resposta.status_code == 200:
-            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            json_resp = resposta.json()
             
-            # 3. O MOTOR DE EXTRAÇÃO BLINDADO
+            # MODO DEBUG (Acabou a falha silenciosa)
+            if "candidates" not in json_resp or not json_resp["candidates"]:
+                motivo = json_resp.get("promptFeedback", {}).get("blockReason", "Desconhecido")
+                st.error(f"🚨 A API DO GOOGLE BLOQUEOU A REQUISIÇÃO. Motivo: {motivo}")
+                return {}
+
+            texto_ia = json_resp['candidates'][0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            
+            if not texto_ia:
+                finish_reason = json_resp['candidates'][0].get('finishReason', 'Desconhecido')
+                st.error(f"🚨 A IA RETORNOU TEXTO VAZIO. Finish Reason interno: {finish_reason}")
+                return {}
+            
             dicionario_resultado = {}
-            # Quebra o texto da IA linha por linha
             linhas = texto_ia.split('\n')
             
             for linha in linhas:
                 linha = linha.strip()
                 if '=' in linha:
-                    partes = linha.split('=', 1) # Divide exatamente no primeiro '='
-                    # Limpeza extrema nas pontas: arranca espaços, aspas e a palavra 'CAS' se a IA colocar
+                    partes = linha.split('=', 1)
                     chave = partes[0].replace('CAS:', '').replace('CAS', '').strip(' "')
                     valor = partes[1].strip(' "')
                     dicionario_resultado[chave] = valor
             
+            if not dicionario_resultado:
+                st.error(f"🚨 ERRO DE PARSING: A IA devolveu texto fora do padrão, sem o sinal de '='. Texto Recebido: {texto_ia}")
+                
             return dicionario_resultado
         else:
-            st.error(f"Erro na API da IA (Código {resposta.status_code}).")
+            st.error(f"🚨 ERRO HTTP DA API DO GOOGLE (CÓDIGO {resposta.status_code}): {resposta.text}")
             return {}
             
     except Exception as e:
-        st.error(f"Falha de conexão com a IA: {e}")
+        st.error(f"🚨 FALHA GRAVE DE CONEXÃO: {e}")
         return {}
 
 def processar_pcmso(dados_pgr_json):
@@ -376,7 +401,7 @@ if historico_selecionado:
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs / FDS (com IA Integrada)")
-    st.info("A IA consulta o banco de dados químico mundial via CAS para as substâncias não mapeadas internamente.")
+    st.info("O banco de dados nativo foi expandido. Para novas substâncias, a API do Google atuará de forma ininterrupta e transparente.")
     
     arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
@@ -419,7 +444,7 @@ elif "1️⃣" in modulo_selecionado:
     )
 
     if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
-        with st.spinner("Consolidando avaliações químicas... Processando regras de banco de dados e inteligência artificial."):
+        with st.spinner("Consolidando avaliações químicas... Verificando Motor de Inteligência Artificial e Dicionário Local."):
             resultados_pgr, resultados_medicos = [], []
             
             if not df_editado.empty:
@@ -433,18 +458,16 @@ elif "1️⃣" in modulo_selecionado:
                         
                         nomes_dinamicos_ia = {}
                         if cas_desconhecidos:
-                            st.toast(f"Consultando Inteligência Artificial para os CAS: {', '.join(cas_desconhecidos)}", icon="🧠")
+                            st.toast(f"Consultando IA para os CAS não mapeados: {', '.join(cas_desconhecidos)}", icon="🧠")
                             nomes_dinamicos_ia = buscar_nomes_faltantes_ia(cas_desconhecidos)
                         
                         for cas in cas_encontrados_linha:
-                            # LIMPEZA MATEMÁTICA: Garante que o CAS sendo procurado é idêntico à chave limpa no dicionário
                             cas_limpo_para_busca = cas.strip()
                             
                             if cas_limpo_para_busca in dicionario_cas:
                                 dados_med = dicionario_cas[cas_limpo_para_busca]
                             else:
-                                # Aqui a mágica matemática se encaixa perfeitamente
-                                nome_agente_ia = nomes_dinamicos_ia.get(cas_limpo_para_busca, "Produto Químico (Falha de IA)")
+                                nome_agente_ia = nomes_dinamicos_ia.get(cas_limpo_para_busca, "Produto Químico (Não localizado/Erro API)")
                                 dados_med = {
                                     "agente": nome_agente_ia,
                                     "nr15_lt": "Avaliar Anexo 11/12",
@@ -495,7 +518,7 @@ elif "1️⃣" in modulo_selecionado:
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.session_state['ultimo_html_eng'] = html_final
-                st.success("✅ Relatório Consolidado! Tabela de parsing de texto aplicada com sucesso.")
+                st.success("✅ Relatório de FDS Finalizado com Sucesso.")
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
