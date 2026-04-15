@@ -52,37 +52,6 @@ def init_db():
 init_db()
 
 # ==========================================
-# BARRA LATERAL
-# ==========================================
-if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
-elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
-else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
-
-st.sidebar.markdown("---")
-st.sidebar.title("🧩 Módulos do Sistema")
-modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", ["1️⃣ Engenharia: FISPQ / FDS ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"])
-
-st.sidebar.markdown("---")
-st.sidebar.title("📂 Histórico de Laudos")
-conn = sqlite3.connect('seconci_banco_dados.db')
-df_historico = pd.read_sql_query("SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
-conn.close()
-
-historico_selecionado = None
-if not df_historico.empty:
-    opcoes_historico = ["Selecione um projeto salvo..."] + [f"{row['id']} - {row['nome_projeto']} ({row['data_salvamento']})" for _, row in df_historico.iterrows()]
-    selecao = st.sidebar.selectbox("Carregar projeto antigo:", opcoes_historico)
-    if selecao != "Selecione um projeto salvo...":
-        id_selecionado = int(selecao.split(" - ")[0])
-        conn = sqlite3.connect('seconci_banco_dados.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT html_relatorio FROM historico_laudos WHERE id = ?", (id_selecionado,))
-        historico_selecionado = cursor.fetchone()[0]
-        conn.close()
-        st.sidebar.success("✅ Projeto carregado.")
-else: st.sidebar.write("Nenhum projeto salvo ainda.")
-
-# ==========================================
 # DICIONÁRIOS BASE (100% COMPLETOS)
 # ==========================================
 dicionario_h = {
@@ -154,17 +123,17 @@ dicionario_cas = {
 }
 
 dicionario_campo = {
-    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"},
+    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo"},
     "Físico: Vibração de Mãos e Braços (VMB)": {"agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica e Osteomuscular", "dec_3048": "25 anos", "esocial_24": "02.01.002", "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"},
     "Físico: Vibração de Corpo Inteiro (VCI)": {"agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica e Osteomuscular", "dec_3048": "25 anos", "esocial_24": "02.01.003", "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"},
     "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.005", "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"},
     "Biológico: Lixo Urbano": {"agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.007", "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"},
     "Biológico: Estab. Saúde": {"agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.001", "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"},
-    "Ergonômico: Postura Inadequada": {"agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"},
-    "Ergonômico: Levantamento/Transporte de Peso": {"agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"},
-    "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"},
-    "Acidente: Choque Elétrico": {"agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"},
-    "Acidente: Máquinas e Equipamentos": {"agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Operação de máquinas com risco de corte ou esmagamento", "sev": 4, "epi": "Luvas de Proteção, Óculos, Botas de Segurança"}
+    "Ergonômico: Postura Inadequada": {"agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente", "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas"},
+    "Ergonômico: Levantamento/Transporte de Peso": {"agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente", "perigo": "Esforço físico intenso e levantamento manual", "sev": 3, "epi": "Auxílio Mecânico"},
+    "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente", "perigo": "Trabalho executado acima de 2 metros", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete"},
+    "Acidente: Choque Elétrico": {"agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente", "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"},
+    "Acidente: Máquinas e Equipamentos": {"agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente", "perigo": "Operação de máquinas com risco de corte/esmagamento", "sev": 4, "epi": "Luvas, Óculos, Botas de Segurança"}
 }
 
 matriz_risco_exame = {
@@ -282,7 +251,6 @@ def processar_pcmso(dados_pgr_json):
     tabela_pcmso = []
     
     if isinstance(dados_pgr_json, dict):
-        # Se a IA retornou um dicionário em vez de lista por engano, formata para lista
         dados_pgr_json = [dados_pgr_json]
         
     for ghe in dados_pgr_json:
@@ -306,7 +274,6 @@ def processar_pcmso(dados_pgr_json):
                         exames_cargo.append({"exame": regra["exame"], "periodicidade": regra["periodico"], "motivo": f"Exposição a {agente}"})
                 if "ALTURA" in txt_risco: exames_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
             
-            # Remover duplicatas baseadas no nome do exame
             unicos = {v['exame']:v for v in exames_cargo}.values()
             
             for ex in unicos:
@@ -381,21 +348,56 @@ def gerar_html_pcmso(df_pcmso):
     return html
 
 # ==========================================
+# BARRA LATERAL (SIDEBAR)
+# ==========================================
+if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
+elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
+else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
+
+st.sidebar.markdown("---")
+st.sidebar.title("🧩 Módulos do Sistema")
+modulo_selecionado = st.sidebar.radio(
+    "Selecione a funcionalidade:", 
+    ["1️⃣ Engenharia: FISPQ / FDS ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"],
+    key="menu_lateral" # CHAVE ÚNICA PARA EVITAR O DUPLICATE ERROR
+)
+
+st.sidebar.markdown("---")
+st.sidebar.title("📂 Histórico de Laudos")
+conn = sqlite3.connect('seconci_banco_dados.db')
+df_historico = pd.read_sql_query("SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
+conn.close()
+
+historico_selecionado = None
+if not df_historico.empty:
+    opcoes_historico = ["Selecione um projeto salvo..."] + [f"{row['id']} - {row['nome_projeto']} ({row['data_salvamento']})" for _, row in df_historico.iterrows()]
+    selecao = st.sidebar.selectbox("Carregar projeto antigo:", opcoes_historico, key="select_historico")
+    if selecao != "Selecione um projeto salvo...":
+        id_selecionado = int(selecao.split(" - ")[0])
+        conn = sqlite3.connect('seconci_banco_dados.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT html_relatorio FROM historico_laudos WHERE id = ?", (id_selecionado,))
+        historico_selecionado = cursor.fetchone()[0]
+        conn.close()
+        st.sidebar.success("✅ Projeto carregado.")
+else: st.sidebar.write("Nenhum projeto salvo ainda.")
+
+# ==========================================
 # INTERFACE PRINCIPAL E LÓGICA
 # ==========================================
 st.title("Sistema Integrado SST - Seconci GO 🚀")
 
 if historico_selecionado:
     st.markdown("### 🗄️ Visualizando Relatório")
-    aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar em Word (.doc)"])
-    with aba_preview: components.html(historico_selecionado, height=700, scrolling=True)
-    with aba_download: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
+    aba_preview_hist, aba_download_hist = st.tabs(["👁️ Pré-visualizar", "📄 Baixar em Word (.doc)"])
+    with aba_preview_hist: components.html(historico_selecionado, height=700, scrolling=True)
+    with aba_download_hist: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword", key="btn_download_hist")
 
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs")
     st.info("A API está configurada em cascata para evitar erros. O banco local está com capacidade máxima ativada.")
     
-    arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
+    arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True, key="uploader_eng")
     textos_pdfs = {}
     df_editado = pd.DataFrame()
     ghe_opcoes = ["Nenhum GHE definido"]
@@ -415,7 +417,7 @@ elif "1️⃣" in modulo_selecionado:
                 "GHE": st.column_config.TextColumn("GHE", required=True),
                 "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo", options=nomes_arquivos, required=True),
                 "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-            }, width="stretch"
+            }, width="stretch", key="editor_quimico"
         )
         ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
 
@@ -427,10 +429,10 @@ elif "1️⃣" in modulo_selecionado:
             "GHE": st.column_config.SelectboxColumn("GHE", options=ghe_opcoes, required=True),
             "Agente": st.column_config.SelectboxColumn("Agente", options=agentes_opcoes, required=True),
             "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-        }, width="stretch"
+        }, width="stretch", key="editor_fisico"
     )
 
-    if st.button("🪄 Processar Relatório e Buscar Legislação", width="stretch", type="primary"):
+    if st.button("🪄 Processar Relatório e Buscar Legislação", width="stretch", type="primary", key="btn_processar_eng"):
         with st.spinner("Processando dados e verificando banco normativo/IA..."):
             resultados_pgr, resultados_medicos = [], []
             
@@ -507,7 +509,7 @@ elif "1️⃣" in modulo_selecionado:
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
-        with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:")
+        with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:", key="input_nome_proj")
         with col2:
             st.write(""); st.write("")
             if st.button("Gravar Banco", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
@@ -519,18 +521,18 @@ elif "1️⃣" in modulo_selecionado:
                 conn.close()
                 st.success("Salvo com sucesso!")
 
-        aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
-        with aba_preview: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
-        with aba_download: st.download_button("Baixar Word", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
+        aba_preview_eng, aba_download_eng = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
+        with aba_preview_eng: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
+        with aba_download_eng: st.download_button("Baixar Word", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc", key="btn_down_word_eng")
 
 elif "2️⃣" in modulo_selecionado:
     st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
     
     with st.container():
-        arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
+        arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"], key="uploader_med")
         if arquivo_pgr:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
+            if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True, key="btn_processar_med"):
                 with st.spinner("Analisando matrizes e cruzando protocolos NR-07..."):
                     pdf_bytes = arquivo_pgr.getvalue()
                     pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -565,9 +567,9 @@ elif "2️⃣" in modulo_selecionado:
                             st.error(f"Erro ao montar a tabela médica. Detalhe: {e}")
 
         if 'ultimo_html_med' in st.session_state:
-            aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados", "👁️ Visão", "📄 Word"])
+            aba_dados, aba_preview_med, aba_download_med = st.tabs(["📊 Dados", "👁️ Visão", "📄 Word"])
             with aba_dados: 
                 if 'df_pcmso_gerado' in st.session_state and not st.session_state['df_pcmso_gerado'].empty:
                     st.dataframe(st.session_state['df_pcmso_gerado'], use_container_width=True)
-            with aba_preview: components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
-            with aba_download: st.download_button("Baixar PCMSO", st.session_state['ultimo_html_med'].encode('utf-8'), "PCMSO_Seconci.doc", "application/msword")
+            with aba_preview_med: components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
+            with aba_download_med: st.download_button("Baixar PCMSO", st.session_state['ultimo_html_med'].encode('utf-8'), "PCMSO_Seconci.doc", "application/msword", key="btn_down_word_med")
