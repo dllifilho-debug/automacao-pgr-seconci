@@ -161,28 +161,66 @@ matriz_funcao_exame = {
         {"exame": "ECG", "periodicidade": "12 MESES"},
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
         {"exame": "Avaliação Psicossocial", "periodicidade": "12 MESES"}
+    ],
+    "ENCANADOR": [
+        {"exame": "Exame Clínico", "periodicidade": "6 MESES"},
+        {"exame": "Audiometria", "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+        {"exame": "ECG", "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
+        {"exame": "Hemograma", "periodicidade": "12 MESES"},
+        {"exame": "Espirometria", "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT", "periodicidade": "12 MESES"}
     ]
 }
 
 # ==========================================
-# MOTOR IA - BUSCA DINÂMICA DE MODELOS (FIM DO 404)
+# MOTOR IA CORE (BLINDAGEM CONTRA 400 E 404)
 # ==========================================
-def obter_modelo_ia():
+def chamar_api_gemini(prompt, pdf_b64=None):
+    parts = [{"text": prompt}]
+    if pdf_b64:
+        parts.append({"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}})
+        
+    payload = {
+        "contents": [{"parts": parts}],
+        "generationConfig": {"temperature": 0.1},
+        # BLOCK_ONLY_HIGH evita erro 400 (INVALID_ARGUMENT) em chaves standard
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"}
+        ]
+    }
+    
+    headers = {'Content-Type': 'application/json'}
+    
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
-        resp = requests.get(url, timeout=10)
+        # Tentativa 1: Modelo PRO (Mais adequado para leitura estrutural de tabelas)
+        url_pro = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={CHAVE_API_GOOGLE}"
+        resp = requests.post(url_pro, headers=headers, json=payload, timeout=50)
+        
         if resp.status_code == 200:
-            modelos_texto = [m['name'] for m in resp.json().get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
-            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash']:
-                if pref in modelos_texto:
-                    return pref
-    except:
-        pass
-    return "models/gemini-1.5-flash-latest" # Fallback robusto
+            return resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            
+        elif resp.status_code == 404:
+            # Tentativa 2 (Fallback Invisível): Se o Pro estiver offline na região da chave, puxa o Flash
+            url_flash = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={CHAVE_API_GOOGLE}"
+            resp_fb = requests.post(url_flash, headers=headers, json=payload, timeout=50)
+            if resp_fb.status_code == 200:
+                return resp_fb.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            else:
+                st.error(f"🚨 ERRO HTTP DA API DO GOOGLE (Fallback): {resp_fb.status_code} - {resp_fb.text}")
+                return None
+        else:
+            st.error(f"🚨 ERRO HTTP DA API DO GOOGLE: {resp.status_code} - {resp.text}")
+            return None
+            
+    except Exception as e:
+        st.error(f"🚨 FALHA DE CONEXÃO ESTRUTURAL COM O GOOGLE: {e}")
+        return None
 
-# ==========================================
-# MOTOR IA - PREENCHIMENTO COMPLETO DE DADOS (FIM DO "AVALIAR ANEXO")
-# ==========================================
 def buscar_dados_completos_ia(cas_faltantes):
     if not cas_faltantes: return {}
     
@@ -190,56 +228,35 @@ def buscar_dados_completos_ia(cas_faltantes):
     lista_cas_str = ", ".join(cas_limpos)
     
     prompt = f"""
-    Você é um Engenheiro de Segurança do Trabalho atuando no Brasil (Especialista em NR-15, NR-09, NR-07 e eSocial).
-    Para os seguintes números CAS: {lista_cas_str}, forneça os dados ocupacionais completos.
+    Você é um Engenheiro de Segurança do Trabalho e Especialista em Higiene Ocupacional (NR-15, NR-09, NR-07 e eSocial).
+    Para os seguintes números CAS: {lista_cas_str}, forneça os parâmetros legais vigentes.
     
-    Retorne EXATAMENTE UM JSON VÁLIDO. Sem formatação markdown ou textos extras. As chaves devem ser exatamente os números CAS solicitados.
+    CRÍTICO: Retorne APENAS um objeto JSON válido. Sem introdução, sem marcadores markdown (como ```json).
+    As chaves do JSON DEVEM SER exatamente os números CAS solicitados.
     
-    Use a seguinte estrutura de exemplo para preenchimento:
+    Exemplo de estruturação obrigatória:
     {{
-        "{cas_limpos[0]}": {{
-            "agente": "Nome do Químico em Português",
-            "nr15_lt": "Ex: 10 mg/m³, 50 ppm, ou N/A",
-            "nr09_acao": "Ex: 5 mg/m³, 25 ppm, ou N/A",
-            "nr07_ibe": "Ex: Raio-X OIT, Avaliação Clínica, ou Exame Específico",
-            "dec_3048": "Ex: 25 anos (Linha 1.0.19) ou 'Não Enquadrado'",
-            "esocial_24": "Ex: 01.18.001 ou '09.01.001'"
+        "{cas_limpos[0] if cas_limpos else '1317-65-3'}": {{
+            "agente": "Nome Químico Oficial em Português",
+            "nr15_lt": "Ex: 10 mg/m³, 50 ppm ou Avaliar Anexo 12",
+            "nr09_acao": "Ex: 5 mg/m³ ou N/A",
+            "nr07_ibe": "Ex: Raio-X OIT ou Avaliação Clínica",
+            "dec_3048": "Ex: 25 anos (Linha 1.0.19) ou Não Enquadrado",
+            "esocial_24": "Ex: 01.18.001 ou 09.01.001"
         }}
     }}
     """
     
-    modelo = obter_modelo_ia()
-    
-    try:
-        url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.1, 
-                "responseMimeType": "application/json" # Obriga o Google a enviar o JSON perfeito
-            },
-            "safetySettings": [
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}
-            ]
-        }
-        
-        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=25)
-        
-        if resposta.status_code == 200:
-            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
-            try:
-                return json.loads(texto_ia)
-            except json.JSONDecodeError as e:
-                st.error(f"🚨 Erro ao ler a estrutura da IA. {e}")
-                return {}
-        else:
-            st.error(f"🚨 ERRO HTTP DA API DO GOOGLE ({resposta.status_code}): {resposta.text}")
+    texto_ia = chamar_api_gemini(prompt)
+    if texto_ia:
+        try:
+            # Remoção bruta de markdown residual para evitar JSONDecodeError
+            texto_limpo = texto_ia.replace('```json', '').replace('```', '').strip()
+            return json.loads(texto_limpo)
+        except json.JSONDecodeError as e:
+            st.error(f"🚨 A IA retornou texto fora do padrão JSON. Erro de Parsing: {e}")
             return {}
-            
-    except Exception as e:
-        st.error(f"🚨 FALHA GRAVE DE CONEXÃO: {e}")
-        return {}
+    return {}
 
 def processar_pcmso(dados_pgr_json):
     tabela_pcmso = []
@@ -281,7 +298,7 @@ def processar_pcmso(dados_pgr_json):
 # GERADORES HTML WORD
 # ==========================================
 def gerar_html_anexo(resultados_pgr, resultados_medicos):
-    html_content = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    html_content = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="[http://www.w3.org/TR/REC-html40](http://www.w3.org/TR/REC-html40)">
     <head><meta charset="utf-8">
     <style>
       body { font-family: 'Arial', sans-serif; font-size: 10pt; color: #000; }
@@ -321,7 +338,7 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos):
     return html_content
 
 def gerar_html_pcmso(df_pcmso):
-    html = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    html = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="[http://www.w3.org/TR/REC-html40](http://www.w3.org/TR/REC-html40)">
     <head><meta charset="utf-8">
     <style>
       body { font-family: 'Arial', sans-serif; color: #000000; }
@@ -354,7 +371,7 @@ if historico_selecionado:
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs (Automação Especialista)")
-    st.info("O sistema agora atuará como Especialista em Higiene Ocupacional, buscando dinamicamente os Limites de Tolerância e Códigos eSocial das substâncias identificadas.")
+    st.info("O sistema agora atuará como Especialista em Higiene Ocupacional, buscando dinamicamente os Limites de Tolerância e Códigos eSocial.")
     
     arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
@@ -392,7 +409,7 @@ elif "1️⃣" in modulo_selecionado:
     )
 
     if st.button("🪄 Processar Relatório e Buscar Legislação", width="stretch", type="primary"):
-        with st.spinner("Buscando modelo IA dinâmico e enquadramento de eSocial/NRs..."):
+        with st.spinner("Estruturando enquadramentos de eSocial/NRs com Inteligência Artificial..."):
             resultados_pgr, resultados_medicos = [], []
             
             if not df_editado.empty:
@@ -405,7 +422,7 @@ elif "1️⃣" in modulo_selecionado:
                         
                         dados_dinamicos_ia = {}
                         if cas_desconhecidos:
-                            st.toast(f"Solicitando Parâmetros Técnicos (NR-15/eSocial) para: {', '.join(cas_desconhecidos)}", icon="🧠")
+                            st.toast(f"Analisando matriz legal (NR-15/eSocial) para os CAS: {', '.join(cas_desconhecidos)}", icon="🧠")
                             dados_dinamicos_ia = buscar_dados_completos_ia(cas_desconhecidos)
                         
                         for cas in cas_encontrados_linha:
@@ -415,7 +432,7 @@ elif "1️⃣" in modulo_selecionado:
                             else:
                                 ia_info = dados_dinamicos_ia.get(cas_limpo, {})
                                 dados_med = {
-                                    "agente": ia_info.get("agente", "Produto Não Localizado"),
+                                    "agente": ia_info.get("agente", "Produto Não Localizado/Erro API"),
                                     "nr15_lt": ia_info.get("nr15_lt", "Sem Limite Estabelecido"),
                                     "nr09_acao": ia_info.get("nr09_acao", "N/A"),
                                     "nr07_ibe": ia_info.get("nr07_ibe", "Avaliação Clínica"),
@@ -464,7 +481,7 @@ elif "1️⃣" in modulo_selecionado:
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.session_state['ultimo_html_eng'] = html_final
-                st.success("✅ Relatório e Enquadramentos Legais Completados com Sucesso.")
+                st.success("✅ Relatório Técnico e Enquadramentos Completados com Sucesso.")
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
@@ -482,7 +499,7 @@ elif "1️⃣" in modulo_selecionado:
 
         aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
         with aba_preview: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
-        with aba_download: st.download_button("Baixar", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
+        with aba_download: st.download_button("Baixar Word", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
 
 # ==========================================
 # MÓDULO 2: MEDICINA (PGR -> PCMSO)
@@ -495,16 +512,20 @@ elif "2️⃣" in modulo_selecionado:
         if arquivo_pgr:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-                with st.spinner("Analisando matrizes NR-07..."):
+                with st.spinner("Analisando matrizes e cruzando protocolos NR-07..."):
                     pdf_bytes = arquivo_pgr.getvalue()
                     pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     
                     prompt_extracao = """
-                    Analise este documento PDF. Retorne EXATAMENTE UM JSON válido (uma lista de objetos):
+                    Analise o texto deste documento de PGR/Inventário de Riscos.
+                    Retorne EXATAMENTE UM JSON válido (uma lista de objetos) contendo a relação de GHE, cargos e riscos.
+                    Sem introdução, sem marcadores markdown.
+                    
+                    Modelo esperado:
                     [
                       {
-                        "ghe": "Nome do Setor, GHE ou Função",
-                        "cargos": ["Cargo 1"],
+                        "ghe": "Nome do Setor ou GHE",
+                        "cargos": ["Nome do Cargo"],
                         "riscos_mapeados": [
                           {"nome_agente": "Ex: Risco Biológico", "perigo_especifico": "Vírus"}
                         ]
@@ -512,25 +533,19 @@ elif "2️⃣" in modulo_selecionado:
                     ]
                     """
                     
-                    modelo = obter_modelo_ia()
-                    try:
-                        url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
-                        payload = {
-                            "contents": [{"parts": [{"text": prompt_extracao}, {"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}}]}],
-                            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
-                        }
-                        
-                        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
-                        if resposta.status_code == 200:
-                            json_pgr = json.loads(resposta.json()['candidates'][0]['content']['parts'][0]['text'])
+                    texto_ia = chamar_api_gemini(prompt_extracao, pdf_b64)
+                    
+                    if texto_ia:
+                        try:
+                            # Limpeza de markdown garantida
+                            texto_limpo = texto_ia.replace('```json', '').replace('```', '').strip()
+                            json_pgr = json.loads(texto_limpo)
                             df_pcmso_gerado = processar_pcmso(json_pgr)
                             st.session_state['ultimo_html_med'] = gerar_html_pcmso(df_pcmso_gerado)
                             st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
-                            st.success("✅ Matriz Cruzada!")
-                        else:
-                            st.error(f"Erro da IA: {resposta.text}")
-                    except Exception as e:
-                        st.error(f"Erro de Conexão: {e}")
+                            st.success("✅ Matriz Cruzada e Processada!")
+                        except json.JSONDecodeError as e:
+                            st.error(f"Erro ao montar a tabela médica. Resposta da IA fora de padrão. Detalhe: {e}")
 
         if 'ultimo_html_med' in st.session_state:
             aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados", "👁️ Visão", "📄 Word"])
