@@ -175,7 +175,7 @@ matriz_funcao_exame = {
 }
 
 # ==========================================
-# MOTOR IA CORE (BLINDAGEM CONTRA 400 E 404)
+# MOTOR IA CORE (ROTA ESTÁVEL BLINDADA - FIM DO 404 E 400)
 # ==========================================
 def chamar_api_gemini(prompt, pdf_b64=None):
     parts = [{"text": prompt}]
@@ -185,7 +185,7 @@ def chamar_api_gemini(prompt, pdf_b64=None):
     payload = {
         "contents": [{"parts": parts}],
         "generationConfig": {"temperature": 0.1},
-        # BLOCK_ONLY_HIGH evita erro 400 (INVALID_ARGUMENT) em chaves standard
+        # Nível de segurança ajustado para chaves Standard
         "safetySettings": [
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
@@ -196,23 +196,14 @@ def chamar_api_gemini(prompt, pdf_b64=None):
     
     headers = {'Content-Type': 'application/json'}
     
+    # URL DEFINITIVA E ESTÁVEL - Sem sufixo -latest para evitar erro 404
+    url_estavel = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={CHAVE_API_GOOGLE}"
+    
     try:
-        # Tentativa 1: Modelo PRO (Mais adequado para leitura estrutural de tabelas)
-        url_pro = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={CHAVE_API_GOOGLE}"
-        resp = requests.post(url_pro, headers=headers, json=payload, timeout=50)
+        resp = requests.post(url_estavel, headers=headers, json=payload, timeout=50)
         
         if resp.status_code == 200:
             return resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-            
-        elif resp.status_code == 404:
-            # Tentativa 2 (Fallback Invisível): Se o Pro estiver offline na região da chave, puxa o Flash
-            url_flash = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={CHAVE_API_GOOGLE}"
-            resp_fb = requests.post(url_flash, headers=headers, json=payload, timeout=50)
-            if resp_fb.status_code == 200:
-                return resp_fb.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-            else:
-                st.error(f"🚨 ERRO HTTP DA API DO GOOGLE (Fallback): {resp_fb.status_code} - {resp_fb.text}")
-                return None
         else:
             st.error(f"🚨 ERRO HTTP DA API DO GOOGLE: {resp.status_code} - {resp.text}")
             return None
@@ -250,7 +241,6 @@ def buscar_dados_completos_ia(cas_faltantes):
     texto_ia = chamar_api_gemini(prompt)
     if texto_ia:
         try:
-            # Remoção bruta de markdown residual para evitar JSONDecodeError
             texto_limpo = texto_ia.replace('```json', '').replace('```', '').strip()
             return json.loads(texto_limpo)
         except json.JSONDecodeError as e:
@@ -371,7 +361,7 @@ if historico_selecionado:
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
     st.header("Módulo de Engenharia: Extrator de FISPQs (Automação Especialista)")
-    st.info("O sistema agora atuará como Especialista em Higiene Ocupacional, buscando dinamicamente os Limites de Tolerância e Códigos eSocial.")
+    st.info("O sistema agora atua como Especialista em Higiene Ocupacional, buscando dinamicamente os Limites de Tolerância e Códigos eSocial via IA conectada fixamente ao modelo Gemini 1.5 Flash.")
     
     arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
@@ -537,7 +527,6 @@ elif "2️⃣" in modulo_selecionado:
                     
                     if texto_ia:
                         try:
-                            # Limpeza de markdown garantida
                             texto_limpo = texto_ia.replace('```json', '').replace('```', '').strip()
                             json_pgr = json.loads(texto_limpo)
                             df_pcmso_gerado = processar_pcmso(json_pgr)
