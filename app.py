@@ -9,6 +9,7 @@ import os
 import requests
 import json
 import base64
+import io # Adicionado para leitura resiliente de buffer
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA E CSS (UI/UX)
@@ -36,6 +37,14 @@ st.markdown(css_personalizado, unsafe_allow_html=True)
 CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
 
 # ==========================================
+# FUNÇÃO DE LIMPEZA DE JSON (IA FALLBACK)
+# ==========================================
+def limpar_resposta_json(texto):
+    """Remove marcações de markdown e limpa espaços para garantir o parse."""
+    texto_limpo = re.sub(r'```json\s*|```', '', texto)
+    return texto_limpo.strip()
+
+# ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
 # ==========================================
 def init_db():
@@ -57,8 +66,9 @@ init_db()
 # ==========================================
 # BARRA LATERAL (MENU E HISTÓRICO)
 # ==========================================
-if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
-elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
+# CORREÇÃO APLICADA: use_container_width=True em vez de width="stretch"
+if os.path.exists("logo.png"): st.sidebar.image("logo.png", use_container_width=True)
+elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", use_container_width=True)
 else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
@@ -250,7 +260,10 @@ def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
         
         if resposta.status_code == 200:
             resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-            return json.loads(resultado_texto)
+            
+            # CORREÇÃO APLICADA: Limpeza de JSON
+            json_limpo = limpar_resposta_json(resultado_texto)
+            return json.loads(json_limpo)
     except Exception as e:
         pass
     return {}
@@ -386,7 +399,9 @@ elif "1️⃣" in modulo_selecionado:
     if arquivos_fispq:
         with st.spinner("Lendo o conteúdo dos PDFs..."):
             for arquivo in arquivos_fispq:
-                with pdfplumber.open(arquivo) as pdf:
+                # CORREÇÃO APLICADA: Leitura resiliente usando io.BytesIO
+                bytes_data = arquivo.getvalue()
+                with pdfplumber.open(io.BytesIO(bytes_data)) as pdf:
                     texto = "\n".join([p.extract_text() or "" for p in pdf.pages])
                     textos_pdfs[arquivo.name] = texto
 
@@ -401,7 +416,7 @@ elif "1️⃣" in modulo_selecionado:
                 "GHE": st.column_config.TextColumn("Nome do GHE", required=True),
                 "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo (FISPQ/FDS)", options=nomes_arquivos, required=True),
                 "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-            }, width="stretch"
+            }, use_container_width=True # CORREÇÃO APLICADA: Largura nativa do Streamlit
         )
         ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
 
@@ -415,10 +430,10 @@ elif "1️⃣" in modulo_selecionado:
             "GHE": st.column_config.SelectboxColumn("GHE de Destino", options=ghe_opcoes, required=True),
             "Agente": st.column_config.SelectboxColumn("Agente / Fator de Risco", options=agentes_opcoes, required=True),
             "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
-        }, width="stretch"
+        }, use_container_width=True # CORREÇÃO APLICADA: Largura nativa do Streamlit
     )
 
-    if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
+    if st.button("🪄 Processar GHEs e Gerar Relatório", use_container_width=True, type="primary"):
         with st.spinner("Consolidando avaliações químicas com IA..."):
             resultados_pgr, resultados_medicos = [], []
             
@@ -495,7 +510,7 @@ elif "1️⃣" in modulo_selecionado:
         with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:")
         with col2:
             st.write(""); st.write("")
-            if st.button("Gravar no Banco de Dados", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
+            if st.button("Gravar no Banco de Dados", key="btn_salvar_eng", use_container_width=True) and nome_projeto_eng:
                 conn = sqlite3.connect('seconci_banco_dados.db')
                 c = conn.cursor()
                 c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
@@ -588,10 +603,12 @@ elif "2️⃣" in modulo_selecionado:
                             
                             if resposta.status_code == 200:
                                 resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                                
+                                # CORREÇÃO APLICADA: Limpeza de JSON robusta
+                                json_limpo = limpar_resposta_json(resultado_texto)
                                 
                                 try:
-                                    json_pgr = json.loads(resultado_texto)
+                                    json_pgr = json.loads(json_limpo)
                                     
                                     if not json_pgr or len(json_pgr) == 0:
                                         st.error("⚠️ A IA analisou o documento, mas não conseguiu estruturar as tabelas.")
@@ -625,7 +642,7 @@ elif "2️⃣" in modulo_selecionado:
             with col1: nome_projeto_med = st.text_input("Nome da Empresa / Projeto:")
             with col2:
                 st.write(""); st.write("")
-                if st.button("Gravar PCMSO no Banco de Dados", key="btn_salvar_med", width="stretch") and nome_projeto_med:
+                if st.button("Gravar PCMSO no Banco de Dados", key="btn_salvar_med", use_container_width=True) and nome_projeto_med:
                     conn = sqlite3.connect('seconci_banco_dados.db')
                     c = conn.cursor()
                     c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
