@@ -194,86 +194,65 @@ matriz_funcao_exame = {
         {"exame": "Hemograma", "periodicidade": "12 MESES"},
         {"exame": "Espirometria", "periodicidade": "24 MESES"},
         {"exame": "RX Tórax OIT", "periodicidade": "12 MESES"}
-    ],
-    "ADMINISTRATIVO": [
-        {"exame": "Exame Clínico", "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"}
-    ],
-    "RECEPCIONISTA": [
-        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
-    ],
-    "GESTOR": [
-        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
-    ],
-    "BIOMÉDICO": [
-        {"exame": "HBsAg", "periodicidade": "12 MESES"},
-        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
-        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
-    ],
-    "LABORATÓRIO": [
-        {"exame": "HBsAg", "periodicidade": "12 MESES"},
-        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
-        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
-    ],
-    "ENFERMAGEM": [
-        {"exame": "HBsAg", "periodicidade": "12 MESES"},
-        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
-        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
     ]
 }
 
 # ==========================================
-# MUDANÇA DE PARADIGMA: IA CONSULTANDO O BANCO GLOBAL (SEM LER O PDF)
+# NOVA ARQUITETURA DA IA (PARSING LINHA A LINHA - À PROVA DE FALHAS)
 # ==========================================
 def buscar_nomes_faltantes_ia(cas_faltantes):
     if not cas_faltantes:
         return {}
     
-    # Prepara a lista de números CAS
+    # 1. Limpa a lista antes de enviar
     cas_limpos = [str(c).strip() for c in cas_faltantes]
     lista_cas_str = ", ".join(cas_limpos)
     
-    # Nova instrução: A IA atua como Enciclopédia Química, ignorando erros de formatação do PDF
+    # 2. Nova Instrução: Sem JSON. Formato BRUTO de texto.
     prompt = f"""
-    Você é um especialista em toxicologia e banco de dados químicos internacionais.
-    Forneça o NOME QUÍMICO OFICIAL (em português brasileiro) para os seguintes números CAS: {lista_cas_str}.
+    Como especialista em toxicologia química, identifique o NOME OFICIAL em português para os seguintes números CAS: {lista_cas_str}.
     
-    Retorne EXATAMENTE UM JSON válido. Não inclua NENHUM texto antes ou depois.
-    Formato obrigatório:
-    {{
-        "CAS_1": "Nome Químico 1",
-        "CAS_2": "Nome Químico 2"
-    }}
+    REGRA ABSOLUTA DE FORMATAÇÃO: Você não deve usar JSON. Você não deve usar markdown. Você não deve explicar a resposta.
+    Sua resposta deve conter APENAS o número CAS seguido de um sinal de igual (=) e o Nome Químico. Uma substância por linha.
+    
+    Exemplo exato do que você deve gerar:
+    1317-65-3=Carbonato de Cálcio
+    1305-78-8=Óxido de Cálcio
     """
     
     try:
         url_google = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
+            "generationConfig": {"temperature": 0.0} # Sem forçar JSON
         }
         
-        # Aumentamos o tempo de limite para evitar falhas silenciosas de conexão
         resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
         
         if resposta.status_code == 200:
-            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
-            # Tratamento blindado contra lixo de formatação (markdown)
-            texto_ia = texto_ia.replace('```json', '').replace('```', '').strip()
-            return json.loads(texto_ia)
+            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+            
+            # 3. O MOTOR DE EXTRAÇÃO BLINDADO
+            dicionario_resultado = {}
+            # Quebra o texto da IA linha por linha
+            linhas = texto_ia.split('\n')
+            
+            for linha in linhas:
+                linha = linha.strip()
+                if '=' in linha:
+                    partes = linha.split('=', 1) # Divide exatamente no primeiro '='
+                    # Limpeza extrema nas pontas: arranca espaços, aspas e a palavra 'CAS' se a IA colocar
+                    chave = partes[0].replace('CAS:', '').replace('CAS', '').strip(' "')
+                    valor = partes[1].strip(' "')
+                    dicionario_resultado[chave] = valor
+            
+            return dicionario_resultado
         else:
-            # ERRO EXPOSTO: Se a API falhar, o engenheiro vê o porquê.
-            st.error(f"Erro na API da IA (Código {resposta.status_code}): O Google bloqueou ou rejeitou a requisição.")
+            st.error(f"Erro na API da IA (Código {resposta.status_code}).")
             return {}
             
-    except json.JSONDecodeError as e:
-        st.error(f"Erro na arquitetura JSON. A IA não retornou o formato esperado. Erro interno: {e}")
-        return {}
-    except requests.exceptions.Timeout:
-        st.error("O Servidor da IA demorou muito para responder (Timeout). Verifique a conexão.")
-        return {}
     except Exception as e:
-        st.error(f"Falha de conexão não mapeada com a IA: {e}")
+        st.error(f"Falha de conexão com a IA: {e}")
         return {}
 
 def processar_pcmso(dados_pgr_json):
@@ -449,24 +428,23 @@ elif "1️⃣" in modulo_selecionado:
                     if nome_arq in textos_pdfs:
                         texto_completo = textos_pdfs[nome_arq]
                         
-                        # Extrai todos os CAS
                         cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
-                        
-                        # Identifica quais CAS precisam da IA
                         cas_desconhecidos = [c for c in cas_encontrados_linha if c not in dicionario_cas]
                         
                         nomes_dinamicos_ia = {}
                         if cas_desconhecidos:
-                            st.toast(f"Solicitando Banco de Dados Global para os CAS: {', '.join(cas_desconhecidos)}", icon="🌍")
+                            st.toast(f"Consultando Inteligência Artificial para os CAS: {', '.join(cas_desconhecidos)}", icon="🧠")
                             nomes_dinamicos_ia = buscar_nomes_faltantes_ia(cas_desconhecidos)
                         
                         for cas in cas_encontrados_linha:
-                            # 1. Se estiver no dicionário fixo (eSocial / NR), preenche completo.
-                            if cas in dicionario_cas:
-                                dados_med = dicionario_cas[cas]
-                            # 2. Se for desconhecido, usa o nome achado pela IA, mas com tags de "Avaliar" para a médica.
+                            # LIMPEZA MATEMÁTICA: Garante que o CAS sendo procurado é idêntico à chave limpa no dicionário
+                            cas_limpo_para_busca = cas.strip()
+                            
+                            if cas_limpo_para_busca in dicionario_cas:
+                                dados_med = dicionario_cas[cas_limpo_para_busca]
                             else:
-                                nome_agente_ia = nomes_dinamicos_ia.get(cas, "Produto Químico (Não Localizado na Base)")
+                                # Aqui a mágica matemática se encaixa perfeitamente
+                                nome_agente_ia = nomes_dinamicos_ia.get(cas_limpo_para_busca, "Produto Químico (Falha de IA)")
                                 dados_med = {
                                     "agente": nome_agente_ia,
                                     "nr15_lt": "Avaliar Anexo 11/12",
@@ -483,7 +461,6 @@ elif "1️⃣" in modulo_selecionado:
                                 "Dec 3048": dados_med.get("dec_3048", "Não Enquadrado"), "eSocial": dados_med.get("esocial_24", "09.01.001")
                             })
                             
-                        # Processa as Frases H normalmente
                         h_encontradas_linha = list(set(re.findall(r'H\d{3}', texto_completo)))
                         for codigo in h_encontradas_linha:
                             if codigo in dicionario_h:
@@ -496,7 +473,6 @@ elif "1️⃣" in modulo_selecionado:
                                     "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_h["epi"]
                                 })
 
-            # Anexa os riscos de campo (Físicos, Biológicos, etc)
             if not df_fis_bio_editado.empty and df_fis_bio_editado["GHE"].iloc[0] != "Nenhum GHE definido":
                 for index, row in df_fis_bio_editado.iterrows():
                     nome_ghe, nome_agente, v_prob = row["GHE"], row["Agente"], int(row["Probabilidade"])
@@ -519,7 +495,7 @@ elif "1️⃣" in modulo_selecionado:
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.session_state['ultimo_html_eng'] = html_final
-                st.success("✅ Relatório Consolidado! Os nomes das substâncias químicas foram injetados com sucesso na tabela.")
+                st.success("✅ Relatório Consolidado! Tabela de parsing de texto aplicada com sucesso.")
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
