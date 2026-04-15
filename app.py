@@ -9,44 +9,85 @@ import os
 import requests
 import json
 import base64
-import io
 
 # ==========================================
-# 1. CONFIGURAÇÃO E INTERFACE SaaS (Premium)
+# CONFIGURAÇÃO DA PÁGINA E CSS (UI/UX)
 # ==========================================
-st.set_page_config(page_title="Sistema SST - Seconci GO", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="Automação SST - Seconci GO", layout="wide", page_icon="🛡️")
 
-css_premium = """
+css_personalizado = """
 <style>
-    .block-container { padding-top: 1.5rem; }
-    h1, h2, h3, h4 { color: #0f4c23 !important; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .stButton > button { background-color: #0f4c23; color: white; border-radius: 6px; font-weight: bold; border: none; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .stButton > button:hover { background-color: #1a803b; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-    [data-testid="stSidebar"] { background-color: #f8f9fa; border-right: 1px solid #e0e0e0; }
-    div[data-testid="metric-container"] { background-color: #ffffff; border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    [data-testid="stDataFrame"] { border-radius: 8px; border: 1px solid #e0e0e0; }
+    .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+    .stButton > button { background-color: #084D22; color: white; border-radius: 8px; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease; font-weight: 600; padding: 0.5rem 1rem; }
+    .stButton > button:hover { background-color: #1AA04B; color: white; box-shadow: 0 6px 12px rgba(0,0,0,0.15); transform: translateY(-2px); border-color: #1AA04B; }
+    h1, h2, h3 { color: #084D22 !important; }
+    [data-testid="stSidebar"] { background-color: #F4F8F5; border-right: 1px solid #E0ECE4; }
+    [data-testid="stFileUploadDropzone"] { border: 2px dashed #1AA04B; border-radius: 12px; background-color: #FAFFFA; transition: all 0.3s ease; }
+    [data-testid="stFileUploadDropzone"]:hover { background-color: #F0FDF4; border-color: #084D22; }
+    .stAlert { border-radius: 8px; border-left: 5px solid #084D22; }
+    [data-testid="stDataFrame"] { border: 1px solid #E0ECE4; border-radius: 8px; overflow: hidden; }
 </style>
 """
-st.markdown(css_premium, unsafe_allow_html=True)
-
-try:
-    CHAVE_API = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
-except Exception:
-    CHAVE_API = ""
-    st.sidebar.error("⚠️ Chave de API não encontrada em st.secrets.")
+st.markdown(css_personalizado, unsafe_allow_html=True)
 
 # ==========================================
-# 2. BANCO DE DADOS E DICIONÁRIOS (100% COMPLETOS)
+# CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
+# ==========================================
+CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
+
+# ==========================================
+# INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
 # ==========================================
 def init_db():
     conn = sqlite3.connect('seconci_banco_dados.db')
     c = conn.cursor()
-    c.execute('CREATE TABLE IF NOT EXISTS historico_laudos (id INTEGER PRIMARY KEY AUTOINCREMENT, nome_projeto TEXT, modulo TEXT, data_salvamento TEXT, html_relatorio TEXT)')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS historico_laudos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome_projeto TEXT,
+            data_salvamento TEXT,
+            html_relatorio TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
 
 init_db()
 
+# ==========================================
+# BARRA LATERAL (MENU E HISTÓRICO)
+# ==========================================
+if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
+elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
+else: st.sidebar.markdown("<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>", unsafe_allow_html=True)
+
+st.sidebar.markdown("---")
+st.sidebar.title("🧩 Módulos do Sistema")
+modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", ["1️⃣ Engenharia: FISPQ / FDS ➡️ PGR", "2️⃣ Medicina: PGR ➡️ PCMSO"])
+
+st.sidebar.markdown("---")
+st.sidebar.title("📂 Histórico de Laudos")
+conn = sqlite3.connect('seconci_banco_dados.db')
+df_historico = pd.read_sql_query("SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
+conn.close()
+
+historico_selecionado = None
+if not df_historico.empty:
+    opcoes_historico = ["Selecione um projeto salvo..."] + [f"{row['id']} - {row['nome_projeto']} ({row['data_salvamento']})" for _, row in df_historico.iterrows()]
+    selecao = st.sidebar.selectbox("Carregar projeto antigo:", opcoes_historico)
+    if selecao != "Selecione um projeto salvo...":
+        id_selecionado = int(selecao.split(" - ")[0])
+        conn = sqlite3.connect('seconci_banco_dados.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT html_relatorio FROM historico_laudos WHERE id = ?", (id_selecionado,))
+        historico_selecionado = cursor.fetchone()[0]
+        conn.close()
+        st.sidebar.success("✅ Projeto carregado.")
+else: st.sidebar.write("Nenhum projeto salvo ainda.")
+
+# ==========================================
+# DICIONÁRIOS FASE 1 (ENGENHARIA E QUÍMICA)
+# ==========================================
 dicionario_h = {
     "H315": {"desc": "Provoca irritação à pele", "sev": 1, "epi": "Luvas de proteção e vestimenta"},
     "H319": {"desc": "Provoca irritação ocular grave", "sev": 1, "epi": "Óculos de proteção contra respingos"},
@@ -82,39 +123,36 @@ matriz_oficial = {
     (5,1): "MODERADO", (5,2): "MODERADO", (5,3): "SUBSTANCIAL", (5,4): "INTOLERÁVEL", (5,5): "INTOLERÁVEL"
 }
 
+acoes_requeridas = {
+    "TRIVIAL": "Manter controles existentes; monitoramento periódico.",
+    "TOLERÁVEL": "Manter controles. Considerar melhorias.",
+    "MODERADO": "Implantar controles. EPI e monitoramento PCMSO.",
+    "SUBSTANCIAL": "Trabalho não deve iniciar sem redução do risco.",
+    "INTOLERÁVEL": "TRABALHO PROIBIDO. Risco grave e iminente."
+}
+
 texto_sev = {1: "1-LEVE", 2: "2-BAIXA", 3: "3-MODERADA", 4: "4-ALTA", 5: "5-EXTREMA"}
 
 dicionario_cas = {
-    "108-88-3": {"agente": "Tolueno", "nr15_lt": "78 ppm ou 290 mg/m³", "nr09_acao": "39 ppm", "nr07_ibe": "o-Cresol", "dec_3048": "25 anos", "esocial_24": "01.19.036"},
-    "1330-20-7": {"agente": "Xileno", "nr15_lt": "78 ppm ou 340 mg/m³", "nr09_acao": "39 ppm", "nr07_ibe": "Ác. Metilhipúricos", "dec_3048": "25 anos", "esocial_24": "01.19.036"},
-    "71-43-2": {"agente": "Benzeno", "nr15_lt": "VRT-MPT (Cancerígeno)", "nr09_acao": "Qualitativo", "nr07_ibe": "Ácido trans,trans-mucônico", "dec_3048": "25 anos", "esocial_24": "01.01.006"},
-    "67-64-1": {"agente": "Acetona", "nr15_lt": "780 ppm ou 1870 mg/m³", "nr09_acao": "390 ppm", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "64-17-5": {"agente": "Etanol (Álcool Etílico)", "nr15_lt": "780 ppm ou 1480 mg/m³", "nr09_acao": "390 ppm", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "78-93-3": {"agente": "Metiletilcetona (MEK)", "nr15_lt": "155 ppm ou 460 mg/m³", "nr09_acao": "77.5 ppm", "nr07_ibe": "MEK na Urina", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "110-54-3": {"agente": "n-Hexano", "nr15_lt": "50 ppm ou 176 mg/m³", "nr09_acao": "25 ppm", "nr07_ibe": "2,5-Hexanodiona", "dec_3048": "25 anos", "esocial_24": "01.19.014"},
-    "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "RX OIT / Espirometria", "dec_3048": "25 anos", "esocial_24": "01.18.001"},
-    "1332-21-4": {"agente": "Asbesto / Amianto", "nr15_lt": "0,1 f/cm³", "nr09_acao": "0,05 f/cm³", "nr07_ibe": "RX OIT / Espirometria", "dec_3048": "20 anos", "esocial_24": "01.02.001"},
-    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos", "esocial_24": "01.08.001"},
-    "65997-15-1": {"agente": "Cimento Portland", "nr15_lt": "10 mg/m³ (Poeira)", "nr09_acao": "5 mg/m³", "nr07_ibe": "RX OIT e Espirometria", "dec_3048": "Não Enquadrado", "esocial_24": "01.18.001"},
-    "1317-65-3": {"agente": "Carbonato de Cálcio", "nr15_lt": "10 mg/m³ (Poeira)", "nr09_acao": "5 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "1305-78-8": {"agente": "Óxido de Cálcio", "nr15_lt": "2 mg/m³", "nr09_acao": "1 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "12168-85-3": {"agente": "Silicato Tricálcico", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "RX OIT", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "10034-77-2": {"agente": "Silicato Dicálcico", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "RX OIT", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "12042-78-3": {"agente": "Aluminato de Cálcio", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "RX OIT", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "1309-48-4": {"agente": "Óxido de Magnésio", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "RX OIT", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "68334-30-5": {"agente": "Óleo Diesel", "nr15_lt": "Qualitativo", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Avaliar Hidrocarbonetos", "esocial_24": "01.01.026"},
-    "112-80-1": {"agente": "Ácido Oleico", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "52-51-7": {"agente": "Bronopol", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "12068-35-8": {"agente": "Silicato (Misto)", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "Aval. Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
+    "108-88-3": {"agente": "Tolueno", "nr15_lt": "78 ppm ou 290 mg/m³", "nr09_acao": "39 ppm ou 145 mg/m³", "nr07_ibe": "o-Cresol ou Ácido Hipúrico", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
+    "1330-20-7": {"agente": "Xileno", "nr15_lt": "78 ppm ou 340 mg/m³", "nr09_acao": "39 ppm ou 170 mg/m³", "nr07_ibe": "Ácidos Metilhipúricos", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
+    "71-43-2": {"agente": "Benzeno", "nr15_lt": "VRT-MPT (Cancerígeno)", "nr09_acao": "Avaliação Qualitativa", "nr07_ibe": "Ácido trans,trans-mucônico", "dec_3048": "25 anos (Linha 1.0.3)", "esocial_24": "01.01.006"},
+    "67-64-1": {"agente": "Acetona", "nr15_lt": "780 ppm ou 1870 mg/m³", "nr09_acao": "390 ppm ou 935 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "64-17-5": {"agente": "Etanol (Álcool Etílico)", "nr15_lt": "780 ppm ou 1480 mg/m³", "nr09_acao": "390 ppm ou 740 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "78-93-3": {"agente": "Metiletilcetona (MEK)", "nr15_lt": "155 ppm ou 460 mg/m³", "nr09_acao": "77.5 ppm ou 230 mg/m³", "nr07_ibe": "MEK na Urina", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "110-54-3": {"agente": "n-Hexano", "nr15_lt": "50 ppm ou 176 mg/m³", "nr09_acao": "25 ppm ou 88 mg/m³", "nr07_ibe": "2,5-Hexanodiona", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.014"},
+    "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "25 anos (Linha 1.0.18)", "esocial_24": "01.18.001"},
+    "1332-21-4": {"agente": "Asbesto / Amianto", "nr15_lt": "0,1 f/cm³", "nr09_acao": "0,05 f/cm³", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "20 anos (Linha 1.0.2)", "esocial_24": "01.02.001"},
+    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"}
 }
 
 dicionario_campo = {
-    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"},
-    "Físico: Vibração de Mãos e Braços (VMB)": {"agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica e Osteomuscular", "dec_3048": "25 anos", "esocial_24": "02.01.002", "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"},
-    "Físico: Vibração de Corpo Inteiro (VCI)": {"agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica e Osteomuscular", "dec_3048": "25 anos", "esocial_24": "02.01.003", "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"},
-    "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.005", "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"},
-    "Biológico: Lixo Urbano": {"agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.007", "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"},
-    "Biológico: Estab. Saúde": {"agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.001", "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"},
+    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos (Linha 2.0.1)", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"},
+    "Físico: Vibração de Mãos e Braços (VMB)": {"agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.002", "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"},
+    "Físico: Vibração de Corpo Inteiro (VCI)": {"agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.003", "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"},
+    "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.005", "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"},
+    "Biológico: Lixo Urbano": {"agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.007", "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"},
+    "Biológico: Estab. Saúde": {"agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.001", "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"},
     "Ergonômico: Postura Inadequada": {"agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"},
     "Ergonômico: Levantamento/Transporte de Peso": {"agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"},
     "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"},
@@ -123,211 +161,493 @@ dicionario_campo = {
 }
 
 # ==========================================
-# 3. MOTOR HÍBRIDO DA IA EM CASCATA
+# DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
 # ==========================================
-def chamar_api_gemini(prompt, pdf_b64=None):
-    if not CHAVE_API: return None
-    parts = [{"text": prompt}]
-    if pdf_b64: parts.append({"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}})
-        
-    payload = {"contents": [{"parts": parts}], "generationConfig": {"temperature": 0.0}}
-    
-    for modelo in ["gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-1.5-flash"]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key={CHAVE_API}"
-        try:
-            resp = requests.post(url, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
-            if resp.status_code == 200:
-                return resp.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-        except: continue
-    return None
+matriz_risco_exame = {
+    "TOLUENO": {"exame": "Ortocresol na Urina", "periodico": "6 MESES"},
+    "RUÍDO": {"exame": "Audiometria", "periodico": "12 MESES"},
+    "SÍLICA": {"exame": "Raio-X de Tórax (OIT) + Espirometria", "periodico": "12 a 24 MESES"},
+    "VIBRAÇÃO": {"exame": "Avaliação Clínica e Osteomuscular", "periodico": "12 MESES"},
+    "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"},
+    "BIOLÓGIC": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "SANGUE": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "VÍRUS": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "BACTÉRIA": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
+    "QUÍMIC": {"exame": "Hemograma Completo / Avaliação Hepática", "periodico": "12 MESES"}
+}
 
-def buscar_cas_na_ia(lista_cas):
-    if not lista_cas: return {}
-    cas_str = ", ".join(lista_cas)
-    prompt = f"Atue como Higienista Ocupacional Brasileiro. Identifique limites legais para CAS: {cas_str}. Retorne EXATAMENTE UM JSON, onde a chave é o CAS. Exemplo: {{\"{lista_cas[0]}\": {{\"agente\": \"Nome\", \"nr15_lt\": \"Limite\", \"nr09_acao\": \"Ação\", \"nr07_ibe\": \"Exame\", \"dec_3048\": \"Tempo\", \"esocial_24\": \"Codigo\"}}}}"
+matriz_funcao_exame = {
+    "TRABALHO EM ALTURA": [
+        {"exame": "Hemograma", "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
+        {"exame": "Audiometria", "periodicidade": "12 MESES"},
+        {"exame": "ECG", "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+        {"exame": "Avaliação Psicossocial", "periodicidade": "12 MESES"}
+    ],
+    "ENCANADOR": [
+        {"exame": "Exame Clínico", "periodicidade": "6 MESES"},
+        {"exame": "Audiometria", "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+        {"exame": "ECG", "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
+        {"exame": "Hemograma", "periodicidade": "12 MESES"},
+        {"exame": "Espirometria", "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT", "periodicidade": "12 MESES"}
+    ],
+    "ADMINISTRATIVO": [
+        {"exame": "Exame Clínico", "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"}
+    ],
+    "RECEPCIONISTA": [
+        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
+    ],
+    "GESTOR": [
+        {"exame": "Exame Clínico", "periodicidade": "12 MESES"}
+    ],
+    "BIOMÉDICO": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
+    ],
+    "LABORATÓRIO": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
+    ],
+    "ENFERMAGEM": [
+        {"exame": "HBsAg", "periodicidade": "12 MESES"},
+        {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
+        {"exame": "Anti-HCV", "periodicidade": "12 MESES"}
+    ]
+}
+
+# ==========================================
+# FUNÇÕES DE INTELIGÊNCIA E PROCESSAMENTO
+# ==========================================
+def buscar_nomes_faltantes_ia(texto_fispq, cas_faltantes):
+    if not cas_faltantes:
+        return {}
     
-    resposta = chamar_api_gemini(prompt)
-    if resposta:
-        try: return json.loads(resposta.replace('```json', '').replace('```', '').strip())
-        except: pass
+    prompt = f"""
+    Você é um Higienista Ocupacional. Leia o texto desta FISPQ/FDS.
+    Sua missão é procurar a 'Seção 3' ou a composição do produto e identificar o NOME QUÍMICO correspondente a estes números CAS exatos: {', '.join(cas_faltantes)}.
+    
+    Retorne APENAS um objeto JSON onde a chave é o número CAS e o valor é o nome do produto químico.
+    Exemplo: {{"1317-65-3": "Carbonato de Cálcio", "1305-78-8": "Óxido de Cálcio"}}
+    
+    Texto da FISPQ:
+    {texto_fispq[:15000]}
+    """
+    
+    try:
+        url_google = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
+        }
+        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+        
+        if resposta.status_code == 200:
+            resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+            return json.loads(resultado_texto)
+    except Exception as e:
+        pass
     return {}
 
-# ==========================================
-# 4. GERADOR DE HTML (RELATÓRIO)
-# ==========================================
-def gerar_html_anexo(df_pgr_list, df_med_list):
-    df_pgr = pd.DataFrame(df_pgr_list)
-    df_med = pd.DataFrame(df_med_list)
-    
-    html = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><style>body{font-family:Arial;font-size:10pt;} .header{background-color:#0f4c23;color:#FFF;padding:15px;text-align:center;font-weight:bold;} table{width:100%;border-collapse:collapse;margin-bottom:20px;} th{background-color:#1a803b;color:#FFF;padding:8px;border:1px solid #000;} td{padding:5px;border:1px solid #000;}</style></head><body>"
-    html += "<div class='header'>INVENTÁRIO DE RISCOS E ENQUADRAMENTO LEGAL</div>"
-    
-    ghes = set()
-    if not df_pgr.empty: ghes.update(df_pgr['GHE'].unique())
-    if not df_med.empty: ghes.update(df_med['GHE'].unique())
-    
-    for ghe in sorted(list(ghes)):
-        html += f"<h3 style='color:#0f4c23; border-bottom: 2px solid #0f4c23;'>GHE: {ghe}</h3>"
+def processar_pcmso(dados_pgr_json):
+    tabela_pcmso = []
+    for ghe in dados_pgr_json:
+        nome_ghe = ghe.get("ghe", "Sem GHE")
+        cargos = ghe.get("cargos", [])
+        riscos = ghe.get("riscos_mapeados", [])
         
-        p_ghe = df_pgr[df_pgr['GHE'] == ghe] if not df_pgr.empty else pd.DataFrame()
-        if not p_ghe.empty:
-            html += "<h4>Inventário de Perigos (NR-01)</h4><table><tr><th>Origem</th><th>Perigo</th><th>Sev</th><th>Prob</th><th>Risco</th><th>EPI</th></tr>"
-            for _, r in p_ghe.iterrows(): html += f"<tr><td>{r['Arquivo Origem']}</td><td>{r['Código']} {r['Desc']}</td><td>{r['Sev']}</td><td>{r['Prob']}</td><td>{r['Risco']}</td><td>{r['EPI']}</td></tr>"
-            html += "</table>"
+        for cargo in cargos:
+            exames_do_cargo = [{"exame": "Exame Clínico (Anamnese/Físico)", "periodicidade": "12 MESES", "motivo": "NR-07 Básico"}]
+            cargo_upper = cargo.upper()
             
-        m_ghe = df_med[df_med['GHE'] == ghe] if not df_med.empty else pd.DataFrame()
-        if not m_ghe.empty:
-            html += "<h4>Enquadramento (NR-15 / eSocial)</h4><table><tr><th>CAS</th><th>Agente</th><th>NR-15</th><th>NR-09</th><th>Exame</th><th>Dec 3048</th><th>eSocial</th></tr>"
-            for _, r in m_ghe.iterrows(): html += f"<tr><td>{r['CAS']}</td><td>{r['Agente']}</td><td>{r['NR15']}</td><td>{r['NR09']}</td><td>{r['NR07']}</td><td>{r['Dec3048']}</td><td>{r['eSocial']}</td></tr>"
-            html += "</table>"
+            for funcao_chave, exames in matriz_funcao_exame.items():
+                if funcao_chave in cargo_upper:
+                    exames_do_cargo.extend(exames)
             
-    return html + "</body></html>"
+            for risco in riscos:
+                agente = risco.get("nome_agente", "").upper()
+                perigo = risco.get("perigo_especifico", "").upper()
+                texto_risco_completo = agente + " " + perigo
+                
+                for agente_chave, regra in matriz_risco_exame.items():
+                    if agente_chave in texto_risco_completo:
+                        exames_do_cargo.append({
+                            "exame": regra["exame"],
+                            "periodicidade": regra["periodico"],
+                            "motivo": f"Exposição a {agente_chave}"
+                        })
+                
+                if "ALTURA" in texto_risco_completo:
+                     exames_do_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
+            
+            exames_unicos = {v['exame']:v for v in exames_do_cargo}.values()
+            
+            for ex in exames_unicos:
+                tabela_pcmso.append({
+                    "GHE / Setor": nome_ghe,
+                    "Cargo": cargo,
+                    "Exame Clínico/Complementar": ex["exame"],
+                    "Periodicidade": ex["periodicidade"],
+                    "Justificativa Legal / Risco": ex.get("motivo", f"Protocolo Função")
+                })
+                
+    return pd.DataFrame(tabela_pcmso)
 
 # ==========================================
-# 5. ESTRUTURA SAAS - MENU LATERAL
+# GERADORES DE HTML (FORMATADOS PARA MICROSOFT WORD)
 # ==========================================
-if os.path.exists("logo.png"): st.sidebar.image("logo.png", use_container_width=True)
-elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", use_container_width=True)
-
-st.sidebar.markdown("### 🧭 Navegação")
-menu = st.sidebar.radio("", ["📊 Dashboard Inicial", "⚙️ Extrator FISPQ", "📂 Central de Arquivos"])
-st.sidebar.markdown("---")
-st.sidebar.info("Motor Híbrido Ativado.\nIA em Cascata Operante.")
-
-# ==========================================
-# TELA 1: DASHBOARD
-# ==========================================
-if "Dashboard" in menu:
-    st.title("📊 Painel de Controle SST")
-    st.markdown("Bem-vindo ao sistema de automação.")
+def gerar_html_anexo(resultados_pgr, resultados_medicos):
+    html_content = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8">
+    <style>
+      body { font-family: 'Arial', sans-serif; font-size: 10pt; color: #000; }
+      .anexo-header { background-color: #084D22; color: #FFF; padding: 14px 20px; font-size: 13pt; font-weight: bold; margin-bottom: 20px; text-align: center; }
+      .funcao-card { border: 1px solid #084D22; margin-bottom: 20px; }
+      .funcao-card-header { background-color: #084D22; padding: 10px; font-weight: bold; color: #FFF; font-size: 10pt; }
+      .funcao-mini-table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 8px 0; }
+      .funcao-mini-table th { background-color: #0F823B; color: #FFF; padding: 8px; text-align: left; border: 1px solid #000; }
+      .funcao-mini-table td { padding: 5px; border: 1px solid #000; }
+      h4 { color: #084D22; margin: 15px 0 5px 0; font-size: 10pt; }
+    </style></head><body>
+    <div class='anexo-header'>ANEXO I - INVENTÁRIO DE RISCOS E ENQUADRAMENTO PREVIDENCIÁRIO</div>
+    """
+    df_pgr = pd.DataFrame(resultados_pgr)
+    df_med = pd.DataFrame(resultados_medicos)
+    ghes = set(df_pgr['GHE'].unique().tolist() + df_med['GHE'].unique().tolist() if not df_med.empty else [])
     
-    col1, col2, col3 = st.columns(3)
-    conn = sqlite3.connect('seconci_banco_dados.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='historico_laudos'")
-    total_laudos = pd.read_sql_query("SELECT COUNT(*) FROM historico_laudos", conn).iloc[0,0] if cursor.fetchone()[0] == 1 else 0
-    conn.close()
-    
-    col1.metric("Projetos Processados", f"{total_laudos}")
-    col2.metric("Motor IA", "Online / Seguro")
-    col3.metric("Banco Local", f"{len(dicionario_cas)} Substâncias")
+    for ghe in sorted(ghes):
+        html_content += f"<div class='funcao-card'><div class='funcao-card-header'>GHE: {ghe}</div><div>"
+        
+        pgr_ghe = df_pgr[df_pgr['GHE'] == ghe] if not df_pgr.empty else pd.DataFrame()
+        if not pgr_ghe.empty:
+            html_content += "<h4>Inventário de Risco (NR-01)</h4><table class='funcao-mini-table'><thead><tr><th>Origem / FISPQ / FDS</th><th>Perigo Identificado</th><th>Sev.</th><th>Prob.</th><th>Nível de Risco</th><th>EPI Recomendado (NR-06)</th></tr></thead><tbody>"
+            for _, row in pgr_ghe.iterrows():
+                html_content += f"<tr><td>{row['Arquivo Origem']}</td><td>{row['Código GHS']} {row['Perigo Identificado']}</td><td>{row['Severidade']}</td><td>{row['Probabilidade']}</td><td>{row['NÍVEL DE RISCO']}</td><td>{row['EPI (NR-06)']}</td></tr>"
+            html_content += "</tbody></table>"
+            
+        med_ghe = df_med[df_med['GHE'] == ghe] if not df_med.empty else pd.DataFrame()
+        if not med_ghe.empty:
+            html_content += "<h4>Diretrizes Médicas e Previdenciárias</h4><table class='funcao-mini-table'><thead><tr><th>Cód / CAS</th><th>Agente</th><th>Lim. Tol. (NR-15)</th><th>Nível Ação (NR-09)</th><th>Exame/IBE (NR-07)</th><th>Dec 3048</th><th>eSocial</th></tr></thead><tbody>"
+            for _, row in med_ghe.iterrows():
+                html_content += f"<tr><td>{row['Nº CAS']}</td><td>{row['Agente Químico']}</td><td>{row['Lim. Tolerância (NR-15)']}</td><td>{row['Nível de Ação (NR-09)']}</td><td>{row['IBE (NR-07)']}</td><td>{row['Dec 3048']}</td><td>{row['eSocial']}</td></tr>"
+            html_content += "</tbody></table>"
+            
+        html_content += "</div></div>"
+    html_content += "</body></html>"
+    return html_content
+
+def gerar_html_pcmso(df_pcmso):
+    html = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8">
+    <style>
+      body { font-family: 'Arial', sans-serif; color: #000000; }
+      .header { background-color: #084D22; color: #FFFFFF; padding: 14px; text-align: center; font-weight: bold; font-size: 16px; margin-bottom: 20px;}
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+      th { background-color: #1AA04B; color: #FFFFFF; padding: 12px 8px; text-align: left; border: 1px solid #000000; }
+      td { border: 1px solid #000000; padding: 10px 8px; }
+    </style></head><body>
+    <div class='header'>MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
+    <table><tr><th>GHE / Setor</th><th>Cargo</th><th>Exame Clínico / Complementar</th><th>Periodicidade</th><th>Justificativa / Agente</th></tr>
+    """
+    for _, row in df_pcmso.iterrows():
+        html += f"<tr><td><strong>{row['GHE / Setor']}</strong></td><td>{row['Cargo']}</td><td>{row['Exame Clínico/Complementar']}</td><td>{row['Periodicidade']}</td><td>{row['Justificativa Legal / Risco']}</td></tr>"
+    html += "</table></body></html>"
+    return html
 
 # ==========================================
-# TELA 2: EXTRATOR FISPQ (MOTOR SEGURO)
+# CORPO PRINCIPAL
 # ==========================================
-elif "Extrator" in menu:
-    st.title("⚙️ Extrator Dinâmico de FISPQ")
+st.title("Sistema Integrado SST - Seconci GO 🚀")
+
+if historico_selecionado:
+    st.markdown("### 🗄️ Visualizando Relatório do Histórico")
+    aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar em Word (.doc)"])
+    with aba_preview: components.html(historico_selecionado, height=700, scrolling=True)
+    with aba_download: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
+
+# ==========================================
+# MÓDULO 1: ENGENHARIA (FISPQS / FDS -> PGR)
+# ==========================================
+elif "1️⃣" in modulo_selecionado:
+    st.header("Módulo de Engenharia: Extrator de FISPQs / FDS (com IA Integrada)")
+    st.info("A IA foi ativada neste módulo. Caso uma substância química (CAS) não esteja no banco de dados, o motor visual lerá o nome químico diretamente da FDS.")
     
-    arquivos_up = st.file_uploader("Arraste as FISPQs aqui (PDF)", type=["pdf"], accept_multiple_files=True)
-    ghe_opcoes = ["GHE 01 - Produção"]
+    arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
+    textos_pdfs = {}
     df_editado = pd.DataFrame()
-    
-    if arquivos_up:
-        nomes_arq = [a.name for a in arquivos_up]
-        df_editado = st.data_editor(
-            pd.DataFrame([{"GHE": "GHE 01 - Produção", "Arquivo": n, "Probabilidade": 3} for n in nomes_arq]), 
-            use_container_width=True,
-            column_config={"Arquivo": st.column_config.SelectboxColumn(options=nomes_arq)}
-        )
-        ghe_opcoes = df_editado["GHE"].unique().tolist()
+    ghe_opcoes = ["Nenhum GHE definido"]
 
-    st.markdown("### 2. Riscos Adicionais (Avaliação de Campo)")
-    agentes_campo = list(dicionario_campo.keys())
-    df_fis_bio = st.data_editor(
-        pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_campo[0], "Probabilidade": 3}]), 
-        use_container_width=True, num_rows="dynamic",
-        column_config={"Agente": st.column_config.SelectboxColumn(options=agentes_campo)}
+    if arquivos_fispq:
+        with st.spinner("Lendo o conteúdo dos PDFs..."):
+            for arquivo in arquivos_fispq:
+                with pdfplumber.open(arquivo) as pdf:
+                    texto = "\n".join([p.extract_text() or "" for p in pdf.pages])
+                    textos_pdfs[arquivo.name] = texto
+
+        st.markdown("### 2️⃣ Definição de GHEs Químicos")
+        nomes_arquivos = [arq.name for arq in arquivos_fispq]
+        dados_iniciais = [{"GHE": "GHE 01 - Digite a Função", "Arquivo FISPQ/FDS": nome, "Probabilidade": 3} for nome in nomes_arquivos]
+        df_mapeamento = pd.DataFrame(dados_iniciais)
+        
+        df_editado = st.data_editor(
+            df_mapeamento, num_rows="dynamic",
+            column_config={
+                "GHE": st.column_config.TextColumn("Nome do GHE", required=True),
+                "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo (FISPQ/FDS)", options=nomes_arquivos, required=True),
+                "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
+            }, width="stretch"
+        )
+        ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
+
+    st.markdown("### 3️⃣ Avaliações de Campo: Físicos, Biológicos, Ergonômicos e Acidentes")
+    agentes_opcoes = list(dicionario_campo.keys())
+    df_fis_bio_inicial = pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_opcoes[0], "Probabilidade": 3}])
+
+    df_fis_bio_editado = st.data_editor(
+        df_fis_bio_inicial, num_rows="dynamic",
+        column_config={
+            "GHE": st.column_config.SelectboxColumn("GHE de Destino", options=ghe_opcoes, required=True),
+            "Agente": st.column_config.SelectboxColumn("Agente / Fator de Risco", options=agentes_opcoes, required=True),
+            "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
+        }, width="stretch"
     )
 
-    if st.button("🚀 Iniciar Análise e Cruzamento", type="primary", use_container_width=True):
-        res_pgr, res_med = [], []
-        my_bar = st.progress(0, text="Processando...")
-        
-        if arquivos_up and not df_editado.empty:
-            for index, row in df_editado.iterrows():
-                nome_ghe, arq_nome, prob = row["GHE"], row["Arquivo"], int(row["Probabilidade"])
-                my_bar.progress((index + 1) / (len(df_editado) + 1), text=f"Analisando: {arq_nome}...")
-                
-                arq_obj = next((f for f in arquivos_up if f.name == arq_nome), None)
-                if arq_obj:
-                    pdf_bytes = arq_obj.getvalue()
-                    texto_pdf = ""
-                    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                        for page in pdf.pages: texto_pdf += (page.extract_text() or "") + "\n"
-                    
-                    cas_encontrados = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_pdf)))
-                    h_encontrados = list(set(re.findall(r'H\d{3}', texto_pdf)))
-                    
-                    if not cas_encontrados and not h_encontrados and CHAVE_API:
-                        pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                        txt_visao = chamar_api_gemini("Leia o PDF e liste CAS e códigos GHS. Responda: CAS: X\nH: Y", pdf_b64) or ""
-                        cas_encontrados = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', txt_visao)))
-                        h_encontrados = list(set(re.findall(r'H\d{3}', txt_visao)))
+    if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
+        with st.spinner("Consolidando avaliações químicas com IA..."):
+            resultados_pgr, resultados_medicos = [], []
+            
+            if not df_editado.empty:
+                for index, row in df_editado.iterrows():
+                    nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ/FDS"], int(row["Probabilidade"])
+                    if nome_arq in textos_pdfs:
+                        texto_completo = textos_pdfs[nome_arq]
+                        
+                        cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
+                        
+                        cas_desconhecidos = [c for c in cas_encontrados_linha if c not in dicionario_cas]
+                        nomes_dinamicos_ia = buscar_nomes_faltantes_ia(texto_completo, cas_desconhecidos)
+                        
+                        for cas in cas_encontrados_linha:
+                            if cas in dicionario_cas:
+                                dados_med = dicionario_cas[cas]
+                            else:
+                                nome_agente_ia = nomes_dinamicos_ia.get(cas, "Produto Químico (Avaliar FDS)")
+                                dados_med = {
+                                    "agente": nome_agente_ia,
+                                    "nr15_lt": "Avaliar Anexo 11/12",
+                                    "nr09_acao": "Avaliar NR-09", 
+                                    "nr07_ibe": "Avaliar NR-07", 
+                                    "dec_3048": "Avaliar Anexo IV", 
+                                    "esocial_24": "Avaliar Tabela 24"
+                                }
+                                
+                            resultados_medicos.append({
+                                "GHE": nome_ghe, "Arquivo Origem": nome_arq, "Nº CAS": cas,
+                                "Agente Químico": dados_med["agente"], "Lim. Tolerância (NR-15)": dados_med["nr15_lt"],
+                                "Nível de Ação (NR-09)": dados_med["nr09_acao"], "IBE (NR-07)": dados_med.get("nr07_ibe", "N/A"),
+                                "Dec 3048": dados_med.get("dec_3048", "Não Enquadrado"), "eSocial": dados_med.get("esocial_24", "09.01.001")
+                            })
+                            
+                        h_encontradas_linha = list(set(re.findall(r'H\d{3}', texto_completo)))
+                        for codigo in h_encontradas_linha:
+                            if codigo in dicionario_h:
+                                dados_h = dicionario_h[codigo]
+                                nivel_risco = matriz_oficial.get((dados_h["sev"], v_prob), "N/A")
+                                resultados_pgr.append({
+                                    "GHE": nome_ghe, "Arquivo Origem": nome_arq, "Código GHS": codigo,
+                                    "Perigo Identificado": dados_h["desc"], "Severidade": texto_sev.get(dados_h["sev"], str(dados_h["sev"])),
+                                    "Probabilidade": str(v_prob), "NÍVEL DE RISCO": nivel_risco,
+                                    "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_h["epi"]
+                                })
 
-                    cas_desc = [c for c in cas_encontrados if c not in dicionario_cas]
-                    ia_dados = buscar_cas_na_ia(cas_desc) if cas_desc else {}
-                    
-                    for cas in cas_encontrados:
-                        c_limpo = cas.strip()
-                        d = dicionario_cas.get(c_limpo, ia_dados.get(c_limpo, {"agente": f"Não Mapeado ({c_limpo})", "nr15_lt": "Avaliar NR-15", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Aval. Clínica", "dec_3048": "Verificar", "esocial_24": "09.01.001"}))
-                        res_med.append({"GHE": nome_ghe, "Arquivo Origem": arq_nome, "CAS": c_limpo, "Agente": d["agente"], "NR15": d["nr15_lt"], "NR09": d["nr09_acao"], "NR07": d["nr07_ibe"], "Dec3048": d["dec_3048"], "eSocial": d["esocial_24"]})
-                    
-                    for h in h_encontrados:
-                        if h in dicionario_h:
-                            dh = dicionario_h[h]
-                            res_pgr.append({"GHE": nome_ghe, "Arquivo Origem": arq_nome, "Código": h, "Desc": dh["desc"], "Sev": texto_sev.get(dh["sev"], str(dh["sev"])), "Prob": str(prob), "Risco": matriz_oficial.get((dh["sev"], prob), "MODERADO"), "EPI": dh["epi"]})
+            if not df_fis_bio_editado.empty and df_fis_bio_editado["GHE"].iloc[0] != "Nenhum GHE definido":
+                for index, row in df_fis_bio_editado.iterrows():
+                    nome_ghe, nome_agente, v_prob = row["GHE"], row["Agente"], int(row["Probabilidade"])
+                    if nome_agente in dicionario_campo:
+                        dados_fis = dicionario_campo[nome_agente]
+                        resultados_medicos.append({
+                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Nº CAS": "-",
+                            "Agente Químico": dados_fis["agente"], "Lim. Tolerância (NR-15)": dados_fis["nr15_lt"],
+                            "Nível de Ação (NR-09)": dados_fis["nr09_acao"], "IBE (NR-07)": dados_fis["nr07_ibe"],
+                            "Dec 3048": dados_fis["dec_3048"], "eSocial": dados_fis["esocial_24"]
+                        })
+                        nivel_risco = matriz_oficial.get((dados_fis["sev"], v_prob), "N/A")
+                        resultados_pgr.append({
+                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Código GHS": "-",
+                            "Perigo Identificado": dados_fis["perigo"], "Severidade": texto_sev.get(dados_fis["sev"], str(dados_fis["sev"])),
+                            "Probabilidade": str(v_prob), "NÍVEL DE RISCO": nivel_risco,
+                            "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_fis["epi"]
+                        })
 
-        if not df_fis_bio.empty:
-            for _, r in df_fis_bio.iterrows():
-                if r["Agente"] in dicionario_campo:
-                    dfc = dicionario_campo[r["Agente"]]
-                    res_med.append({"GHE": r["GHE"], "Arquivo Origem": "Campo", "CAS": "-", "Agente": dfc["agente"], "NR15": dfc["nr15_lt"], "NR09": dfc["nr09_acao"], "NR07": dfc["nr07_ibe"], "Dec3048": dfc["dec_3048"], "eSocial": dfc["esocial_24"]})
-                    res_pgr.append({"GHE": r["GHE"], "Arquivo Origem": "Campo", "Código": "-", "Desc": dfc["perigo"], "Sev": texto_sev.get(dfc["sev"], str(dfc["sev"])), "Prob": str(r["Probabilidade"]), "Risco": matriz_oficial.get((dfc["sev"], int(r["Probabilidade"])), "MODERADO"), "EPI": dfc["epi"]})
+            if resultados_pgr or resultados_medicos:
+                html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
+                st.session_state['ultimo_html_eng'] = html_final
+                st.success("✅ Relatório Consolidado Gerado com Inteligência Artificial!")
 
-        my_bar.progress(100, text="Processamento finalizado!")
-        
-        if res_pgr or res_med:
-            st.session_state['html_pgr'] = gerar_html_anexo(res_pgr, res_med)
-            st.success("✅ Matriz gerada com sucesso!")
-        else:
-            st.warning("⚠️ Nenhum agente químico (CAS) ou perigo (Código H) foi identificado nos PDFs enviados.")
-
-    if 'html_pgr' in st.session_state:
-        st.markdown("### 📄 Resultado")
-        col_name, col_btn = st.columns([3, 1])
-        with col_name: projeto = st.text_input("Nome do Projeto para Salvar:")
-        with col_btn:
-            st.write("")
-            if st.button("💾 Salvar no Banco", use_container_width=True) and projeto:
+    if 'ultimo_html_eng' in st.session_state:
+        col1, col2 = st.columns([3, 1])
+        with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:")
+        with col2:
+            st.write(""); st.write("")
+            if st.button("Gravar no Banco de Dados", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
                 conn = sqlite3.connect('seconci_banco_dados.db')
                 c = conn.cursor()
-                c.execute("INSERT INTO historico_laudos (nome_projeto, modulo, data_salvamento, html_relatorio) VALUES (?, ?, ?, ?)", (projeto, "PGR", datetime.now().strftime("%d/%m/%Y"), st.session_state['html_pgr']))
-                conn.commit(); conn.close()
-                st.toast("Projeto Salvo!", icon="✅")
+                c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
+                          (nome_projeto_eng + " (PGR)", datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html_eng']))
+                conn.commit()
+                conn.close()
+                st.success("Salvo com sucesso!")
 
-        aba1, aba2 = st.tabs(["👁️ Pré-visualizar Documento", "⬇️ Exportar (.doc)"])
-        with aba1: components.html(st.session_state['html_pgr'], height=600, scrolling=True)
-        with aba2: st.download_button("Baixar Word", st.session_state['html_pgr'].encode('utf-8'), "PGR_Automatizado.doc", use_container_width=True)
+        aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
+        with aba_preview: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
+        with aba_download: st.download_button("Baixar Relatório", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
 
 # ==========================================
-# TELA 3: CENTRAL DE ARQUIVOS
+# MÓDULO 2: MEDICINA (PGR -> PCMSO)
 # ==========================================
-elif "Central" in menu:
-    st.title("📂 Central de Relatórios Salvos")
-    conn = sqlite3.connect('seconci_banco_dados.db')
+elif "2️⃣" in modulo_selecionado:
+    st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
+    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A IA fará a leitura visual e o cruzamento com as matrizes da NR-07 (Laboratorial e Construção).")
     
-    cursor = conn.cursor()
-    cursor.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='historico_laudos'")
-    if cursor.fetchone()[0] == 1:
-        df_hist = pd.read_sql_query("SELECT id, nome_projeto, modulo, data_salvamento FROM historico_laudos ORDER BY id DESC", conn)
-        if not df_hist.empty:
-            st.dataframe(df_hist, use_container_width=True, hide_index=True)
-            selecao_id = st.selectbox("Selecione o ID do projeto para carregar:", df_hist['id'].tolist())
-            if st.button("Carregar Documento", use_container_width=True):
-                html_salvo = conn.cursor().execute("SELECT html_relatorio FROM historico_laudos WHERE id = ?", (selecao_id,)).fetchone()[0]
-                st.components.v1.html(html_salvo, height=600, scrolling=True)
-        else:
-            st.info("Nenhum projeto salvo no banco de dados ainda.")
-    else:
-        st.info("Nenhum projeto salvo no banco de dados ainda.")
-    conn.close()
+    with st.container():
+        arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
+        
+        if arquivo_pgr:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
+                with st.spinner("Motor IA analisando as imagens do documento e cruzando protocolos médicos... Isso pode levar até 1 minuto."):
+                    
+                    pdf_bytes = arquivo_pgr.getvalue()
+                    pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                    
+                    prompt_extracao = """
+                    Você é um médico do trabalho e engenheiro de segurança. Analise este documento PDF (Inventário de Riscos Ocupacionais).
+                    Sua missão é CAÇAR qualquer relação entre Funções/Cargos e Agentes Nocivos (Físicos, Químicos, Biológicos).
+                    
+                    CRÍTICO: Para cada risco encontrado, tente classificar o "nome_agente" de forma clara (ex: "Risco Biológico", "Vírus e Bactérias", "Produtos Químicos", "Ruído").
+                    
+                    Se não houver a palavra "GHE", agrupe pelo nome do "Setor" ou da "Função". NUNCA retorne vazio.
+                    
+                    Retorne EXATAMENTE este formato JSON (uma lista de objetos):
+                    [
+                      {
+                        "ghe": "Nome do Setor, GHE ou Função",
+                        "cargos": ["Nome do Cargo 1", "Nome do Cargo 2"],
+                        "riscos_mapeados": [
+                          {"nome_agente": "Ex: Risco Biológico / Produtos Químicos", "perigo_especifico": "Ex: Exposição a vírus / Manuseio de formol"}
+                        ]
+                      }
+                    ]
+                    """
+                    
+                    try:
+                        url_lista = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
+                        resp_lista = requests.get(url_lista)
+                        
+                        if resp_lista.status_code == 200:
+                            modelos = resp_lista.json().get('models', [])
+                            modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
+                            
+                            modelo_escolhido = None
+                            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash']:
+                                if pref in modelos_texto:
+                                    modelo_escolhido = pref
+                                    break
+                            
+                            if not modelo_escolhido and modelos_texto:
+                                modelo_escolhido = modelos_texto[0]
+                                
+                            url_google = "https://generativelanguage.googleapis.com/v1beta/" + modelo_escolhido + ":generateContent?key=" + CHAVE_API_GOOGLE
+                            payload = {
+                                "contents": [
+                                    {
+                                        "parts": [
+                                            {"text": prompt_extracao},
+                                            {
+                                                "inlineData": {
+                                                    "mimeType": "application/pdf",
+                                                    "data": pdf_b64
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "generationConfig": {
+                                    "temperature": 0.0,
+                                    "responseMimeType": "application/json"
+                                }
+                            }
+                            
+                            resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                            
+                            if resposta.status_code == 200:
+                                resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
+                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
+                                
+                                try:
+                                    json_pgr = json.loads(resultado_texto)
+                                    
+                                    if not json_pgr or len(json_pgr) == 0:
+                                        st.error("⚠️ A IA analisou o documento, mas não conseguiu estruturar as tabelas.")
+                                        with st.expander("🔍 Ver o que a IA devolveu (Modo Raio-X)"):
+                                            st.code(resultado_texto)
+                                    else:
+                                        st.success(f"✅ Protocolos Médicos Cruzados com Sucesso! (Motor: {modelo_escolhido.split('/')[-1]})")
+                                        
+                                        df_pcmso_gerado = processar_pcmso(json_pgr)
+                                        html_final = gerar_html_pcmso(df_pcmso_gerado)
+                                        
+                                        # Salvando na sessão para gravar no banco
+                                        st.session_state['ultimo_html_med'] = html_final
+                                        st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
+                                        
+                                except json.JSONDecodeError:
+                                    st.error("A IA leu o documento, mas quebrou a formatação dos dados.")
+                                    with st.expander("🔍 Ver resposta bruta da IA"):
+                                        st.code(resultado_texto)
+                            else:
+                                 st.error(f"Erro na geração de conteúdo. Detalhes: {resposta.text}")
+                        else:
+                            st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
+                            
+                    except Exception as e:
+                        st.error(f"Falha na comunicação de rede ou processamento: {e}")
+
+        # MOSTRA A INTERFACE SE A IA JÁ TERMINOU DE PROCESSAR (Fora do Spinner)
+        if 'ultimo_html_med' in st.session_state:
+            col1, col2 = st.columns([3, 1])
+            with col1: nome_projeto_med = st.text_input("Nome da Empresa / Projeto:")
+            with col2:
+                st.write(""); st.write("")
+                if st.button("Gravar PCMSO no Banco de Dados", key="btn_salvar_med", width="stretch") and nome_projeto_med:
+                    conn = sqlite3.connect('seconci_banco_dados.db')
+                    c = conn.cursor()
+                    c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
+                              (nome_projeto_med + " (PCMSO)", datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html_med']))
+                    conn.commit()
+                    conn.close()
+                    st.success("PCMSO salvo no Histórico com sucesso!")
+
+            aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
+            
+            with aba_dados:
+                st.dataframe(st.session_state['df_pcmso_gerado'], use_container_width=True)
+                
+            with aba_preview:
+                components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
+                
+            with aba_download:
+                st.info("Clique no botão abaixo para baixar a Matriz PCMSO pronta para o Microsoft Word.")
+                st.download_button(
+                    label="📄 Baixar Matriz PCMSO em Word (.doc)",
+                    data=st.session_state['ultimo_html_med'].encode('utf-8'), 
+                    file_name="PCMSO_Gerado_Seconci.doc", 
+                    mime="application/msword", 
+                    use_container_width=True
+                )
