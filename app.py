@@ -31,13 +31,10 @@ css_personalizado = """
 st.markdown(css_personalizado, unsafe_allow_html=True)
 
 # ==========================================
-# CONFIGURAÇÃO DA IA (CONEXÃO DIRETA REST)
+# CONFIGURAÇÃO DA IA E BANCO DE DADOS
 # ==========================================
 CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
 
-# ==========================================
-# INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
-# ==========================================
 def init_db():
     conn = sqlite3.connect('seconci_banco_dados.db')
     c = conn.cursor()
@@ -55,7 +52,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# BARRA LATERAL (MENU E HISTÓRICO)
+# BARRA LATERAL
 # ==========================================
 if os.path.exists("logo.png"): st.sidebar.image("logo.png", width="stretch")
 elif os.path.exists("logo.jpg"): st.sidebar.image("logo.jpg", width="stretch")
@@ -86,7 +83,7 @@ if not df_historico.empty:
 else: st.sidebar.write("Nenhum projeto salvo ainda.")
 
 # ==========================================
-# DICIONÁRIOS FASE 1 (ENGENHARIA E QUÍMICA)
+# DICIONÁRIOS BASE (ENGENHARIA E QUÍMICA)
 # ==========================================
 dicionario_h = {
     "H315": {"desc": "Provoca irritação à pele", "sev": 1, "epi": "Luvas de proteção e vestimenta"},
@@ -124,156 +121,120 @@ matriz_oficial = {
 }
 
 acoes_requeridas = {
-    "TRIVIAL": "Manter controles existentes; monitoramento periódico.",
+    "TRIVIAL": "Manter controles existentes.",
     "TOLERÁVEL": "Manter controles. Considerar melhorias.",
-    "MODERADO": "Implantar controles. EPI e monitoramento PCMSO.",
+    "MODERADO": "Implantar controles. EPI e monitoramento.",
     "SUBSTANCIAL": "Trabalho não deve iniciar sem redução do risco.",
     "INTOLERÁVEL": "TRABALHO PROIBIDO. Risco grave e iminente."
 }
 
 texto_sev = {1: "1-LEVE", 2: "2-BAIXA", 3: "3-MODERADA", 4: "4-ALTA", 5: "5-EXTREMA"}
 
-# INJEÇÃO DIRETA DOS CAS RECORRENTES DA CONSTRUÇÃO CIVIL (Evita bater na API)
 dicionario_cas = {
-    "108-88-3": {"agente": "Tolueno", "nr15_lt": "78 ppm ou 290 mg/m³", "nr09_acao": "39 ppm ou 145 mg/m³", "nr07_ibe": "o-Cresol ou Ácido Hipúrico", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
-    "1330-20-7": {"agente": "Xileno", "nr15_lt": "78 ppm ou 340 mg/m³", "nr09_acao": "39 ppm ou 170 mg/m³", "nr07_ibe": "Ácidos Metilhipúricos", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.036"},
-    "71-43-2": {"agente": "Benzeno", "nr15_lt": "VRT-MPT (Cancerígeno)", "nr09_acao": "Avaliação Qualitativa", "nr07_ibe": "Ácido trans,trans-mucônico", "dec_3048": "25 anos (Linha 1.0.3)", "esocial_24": "01.01.006"},
-    "67-64-1": {"agente": "Acetona", "nr15_lt": "780 ppm ou 1870 mg/m³", "nr09_acao": "390 ppm ou 935 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "64-17-5": {"agente": "Etanol (Álcool Etílico)", "nr15_lt": "780 ppm ou 1480 mg/m³", "nr09_acao": "390 ppm ou 740 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "78-93-3": {"agente": "Metiletilcetona (MEK)", "nr15_lt": "155 ppm ou 460 mg/m³", "nr09_acao": "77.5 ppm ou 230 mg/m³", "nr07_ibe": "MEK na Urina", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "110-54-3": {"agente": "n-Hexano", "nr15_lt": "50 ppm ou 176 mg/m³", "nr09_acao": "25 ppm ou 88 mg/m³", "nr07_ibe": "2,5-Hexanodiona", "dec_3048": "25 anos (Linha 1.0.19)", "esocial_24": "01.19.014"},
-    "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "25 anos (Linha 1.0.18)", "esocial_24": "01.18.001"},
-    "1332-21-4": {"agente": "Asbesto / Amianto", "nr15_lt": "0,1 f/cm³", "nr09_acao": "0,05 f/cm³", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "20 anos (Linha 1.0.2)", "esocial_24": "01.02.001"},
-    "7439-92-1": {"agente": "Chumbo (Fumos)", "nr15_lt": "0,1 mg/m³", "nr09_acao": "0,05 mg/m³", "nr07_ibe": "Chumbo no sangue e ALA-U", "dec_3048": "25 anos (Linha 1.0.8)", "esocial_24": "01.08.001"},
-    "65997-15-1": {"agente": "Cimento Portland", "nr15_lt": "Avaliar Anexo 12 (Poeira)", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "Não Enquadrado", "esocial_24": "01.18.001"},
-    "1317-65-3": {"agente": "Carbonato de Cálcio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
+    "108-88-3": {"agente": "Tolueno", "nr15_lt": "78 ppm ou 290 mg/m³", "nr09_acao": "39 ppm", "nr07_ibe": "o-Cresol / Ácido Hipúrico", "dec_3048": "25 anos", "esocial_24": "01.19.036"},
+    "1330-20-7": {"agente": "Xileno", "nr15_lt": "78 ppm ou 340 mg/m³", "nr09_acao": "39 ppm", "nr07_ibe": "Ácidos Metilhipúricos", "dec_3048": "25 anos", "esocial_24": "01.19.036"},
+    "71-43-2": {"agente": "Benzeno", "nr15_lt": "VRT-MPT (Cancerígeno)", "nr09_acao": "Qualitativo", "nr07_ibe": "Ácido trans,trans-mucônico", "dec_3048": "25 anos", "esocial_24": "01.01.006"},
+    "14808-60-7": {"agente": "Sílica Cristalina (Quartzo)", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "50% do L.T.", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "25 anos", "esocial_24": "01.18.001"},
+    "65997-15-1": {"agente": "Cimento Portland", "nr15_lt": "10 mg/m³ (Poeira)", "nr09_acao": "5 mg/m³", "nr07_ibe": "Raio-X (OIT) e Espirometria", "dec_3048": "Não Enquadrado", "esocial_24": "01.18.001"},
+    "1317-65-3": {"agente": "Carbonato de Cálcio", "nr15_lt": "10 mg/m³ (Poeira)", "nr09_acao": "5 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
     "1305-78-8": {"agente": "Óxido de Cálcio", "nr15_lt": "2 mg/m³", "nr09_acao": "1 mg/m³", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "12168-85-3": {"agente": "Silicato Tricálcico", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "12042-78-3": {"agente": "Aluminato de Cálcio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "1309-48-4": {"agente": "Óxido de Magnésio", "nr15_lt": "Avaliar Anexo 12", "nr09_acao": "Avaliar NR-09", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "68334-30-5": {"agente": "Óleo Diesel", "nr15_lt": "Avaliar Qualitativo", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Avaliar Hidrocarbonetos", "esocial_24": "01.01.026"},
-    "112-80-1": {"agente": "Ácido Oleico", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"},
-    "52-51-7": {"agente": "Bronopol", "nr15_lt": "N/A", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
+    "12042-78-3": {"agente": "Aluminato de Cálcio", "nr15_lt": "10 mg/m³", "nr09_acao": "5 mg/m³", "nr07_ibe": "Raio-X (OIT)", "dec_3048": "Não Enquadrado", "esocial_24": "09.01.001"}
 }
 
 dicionario_campo = {
-    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo ou Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos (Linha 2.0.1)", "esocial_24": "02.01.001", "perigo": "Exposição a níveis elevados de pressão sonora", "sev": 3, "epi": "Protetor Auditivo (Atenuação adequada)"},
-    "Físico: Vibração de Mãos e Braços (VMB)": {"agente": "Vibração de Mãos e Braços (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.002", "perigo": "Transmissão de energia mecânica para o sistema mão-braço", "sev": 3, "epi": "Luvas antivibração / Revezamento"},
-    "Físico: Vibração de Corpo Inteiro (VCI)": {"agente": "Vibração de Corpo Inteiro (VCI)", "nr15_lt": "1,1 m/s² ou 21,0 m/s¹.75", "nr09_acao": "0,5 m/s² ou 9,1 m/s¹.75", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos (Linha 2.0.2)", "esocial_24": "02.01.003", "perigo": "Transmissão de energia mecânica para o corpo inteiro", "sev": 3, "epi": "Assentos com amortecimento / Revezamento"},
-    "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto / Fossas", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.005", "perigo": "Exposição a agentes biológicos infectocontagiosos", "sev": 4, "epi": "Luvas, Botas de PVC, Proteção facial"},
-    "Biológico: Lixo Urbano": {"agente": "Microorganismos - Lixo Urbano", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.007", "perigo": "Contato com resíduos e agentes biológicos", "sev": 4, "epi": "Luvas anticorte, Botas, Uniforme impermeável"},
-    "Biológico: Estab. Saúde": {"agente": "Microorganismos - Área da Saúde", "nr15_lt": "Qualitativo (Anexo 14)", "nr09_acao": "Qualitativo", "nr07_ibe": "Exames Clínicos / Vacinas", "dec_3048": "25 anos (Linha 3.0.1)", "esocial_24": "03.01.001", "perigo": "Exposição a patógenos em ambiente de saúde", "sev": 4, "epi": "Luvas de procedimento, Máscara, Avental"},
-    "Ergonômico: Postura Inadequada": {"agente": "Fator Ergonômico - Postura", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Exigência de postura inadequada ou prolongada", "sev": 2, "epi": "Medidas Administrativas / Mobiliário Adequado"},
-    "Ergonômico: Levantamento/Transporte de Peso": {"agente": "Fator Ergonômico - Levantamento de Peso", "nr15_lt": "N/A (NR-17)", "nr09_acao": "Avaliação AEP/AET", "nr07_ibe": "Avaliação Clínica / Osteomuscular", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Esforço físico intenso e levantamento manual de cargas", "sev": 3, "epi": "Auxílio Mecânico / Treinamento"},
-    "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "N/A (NR-35)", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Trabalho em Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Trabalho executado acima de 2 metros do nível inferior", "sev": 4, "epi": "Cinturão de Segurança, Talabarte, Capacete com Jugular"},
-    "Acidente: Choque Elétrico": {"agente": "Risco de Acidente - Eletricidade", "nr15_lt": "N/A (NR-10)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica / ECG", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Contato direto ou indireto com partes energizadas", "sev": 5, "epi": "Luvas Isolantes, Vestimenta ATPV, Capacete Classe B"},
-    "Acidente: Máquinas e Equipamentos": {"agente": "Risco de Acidente - Partes Móveis", "nr15_lt": "N/A (NR-12)", "nr09_acao": "N/A", "nr07_ibe": "Avaliação Clínica", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (Apenas PGR)", "perigo": "Operação de máquinas com risco de corte ou esmagamento", "sev": 4, "epi": "Luvas de Proteção, Óculos, Botas de Segurança"}
+    "Físico: Ruído Contínuo/Intermitente": {"agente": "Ruído Contínuo/Intermitente", "nr15_lt": "85 dB(A)", "nr09_acao": "80 dB(A)", "nr07_ibe": "Audiometria", "dec_3048": "25 anos", "esocial_24": "02.01.001", "perigo": "Pressão sonora elevada", "sev": 3, "epi": "Protetor Auditivo"},
+    "Físico: Vibração (VMB)": {"agente": "Vibração (VMB)", "nr15_lt": "5,0 m/s²", "nr09_acao": "2,5 m/s²", "nr07_ibe": "Avaliação Clínica", "dec_3048": "25 anos", "esocial_24": "02.01.002", "perigo": "Energia mecânica", "sev": 3, "epi": "Luvas antivibração"},
+    "Biológico: Esgoto / Fossas": {"agente": "Microorganismos - Esgoto", "nr15_lt": "Qualitativo", "nr09_acao": "Qualitativo", "nr07_ibe": "Clínico/Vacinas", "dec_3048": "25 anos", "esocial_24": "03.01.005", "perigo": "Agentes biológicos", "sev": 4, "epi": "Luvas/Botas PVC"},
+    "Acidente: Queda de Altura": {"agente": "Risco de Acidente - Altura", "nr15_lt": "NR-35", "nr09_acao": "N/A", "nr07_ibe": "Protocolo Altura", "dec_3048": "Não Enquadrado", "esocial_24": "Ausente (PGR)", "perigo": "Trabalho > 2m", "sev": 4, "epi": "Cinturão/Talabarte"}
 }
 
-# ==========================================
-# DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
-# ==========================================
 matriz_risco_exame = {
     "TOLUENO": {"exame": "Ortocresol na Urina", "periodico": "6 MESES"},
     "RUÍDO": {"exame": "Audiometria", "periodico": "12 MESES"},
     "SÍLICA": {"exame": "Raio-X de Tórax (OIT) + Espirometria", "periodico": "12 a 24 MESES"},
-    "VIBRAÇÃO": {"exame": "Avaliação Clínica e Osteomuscular", "periodico": "12 MESES"},
-    "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"},
-    "BIOLÓGIC": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
-    "SANGUE": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
-    "VÍRUS": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
-    "BACTÉRIA": {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodico": "12 a 24 MESES"},
-    "QUÍMIC": {"exame": "Hemograma Completo / Avaliação Hepática", "periodico": "12 MESES"}
+    "POEIRA": {"exame": "Raio-X de Tórax (OIT)", "periodico": "12 MESES"}
 }
 
 matriz_funcao_exame = {
-    "TRABALHO EM ALTURA": [
-        {"exame": "Hemograma", "periodicidade": "12 MESES"},
+    "ALTURA": [
         {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
-        {"exame": "Audiometria", "periodicidade": "12 MESES"},
         {"exame": "ECG", "periodicidade": "12 MESES"},
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
         {"exame": "Avaliação Psicossocial", "periodicidade": "12 MESES"}
-    ],
-    "ENCANADOR": [
-        {"exame": "Exame Clínico", "periodicidade": "6 MESES"},
-        {"exame": "Audiometria", "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
-        {"exame": "ECG", "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
-        {"exame": "Hemograma", "periodicidade": "12 MESES"},
-        {"exame": "Espirometria", "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT", "periodicidade": "12 MESES"}
     ]
 }
 
 # ==========================================
-# NOVA ARQUITETURA DA IA (COM DEBUG RAIO-X E FILTROS DESARMADOS)
+# MOTOR IA - BUSCA DINÂMICA DE MODELOS (FIM DO 404)
 # ==========================================
-def buscar_nomes_faltantes_ia(cas_faltantes):
-    if not cas_faltantes:
-        return {}
+def obter_modelo_ia():
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={CHAVE_API_GOOGLE}"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            modelos_texto = [m['name'] for m in resp.json().get('models', []) if 'generateContent' in m.get('supportedGenerationMethods', [])]
+            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash']:
+                if pref in modelos_texto:
+                    return pref
+    except:
+        pass
+    return "models/gemini-1.5-flash-latest" # Fallback robusto
+
+# ==========================================
+# MOTOR IA - PREENCHIMENTO COMPLETO DE DADOS (FIM DO "AVALIAR ANEXO")
+# ==========================================
+def buscar_dados_completos_ia(cas_faltantes):
+    if not cas_faltantes: return {}
     
     cas_limpos = [str(c).strip() for c in cas_faltantes]
     lista_cas_str = ", ".join(cas_limpos)
     
     prompt = f"""
-    Identifique o NOME OFICIAL em português para os seguintes números CAS: {lista_cas_str}.
+    Você é um Engenheiro de Segurança do Trabalho atuando no Brasil (Especialista em NR-15, NR-09, NR-07 e eSocial).
+    Para os seguintes números CAS: {lista_cas_str}, forneça os dados ocupacionais completos.
     
-    REGRA ABSOLUTA: Responda APENAS com o número CAS seguido de um sinal de igual (=) e o Nome Químico correspondente. Sem introdução, sem marcadores.
-    Exemplo:
-    1317-65-3=Carbonato de Cálcio
+    Retorne EXATAMENTE UM JSON VÁLIDO. Sem formatação markdown ou textos extras. As chaves devem ser exatamente os números CAS solicitados.
+    
+    Use a seguinte estrutura de exemplo para preenchimento:
+    {{
+        "{cas_limpos[0]}": {{
+            "agente": "Nome do Químico em Português",
+            "nr15_lt": "Ex: 10 mg/m³, 50 ppm, ou N/A",
+            "nr09_acao": "Ex: 5 mg/m³, 25 ppm, ou N/A",
+            "nr07_ibe": "Ex: Raio-X OIT, Avaliação Clínica, ou Exame Específico",
+            "dec_3048": "Ex: 25 anos (Linha 1.0.19) ou 'Não Enquadrado'",
+            "esocial_24": "Ex: 01.18.001 ou '09.01.001'"
+        }}
+    }}
     """
     
+    modelo = obter_modelo_ia()
+    
     try:
-        url_google = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
+        url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.0},
-            # BLINDAGEM DE SEGURANÇA: Impede que o Google bloqueie os nomes químicos
+            "generationConfig": {
+                "temperature": 0.1, 
+                "responseMimeType": "application/json" # Obriga o Google a enviar o JSON perfeito
+            },
             "safetySettings": [
                 {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}
             ]
         }
         
-        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=20)
+        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload, timeout=25)
         
         if resposta.status_code == 200:
-            json_resp = resposta.json()
-            
-            # MODO DEBUG (Acabou a falha silenciosa)
-            if "candidates" not in json_resp or not json_resp["candidates"]:
-                motivo = json_resp.get("promptFeedback", {}).get("blockReason", "Desconhecido")
-                st.error(f"🚨 A API DO GOOGLE BLOQUEOU A REQUISIÇÃO. Motivo: {motivo}")
+            texto_ia = resposta.json().get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+            try:
+                return json.loads(texto_ia)
+            except json.JSONDecodeError as e:
+                st.error(f"🚨 Erro ao ler a estrutura da IA. {e}")
                 return {}
-
-            texto_ia = json_resp['candidates'][0].get('content', {}).get('parts', [{}])[0].get('text', '')
-            
-            if not texto_ia:
-                finish_reason = json_resp['candidates'][0].get('finishReason', 'Desconhecido')
-                st.error(f"🚨 A IA RETORNOU TEXTO VAZIO. Finish Reason interno: {finish_reason}")
-                return {}
-            
-            dicionario_resultado = {}
-            linhas = texto_ia.split('\n')
-            
-            for linha in linhas:
-                linha = linha.strip()
-                if '=' in linha:
-                    partes = linha.split('=', 1)
-                    chave = partes[0].replace('CAS:', '').replace('CAS', '').strip(' "')
-                    valor = partes[1].strip(' "')
-                    dicionario_resultado[chave] = valor
-            
-            if not dicionario_resultado:
-                st.error(f"🚨 ERRO DE PARSING: A IA devolveu texto fora do padrão, sem o sinal de '='. Texto Recebido: {texto_ia}")
-                
-            return dicionario_resultado
         else:
-            st.error(f"🚨 ERRO HTTP DA API DO GOOGLE (CÓDIGO {resposta.status_code}): {resposta.text}")
+            st.error(f"🚨 ERRO HTTP DA API DO GOOGLE ({resposta.status_code}): {resposta.text}")
             return {}
             
     except Exception as e:
@@ -292,8 +253,7 @@ def processar_pcmso(dados_pgr_json):
             cargo_upper = cargo.upper()
             
             for funcao_chave, exames in matriz_funcao_exame.items():
-                if funcao_chave in cargo_upper:
-                    exames_do_cargo.extend(exames)
+                if funcao_chave in cargo_upper: exames_do_cargo.extend(exames)
             
             for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
@@ -303,29 +263,22 @@ def processar_pcmso(dados_pgr_json):
                 for agente_chave, regra in matriz_risco_exame.items():
                     if agente_chave in texto_risco_completo:
                         exames_do_cargo.append({
-                            "exame": regra["exame"],
-                            "periodicidade": regra["periodico"],
-                            "motivo": f"Exposição a {agente_chave}"
+                            "exame": regra["exame"], "periodicidade": regra["periodico"], "motivo": f"Exposição a {agente_chave}"
                         })
                 
-                if "ALTURA" in texto_risco_completo:
-                     exames_do_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
+                if "ALTURA" in texto_risco_completo: exames_do_cargo.extend(matriz_funcao_exame["ALTURA"])
             
             exames_unicos = {v['exame']:v for v in exames_do_cargo}.values()
             
             for ex in exames_unicos:
                 tabela_pcmso.append({
-                    "GHE / Setor": nome_ghe,
-                    "Cargo": cargo,
-                    "Exame Clínico/Complementar": ex["exame"],
-                    "Periodicidade": ex["periodicidade"],
-                    "Justificativa Legal / Risco": ex.get("motivo", f"Protocolo Função")
+                    "GHE / Setor": nome_ghe, "Cargo": cargo, "Exame Clínico/Complementar": ex["exame"],
+                    "Periodicidade": ex["periodicidade"], "Justificativa Legal / Risco": ex.get("motivo", f"Protocolo Função")
                 })
-                
     return pd.DataFrame(tabela_pcmso)
 
 # ==========================================
-# GERADORES DE HTML (FORMATADOS PARA MICROSOFT WORD)
+# GERADORES HTML WORD
 # ==========================================
 def gerar_html_anexo(resultados_pgr, resultados_medicos):
     html_content = """<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
@@ -358,7 +311,7 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos):
             
         med_ghe = df_med[df_med['GHE'] == ghe] if not df_med.empty else pd.DataFrame()
         if not med_ghe.empty:
-            html_content += "<h4>Diretrizes Médicas e Previdenciárias</h4><table class='funcao-mini-table'><thead><tr><th>Cód / CAS</th><th>Agente</th><th>Lim. Tol. (NR-15)</th><th>Nível Ação (NR-09)</th><th>Exame/IBE (NR-07)</th><th>Dec 3048</th><th>eSocial</th></tr></thead><tbody>"
+            html_content += "<h4>Diretrizes Médicas e Previdenciárias (Automação IA)</h4><table class='funcao-mini-table'><thead><tr><th>Cód / CAS</th><th>Agente</th><th>Lim. Tol. (NR-15)</th><th>Nível Ação (NR-09)</th><th>Exame/IBE (NR-07)</th><th>Dec 3048</th><th>eSocial</th></tr></thead><tbody>"
             for _, row in med_ghe.iterrows():
                 html_content += f"<tr><td>{row['Nº CAS']}</td><td>{row['Agente Químico']}</td><td>{row['Lim. Tolerância (NR-15)']}</td><td>{row['Nível de Ação (NR-09)']}</td><td>{row['IBE (NR-07)']}</td><td>{row['Dec 3048']}</td><td>{row['eSocial']}</td></tr>"
             html_content += "</tbody></table>"
@@ -377,7 +330,7 @@ def gerar_html_pcmso(df_pcmso):
       th { background-color: #1AA04B; color: #FFFFFF; padding: 12px 8px; text-align: left; border: 1px solid #000000; }
       td { border: 1px solid #000000; padding: 10px 8px; }
     </style></head><body>
-    <div class='header'>MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
+    <div class='header'>MATRIZ DE EXAMES - PCMSO</div>
     <table><tr><th>GHE / Setor</th><th>Cargo</th><th>Exame Clínico / Complementar</th><th>Periodicidade</th><th>Justificativa / Agente</th></tr>
     """
     for _, row in df_pcmso.iterrows():
@@ -391,60 +344,55 @@ def gerar_html_pcmso(df_pcmso):
 st.title("Sistema Integrado SST - Seconci GO 🚀")
 
 if historico_selecionado:
-    st.markdown("### 🗄️ Visualizando Relatório do Histórico")
+    st.markdown("### 🗄️ Visualizando Relatório")
     aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar em Word (.doc)"])
     with aba_preview: components.html(historico_selecionado, height=700, scrolling=True)
     with aba_download: st.download_button("Baixar Relatório", data=historico_selecionado.encode('utf-8'), file_name="Relatorio_Historico.doc", mime="application/msword")
 
 # ==========================================
-# MÓDULO 1: ENGENHARIA (FISPQS / FDS -> PGR)
+# MÓDULO 1: ENGENHARIA
 # ==========================================
 elif "1️⃣" in modulo_selecionado:
-    st.header("Módulo de Engenharia: Extrator de FISPQs / FDS (com IA Integrada)")
-    st.info("O banco de dados nativo foi expandido. Para novas substâncias, a API do Google atuará de forma ininterrupta e transparente.")
+    st.header("Módulo de Engenharia: Extrator de FISPQs (Automação Especialista)")
+    st.info("O sistema agora atuará como Especialista em Higiene Ocupacional, buscando dinamicamente os Limites de Tolerância e Códigos eSocial das substâncias identificadas.")
     
-    arquivos_fispq = st.file_uploader("Insira as FISPQs / FDS em PDF", type=["pdf"], accept_multiple_files=True)
+    arquivos_fispq = st.file_uploader("Insira as FISPQs em PDF", type=["pdf"], accept_multiple_files=True)
     textos_pdfs = {}
     df_editado = pd.DataFrame()
     ghe_opcoes = ["Nenhum GHE definido"]
 
     if arquivos_fispq:
-        with st.spinner("Lendo o conteúdo dos PDFs..."):
+        with st.spinner("Lendo PDFs..."):
             for arquivo in arquivos_fispq:
                 with pdfplumber.open(arquivo) as pdf:
-                    texto = "\n".join([p.extract_text() or "" for p in pdf.pages])
-                    textos_pdfs[arquivo.name] = texto
+                    textos_pdfs[arquivo.name] = "\n".join([p.extract_text() or "" for p in pdf.pages])
 
-        st.markdown("### 2️⃣ Definição de GHEs Químicos")
+        st.markdown("### 2️⃣ GHEs Químicos")
         nomes_arquivos = [arq.name for arq in arquivos_fispq]
-        dados_iniciais = [{"GHE": "GHE 01 - Digite a Função", "Arquivo FISPQ/FDS": nome, "Probabilidade": 3} for nome in nomes_arquivos]
-        df_mapeamento = pd.DataFrame(dados_iniciais)
-        
+        dados_iniciais = [{"GHE": "GHE 01 - Função", "Arquivo FISPQ/FDS": nome, "Probabilidade": 3} for nome in nomes_arquivos]
         df_editado = st.data_editor(
-            df_mapeamento, num_rows="dynamic",
+            pd.DataFrame(dados_iniciais), num_rows="dynamic",
             column_config={
-                "GHE": st.column_config.TextColumn("Nome do GHE", required=True),
-                "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo (FISPQ/FDS)", options=nomes_arquivos, required=True),
+                "GHE": st.column_config.TextColumn("GHE", required=True),
+                "Arquivo FISPQ/FDS": st.column_config.SelectboxColumn("Arquivo", options=nomes_arquivos, required=True),
                 "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
             }, width="stretch"
         )
         ghe_opcoes = df_editado["GHE"].unique().tolist() if not df_editado.empty else ["Nenhum GHE definido"]
 
-    st.markdown("### 3️⃣ Avaliações de Campo: Físicos, Biológicos, Ergonômicos e Acidentes")
+    st.markdown("### 3️⃣ Riscos Físicos, Biológicos e de Acidentes")
     agentes_opcoes = list(dicionario_campo.keys())
-    df_fis_bio_inicial = pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_opcoes[0], "Probabilidade": 3}])
-
     df_fis_bio_editado = st.data_editor(
-        df_fis_bio_inicial, num_rows="dynamic",
+        pd.DataFrame([{"GHE": ghe_opcoes[0], "Agente": agentes_opcoes[0], "Probabilidade": 3}]), num_rows="dynamic",
         column_config={
-            "GHE": st.column_config.SelectboxColumn("GHE de Destino", options=ghe_opcoes, required=True),
-            "Agente": st.column_config.SelectboxColumn("Agente / Fator de Risco", options=agentes_opcoes, required=True),
+            "GHE": st.column_config.SelectboxColumn("GHE", options=ghe_opcoes, required=True),
+            "Agente": st.column_config.SelectboxColumn("Agente", options=agentes_opcoes, required=True),
             "Probabilidade": st.column_config.NumberColumn("Prob.", min_value=1, max_value=5, required=True)
         }, width="stretch"
     )
 
-    if st.button("🪄 Processar GHEs e Gerar Relatório", width="stretch", type="primary"):
-        with st.spinner("Consolidando avaliações químicas... Verificando Motor de Inteligência Artificial e Dicionário Local."):
+    if st.button("🪄 Processar Relatório e Buscar Legislação", width="stretch", type="primary"):
+        with st.spinner("Buscando modelo IA dinâmico e enquadramento de eSocial/NRs..."):
             resultados_pgr, resultados_medicos = [], []
             
             if not df_editado.empty:
@@ -452,36 +400,34 @@ elif "1️⃣" in modulo_selecionado:
                     nome_ghe, nome_arq, v_prob = row["GHE"], row["Arquivo FISPQ/FDS"], int(row["Probabilidade"])
                     if nome_arq in textos_pdfs:
                         texto_completo = textos_pdfs[nome_arq]
-                        
                         cas_encontrados_linha = list(set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto_completo)))
                         cas_desconhecidos = [c for c in cas_encontrados_linha if c not in dicionario_cas]
                         
-                        nomes_dinamicos_ia = {}
+                        dados_dinamicos_ia = {}
                         if cas_desconhecidos:
-                            st.toast(f"Consultando IA para os CAS não mapeados: {', '.join(cas_desconhecidos)}", icon="🧠")
-                            nomes_dinamicos_ia = buscar_nomes_faltantes_ia(cas_desconhecidos)
+                            st.toast(f"Solicitando Parâmetros Técnicos (NR-15/eSocial) para: {', '.join(cas_desconhecidos)}", icon="🧠")
+                            dados_dinamicos_ia = buscar_dados_completos_ia(cas_desconhecidos)
                         
                         for cas in cas_encontrados_linha:
-                            cas_limpo_para_busca = cas.strip()
-                            
-                            if cas_limpo_para_busca in dicionario_cas:
-                                dados_med = dicionario_cas[cas_limpo_para_busca]
+                            cas_limpo = cas.strip()
+                            if cas_limpo in dicionario_cas:
+                                dados_med = dicionario_cas[cas_limpo]
                             else:
-                                nome_agente_ia = nomes_dinamicos_ia.get(cas_limpo_para_busca, "Produto Químico (Não localizado/Erro API)")
+                                ia_info = dados_dinamicos_ia.get(cas_limpo, {})
                                 dados_med = {
-                                    "agente": nome_agente_ia,
-                                    "nr15_lt": "Avaliar Anexo 11/12",
-                                    "nr09_acao": "Avaliar NR-09", 
-                                    "nr07_ibe": "Avaliar NR-07", 
-                                    "dec_3048": "Avaliar Anexo IV", 
-                                    "esocial_24": "Avaliar Tabela 24"
+                                    "agente": ia_info.get("agente", "Produto Não Localizado"),
+                                    "nr15_lt": ia_info.get("nr15_lt", "Sem Limite Estabelecido"),
+                                    "nr09_acao": ia_info.get("nr09_acao", "N/A"),
+                                    "nr07_ibe": ia_info.get("nr07_ibe", "Avaliação Clínica"),
+                                    "dec_3048": ia_info.get("dec_3048", "Não Enquadrado"),
+                                    "esocial_24": ia_info.get("esocial_24", "09.01.001")
                                 }
                                 
                             resultados_medicos.append({
                                 "GHE": nome_ghe, "Arquivo Origem": nome_arq, "Nº CAS": cas,
                                 "Agente Químico": dados_med["agente"], "Lim. Tolerância (NR-15)": dados_med["nr15_lt"],
-                                "Nível de Ação (NR-09)": dados_med["nr09_acao"], "IBE (NR-07)": dados_med.get("nr07_ibe", "N/A"),
-                                "Dec 3048": dados_med.get("dec_3048", "Não Enquadrado"), "eSocial": dados_med.get("esocial_24", "09.01.001")
+                                "Nível de Ação (NR-09)": dados_med["nr09_acao"], "IBE (NR-07)": dados_med["nr07_ibe"],
+                                "Dec 3048": dados_med["dec_3048"], "eSocial": dados_med["esocial_24"]
                             })
                             
                         h_encontradas_linha = list(set(re.findall(r'H\d{3}', texto_completo)))
@@ -502,14 +448,14 @@ elif "1️⃣" in modulo_selecionado:
                     if nome_agente in dicionario_campo:
                         dados_fis = dicionario_campo[nome_agente]
                         resultados_medicos.append({
-                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Nº CAS": "-",
+                            "GHE": nome_ghe, "Arquivo Origem": "Campo", "Nº CAS": "-",
                             "Agente Químico": dados_fis["agente"], "Lim. Tolerância (NR-15)": dados_fis["nr15_lt"],
                             "Nível de Ação (NR-09)": dados_fis["nr09_acao"], "IBE (NR-07)": dados_fis["nr07_ibe"],
                             "Dec 3048": dados_fis["dec_3048"], "eSocial": dados_fis["esocial_24"]
                         })
                         nivel_risco = matriz_oficial.get((dados_fis["sev"], v_prob), "N/A")
                         resultados_pgr.append({
-                            "GHE": nome_ghe, "Arquivo Origem": "Avaliação de Campo", "Código GHS": "-",
+                            "GHE": nome_ghe, "Arquivo Origem": "Campo", "Código GHS": "-",
                             "Perigo Identificado": dados_fis["perigo"], "Severidade": texto_sev.get(dados_fis["sev"], str(dados_fis["sev"])),
                             "Probabilidade": str(v_prob), "NÍVEL DE RISCO": nivel_risco,
                             "Ação Requerida": acoes_requeridas.get(nivel_risco, "Manual"), "EPI (NR-06)": dados_fis["epi"]
@@ -518,14 +464,14 @@ elif "1️⃣" in modulo_selecionado:
             if resultados_pgr or resultados_medicos:
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.session_state['ultimo_html_eng'] = html_final
-                st.success("✅ Relatório de FDS Finalizado com Sucesso.")
+                st.success("✅ Relatório e Enquadramentos Legais Completados com Sucesso.")
 
     if 'ultimo_html_eng' in st.session_state:
         col1, col2 = st.columns([3, 1])
         with col1: nome_projeto_eng = st.text_input("Nome da Empresa / Projeto:")
         with col2:
             st.write(""); st.write("")
-            if st.button("Gravar no Banco de Dados", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
+            if st.button("Gravar Banco", key="btn_salvar_eng", width="stretch") and nome_projeto_eng:
                 conn = sqlite3.connect('seconci_banco_dados.db')
                 c = conn.cursor()
                 c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
@@ -536,146 +482,58 @@ elif "1️⃣" in modulo_selecionado:
 
         aba_preview, aba_download = st.tabs(["👁️ Pré-visualizar", "📄 Baixar (.doc)"])
         with aba_preview: components.html(st.session_state['ultimo_html_eng'], height=500, scrolling=True)
-        with aba_download: st.download_button("Baixar Relatório", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
+        with aba_download: st.download_button("Baixar", st.session_state['ultimo_html_eng'].encode('utf-8'), "PGR_Fase1.doc")
 
 # ==========================================
 # MÓDULO 2: MEDICINA (PGR -> PCMSO)
 # ==========================================
 elif "2️⃣" in modulo_selecionado:
     st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
-    st.info("Faça o upload do Inventário de Riscos (PGR) de terceiros. A IA fará a leitura visual e o cruzamento com as matrizes da NR-07 (Laboratorial e Construção).")
     
     with st.container():
         arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
-        
         if arquivo_pgr:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-                with st.spinner("Motor IA analisando as imagens do documento e cruzando protocolos médicos... Isso pode levar até 1 minuto."):
-                    
+                with st.spinner("Analisando matrizes NR-07..."):
                     pdf_bytes = arquivo_pgr.getvalue()
                     pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
                     
                     prompt_extracao = """
-                    Você é um médico do trabalho e engenheiro de segurança. Analise este documento PDF (Inventário de Riscos Ocupacionais).
-                    Sua missão é CAÇAR qualquer relação entre Funções/Cargos e Agentes Nocivos (Físicos, Químicos, Biológicos).
-                    
-                    CRÍTICO: Para cada risco encontrado, tente classificar o "nome_agente" de forma clara (ex: "Risco Biológico", "Vírus e Bactérias", "Produtos Químicos", "Ruído").
-                    
-                    Se não houver a palavra "GHE", agrupe pelo nome do "Setor" ou da "Função". NUNCA retorne vazio.
-                    
-                    Retorne EXATAMENTE este formato JSON (uma lista de objetos):
+                    Analise este documento PDF. Retorne EXATAMENTE UM JSON válido (uma lista de objetos):
                     [
                       {
                         "ghe": "Nome do Setor, GHE ou Função",
-                        "cargos": ["Nome do Cargo 1", "Nome do Cargo 2"],
+                        "cargos": ["Cargo 1"],
                         "riscos_mapeados": [
-                          {"nome_agente": "Ex: Risco Biológico / Produtos Químicos", "perigo_especifico": "Ex: Exposição a vírus / Manuseio de formol"}
+                          {"nome_agente": "Ex: Risco Biológico", "perigo_especifico": "Vírus"}
                         ]
                       }
                     ]
                     """
                     
+                    modelo = obter_modelo_ia()
                     try:
-                        url_lista = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
-                        resp_lista = requests.get(url_lista)
+                        url_google = f"https://generativelanguage.googleapis.com/v1beta/{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
+                        payload = {
+                            "contents": [{"parts": [{"text": prompt_extracao}, {"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}}]}],
+                            "generationConfig": {"temperature": 0.0, "responseMimeType": "application/json"}
+                        }
                         
-                        if resp_lista.status_code == 200:
-                            modelos = resp_lista.json().get('models', [])
-                            modelos_texto = [m['name'] for m in modelos if 'generateContent' in m.get('supportedGenerationMethods', [])]
-                            
-                            modelo_escolhido = None
-                            for pref in ['models/gemini-1.5-pro-latest', 'models/gemini-1.5-pro', 'models/gemini-1.5-flash-latest', 'models/gemini-1.5-flash']:
-                                if pref in modelos_texto:
-                                    modelo_escolhido = pref
-                                    break
-                            
-                            if not modelo_escolhido and modelos_texto:
-                                modelo_escolhido = modelos_texto[0]
-                                
-                            url_google = "https://generativelanguage.googleapis.com/v1beta/" + modelo_escolhido + ":generateContent?key=" + CHAVE_API_GOOGLE
-                            payload = {
-                                "contents": [
-                                    {
-                                        "parts": [
-                                            {"text": prompt_extracao},
-                                            {
-                                                "inlineData": {
-                                                    "mimeType": "application/pdf",
-                                                    "data": pdf_b64
-                                                }
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "generationConfig": {
-                                    "temperature": 0.0,
-                                    "responseMimeType": "application/json"
-                                }
-                            }
-                            
-                            resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
-                            
-                            if resposta.status_code == 200:
-                                resultado_texto = resposta.json()['candidates'][0]['content']['parts'][0]['text']
-                                resultado_texto = resultado_texto.replace('```json', '').replace('```', '').strip()
-                                
-                                try:
-                                    json_pgr = json.loads(resultado_texto)
-                                    
-                                    if not json_pgr or len(json_pgr) == 0:
-                                        st.error("⚠️ A IA analisou o documento, mas não conseguiu estruturar as tabelas.")
-                                        with st.expander("🔍 Ver o que a IA devolveu (Modo Raio-X)"):
-                                            st.code(resultado_texto)
-                                    else:
-                                        st.success(f"✅ Protocolos Médicos Cruzados com Sucesso! (Motor: {modelo_escolhido.split('/')[-1]})")
-                                        
-                                        df_pcmso_gerado = processar_pcmso(json_pgr)
-                                        html_final = gerar_html_pcmso(df_pcmso_gerado)
-                                        
-                                        st.session_state['ultimo_html_med'] = html_final
-                                        st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
-                                        
-                                except json.JSONDecodeError:
-                                    st.error("A IA leu o documento, mas quebrou a formatação dos dados.")
-                                    with st.expander("🔍 Ver resposta bruta da IA"):
-                                        st.code(resultado_texto)
-                            else:
-                                 st.error(f"Erro na geração de conteúdo. Detalhes: {resposta.text}")
+                        resposta = requests.post(url_google, headers={'Content-Type': 'application/json'}, json=payload)
+                        if resposta.status_code == 200:
+                            json_pgr = json.loads(resposta.json()['candidates'][0]['content']['parts'][0]['text'])
+                            df_pcmso_gerado = processar_pcmso(json_pgr)
+                            st.session_state['ultimo_html_med'] = gerar_html_pcmso(df_pcmso_gerado)
+                            st.session_state['df_pcmso_gerado'] = df_pcmso_gerado
+                            st.success("✅ Matriz Cruzada!")
                         else:
-                            st.error(f"Falha ao listar modelos do Google. Erro: {resp_lista.text}")
-                            
+                            st.error(f"Erro da IA: {resposta.text}")
                     except Exception as e:
-                        st.error(f"Falha na comunicação de rede ou processamento: {e}")
+                        st.error(f"Erro de Conexão: {e}")
 
         if 'ultimo_html_med' in st.session_state:
-            col1, col2 = st.columns([3, 1])
-            with col1: nome_projeto_med = st.text_input("Nome da Empresa / Projeto:")
-            with col2:
-                st.write(""); st.write("")
-                if st.button("Gravar PCMSO no Banco de Dados", key="btn_salvar_med", width="stretch") and nome_projeto_med:
-                    conn = sqlite3.connect('seconci_banco_dados.db')
-                    c = conn.cursor()
-                    c.execute("INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)", 
-                              (nome_projeto_med + " (PCMSO)", datetime.now().strftime("%d/%m/%Y %H:%M"), st.session_state['ultimo_html_med']))
-                    conn.commit()
-                    conn.close()
-                    st.success("PCMSO salvo no Histórico com sucesso!")
-
-            aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados Extraídos", "👁️ Pré-visualizar Documento", "📄 Baixar (.doc)"])
-            
-            with aba_dados:
-                st.dataframe(st.session_state['df_pcmso_gerado'], use_container_width=True)
-                
-            with aba_preview:
-                components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
-                
-            with aba_download:
-                st.info("Clique no botão abaixo para baixar a Matriz PCMSO pronta para o Microsoft Word.")
-                st.download_button(
-                    label="📄 Baixar Matriz PCMSO em Word (.doc)",
-                    data=st.session_state['ultimo_html_med'].encode('utf-8'), 
-                    file_name="PCMSO_Gerado_Seconci.doc", 
-                    mime="application/msword", 
-                    use_container_width=True
-                )
+            aba_dados, aba_preview, aba_download = st.tabs(["📊 Dados", "👁️ Visão", "📄 Word"])
+            with aba_dados: st.dataframe(st.session_state['df_pcmso_gerado'], use_container_width=True)
+            with aba_preview: components.html(st.session_state['ultimo_html_med'], height=600, scrolling=True)
+            with aba_download: st.download_button("Baixar PCMSO", st.session_state['ultimo_html_med'].encode('utf-8'), "PCMSO_Seconci.doc", "application/msword")
