@@ -879,8 +879,7 @@ def salvar_dicionario_dinamico(cas, dados):
 def buscar_dados_completos_ia(cas, texto_fispq):
     """
     MOTOR CASCATA — Camada 3 (versão corrigida):
-    Prompt expandido com contexto para solventes petrolíferos,
-    cancerígenos e misturas complexas.
+    Usa gemini-2.5-flash como modelo principal com fallback automático.
     """
     prompt = f"""
 Você é um Higienista Ocupacional sênior, especialista em legislação brasileira
@@ -915,58 +914,82 @@ Retorne APENAS um objeto JSON puro (sem markdown, sem texto extra) com estes cam
 Texto da FISPQ (Seções 1, 2 e 3):
 {texto_fispq[:15000]}
 """
-    try:
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            "gemini-2.0-flash:generateContent?key=" + CHAVE_API_GOOGLE
-        )
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.0,
-                "responseMimeType": "application/json",
-                "maxOutputTokens": 1024,
-            },
-        }
-        resposta = requests.post(
-            url,
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=45,
-        )
+    # Modelos em ordem de preferência — mesmo padrão do Módulo 2
+    MODELOS_CASCATA = [
+        "models/gemini-2.5-flash",
+        "models/gemini-2.5-pro",
+        "models/gemini-2.5-flash-lite",
+        "models/gemini-2.0-flash-001",
+        "models/gemini-2.0-flash",
+        "models/gemini-flash-latest",
+    ]
 
-        if resposta.status_code == 200:
-            texto_bruto = (
-                resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
+    for modelo in MODELOS_CASCATA:
+        try:
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/"
+                f"{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
             )
-            texto_limpo = limpar_json_ia(texto_bruto)
-            try:
-                dados = json.loads(texto_limpo)
-            except json.JSONDecodeError:
-                match = re.search(r'\{.*\}', texto_limpo, re.DOTALL)
-                if match:
-                    dados = json.loads(match.group(0))
-                else:
-                    return None
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.0,
+                    "responseMimeType": "application/json",
+                    "maxOutputTokens": 1024,
+                },
+            }
+            resposta = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=45,
+            )
 
-            if dados.get("agente") and dados["agente"] not in [
-                "", "Não identificado", "null", "Desconhecido"
-            ]:
-                # Sinaliza cancerígenos identificados pela IA
-                if dados.get("cancerigenico") is True:
-                    if "Anexo 13-A" not in dados.get("nr15_lt", ""):
-                        dados["nr15_lt"] = (
-                            dados.get("nr15_lt", "") +
-                            " ⚠ Verificar Anexo 13-A (possível cancerígeno)"
-                        )
-                salvar_dicionario_dinamico(cas, dados)
-                return dados
+            # Cota excedida ou modelo não encontrado → tenta o próximo
+            if resposta.status_code in [429, 404]:
+                st.warning(
+                    f"⚠ Modelo `{modelo}` indisponível "
+                    f"(HTTP {resposta.status_code}). Tentando próximo..."
+                )
+                continue
 
-    except requests.exceptions.Timeout:
-        st.warning(f"⏱ Timeout ao consultar IA para CAS {cas}. Será marcado para revisão.")
-    except Exception as e:
-        st.warning(f"⚠ Erro ao consultar IA para CAS {cas}: {e}")
+            if resposta.status_code == 200:
+                texto_bruto = (
+                    resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
+                )
+                texto_limpo = limpar_json_ia(texto_bruto)
 
+                try:
+                    dados = json.loads(texto_limpo)
+                except json.JSONDecodeError:
+                    match = re.search(r'\{.*\}', texto_limpo, re.DOTALL)
+                    if match:
+                        dados = json.loads(match.group(0))
+                    else:
+                        continue  # JSON inválido → tenta próximo modelo
+
+                if dados.get("agente") and dados["agente"] not in [
+                    "", "Não identificado", "null", "Desconhecido"
+                ]:
+                    # Sinaliza cancerígenos identificados pela IA
+                    if dados.get("cancerigenico") is True:
+                        if "Anexo 13-A" not in dados.get("nr15_lt", ""):
+                            dados["nr15_lt"] = (
+                                dados.get("nr15_lt", "") +
+                                " ⚠ Verificar Anexo 13-A (possível cancerígeno)"
+                            )
+                    salvar_dicionario_dinamico(cas, dados)
+                    return dados
+
+        except requests.exceptions.Timeout:
+            st.warning(f"⏱ Timeout no modelo `{modelo}` para CAS {cas}. Tentando próximo...")
+            continue
+        except Exception as e:
+            st.warning(f"⚠ Erro no modelo `{modelo}` para CAS {cas}: {e}")
+            continue
+
+    # Todos os modelos falharam
+    st.warning(f"⚠ Nenhum modelo disponível conseguiu identificar CAS {cas}.")
     return None
 
 
@@ -1632,11 +1655,14 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
                     # ── CORREÇÃO: Lista de modelos atuais (2024/2025) ──────
                     # Ordem de preferência: mais capaz → mais rápido
                     MODELOS_PREFERENCIA = [
-                        "models/gemini-2.0-flash",
-                        "models/gemini-2.0-flash-lite",
-                        "models/gemini-1.5-flash-002",
-                        "models/gemini-1.5-flash-8b",
-                        "models/gemini-1.5-pro-002",
+                         "models/gemini-2.5-pro",          # mais capaz — ideal para PDFs complexos
+    "models/gemini-2.5-flash",         # rápido e atual — melhor custo-benefício
+    "models/gemini-2.5-flash-lite",    # leve, bom para documentos simples
+    "models/gemini-2.0-flash-001",     # versão estável 2.0
+    "models/gemini-2.0-flash",         # 2.0 genérico
+    "models/gemini-2.0-flash-lite",    # mais leve do 2.0
+    "models/gemini-flash-latest",      # alias sempre atualizado
+    "models/gemini-pro-latest",        # alias pro sempre atualizado
                     ]
 
                     modelo_escolhido = None
