@@ -918,7 +918,7 @@ Texto da FISPQ (Seções 1, 2 e 3):
     try:
         url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            "gemini-1.5-flash:generateContent?key=" + CHAVE_API_GOOGLE
+            "gemini-2.0-flash:generateContent?key=" + CHAVE_API_GOOGLE
         )
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
