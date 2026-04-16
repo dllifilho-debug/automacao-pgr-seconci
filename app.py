@@ -1628,7 +1628,7 @@ elif "2️⃣" in modulo_selecionado:
     if arquivo_pgr:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-            with st.spinner("Motor IA analisando o documento e cruzando protocolos médicos... Aguarde até 1 minuto."):
+            with st.spinner("Motor IA analisando o documento... Aguarde."):
                 pdf_bytes = arquivo_pgr.getvalue()
                 pdf_b64   = base64.b64encode(pdf_bytes).decode("utf-8")
 
@@ -1651,62 +1651,55 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
   }
 ]
 """
+                # ── Descobre os modelos disponíveis na conta ───────────────
+                modelos_disponiveis = []
                 try:
-                    # ── CORREÇÃO: Lista de modelos atuais (2024/2025) ──────
-                    # Ordem de preferência: mais capaz → mais rápido
-                    MODELOS_PREFERENCIA = [
-                         "models/gemini-2.5-pro",          # mais capaz — ideal para PDFs complexos
-    "models/gemini-2.5-flash",         # rápido e atual — melhor custo-benefício
-    "models/gemini-2.5-flash-lite",    # leve, bom para documentos simples
-    "models/gemini-2.0-flash-001",     # versão estável 2.0
-    "models/gemini-2.0-flash",         # 2.0 genérico
-    "models/gemini-2.0-flash-lite",    # mais leve do 2.0
-    "models/gemini-flash-latest",      # alias sempre atualizado
-    "models/gemini-pro-latest",        # alias pro sempre atualizado
-                    ]
+                    url_lista  = (
+                        "https://generativelanguage.googleapis.com/v1beta/models?key="
+                        + CHAVE_API_GOOGLE
+                    )
+                    resp_lista = requests.get(url_lista, timeout=15)
+                    if resp_lista.status_code == 200:
+                        todos = resp_lista.json().get("models", [])
+                        modelos_disponiveis = [
+                            m["name"] for m in todos
+                            if "generateContent" in m.get("supportedGenerationMethods", [])
+                        ]
+                except Exception as e_lista:
+                    st.warning(f"⚠ Não foi possível listar modelos: {e_lista}")
 
-                    modelo_escolhido = None
+                # ── Ordem de preferência ───────────────────────────────────
+                # Começa pelos mais leves (free tier) → mais pesados (pago)
+                ORDEM_PREFERENCIA = [
+                    "models/gemini-2.0-flash-lite",
+                    "models/gemini-2.0-flash-lite-001",
+                    "models/gemini-flash-lite-latest",
+                    "models/gemini-2.0-flash",
+                    "models/gemini-2.0-flash-001",
+                    "models/gemini-flash-latest",
+                    "models/gemini-2.5-flash-lite",
+                    "models/gemini-2.5-flash",
+                    "models/gemini-2.5-pro",
+                    "models/gemini-pro-latest",
+                ]
 
-                    # Tenta listar os modelos disponíveis na conta
-                    try:
-                        url_lista  = (
-                            "https://generativelanguage.googleapis.com/v1beta/models?key="
-                            + CHAVE_API_GOOGLE
-                        )
-                        resp_lista = requests.get(url_lista, timeout=15)
+                # Filtra apenas os que estão disponíveis na conta
+                candidatos = [m for m in ORDEM_PREFERENCIA if m in modelos_disponiveis]
 
-                        if resp_lista.status_code == 200:
-                            modelos_disponiveis = resp_lista.json().get("models", [])
-                            nomes_disponiveis   = [
-                                m["name"] for m in modelos_disponiveis
-                                if "generateContent" in m.get("supportedGenerationMethods", [])
-                            ]
-                            st.caption(f"🔍 Modelos disponíveis: `{nomes_disponiveis}`")
+                # Se a lista filtrada estiver vazia, tenta todos da preferência
+                if not candidatos:
+                    candidatos = ORDEM_PREFERENCIA
 
-                            # Seleciona o primeiro da lista de preferência que estiver disponível
-                            for pref in MODELOS_PREFERENCIA:
-                                if pref in nomes_disponiveis:
-                                    modelo_escolhido = pref
-                                    break
+                modelo_escolhido = None
+                resposta         = None
 
-                            # Se nenhum da preferência estiver disponível,
-                            # usa o primeiro que suportar generateContent
-                            if not modelo_escolhido and nomes_disponiveis:
-                                modelo_escolhido = nomes_disponiveis[0]
+                # ── Tenta cada modelo até um funcionar ────────────────────
+                for modelo in candidatos:
+                    st.caption(f"🔄 Tentando modelo: `{modelo}`")
 
-                    except Exception as e_lista:
-                        st.warning(f"⚠ Não foi possível listar modelos: {e_lista}")
-
-                    # Fallback hardcoded caso a listagem falhe
-                    if not modelo_escolhido:
-                        modelo_escolhido = "models/gemini-2.0-flash"
-
-                    st.caption(f"🤖 Usando modelo: `{modelo_escolhido}`")
-
-                    # ── Chamada principal com o modelo selecionado ─────────
                     url_google = (
                         f"https://generativelanguage.googleapis.com/v1beta/"
-                        f"{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
+                        f"{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
                     )
                     payload = {
                         "contents": [{
@@ -1720,79 +1713,112 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
                             "responseMimeType": "application/json",
                         },
                     }
-                    resposta = requests.post(
-                        url_google,
-                        headers={"Content-Type": "application/json"},
-                        json=payload,
-                        timeout=120,
-                    )
 
-                    # ── Se der 404, tenta o próximo modelo da lista ────────
-                    if resposta.status_code == 404:
-                        st.warning(
-                            f"⚠ Modelo `{modelo_escolhido}` retornou 404. "
-                            f"Tentando próximo modelo disponível..."
+                    try:
+                        resposta = requests.post(
+                            url_google,
+                            headers={"Content-Type": "application/json"},
+                            json=payload,
+                            timeout=120,
                         )
-                        for modelo_fallback in MODELOS_PREFERENCIA:
-                            if modelo_fallback == modelo_escolhido:
-                                continue
-                            url_fallback = (
-                                f"https://generativelanguage.googleapis.com/v1beta/"
-                                f"{modelo_fallback}:generateContent?key={CHAVE_API_GOOGLE}"
-                            )
-                            resposta = requests.post(
-                                url_fallback,
-                                headers={"Content-Type": "application/json"},
-                                json=payload,
-                                timeout=120,
-                            )
-                            if resposta.status_code == 200:
-                                modelo_escolhido = modelo_fallback
-                                st.caption(f"✅ Fallback bem-sucedido com: `{modelo_escolhido}`")
-                                break
+
+                        if resposta.status_code == 200:
+                            modelo_escolhido = modelo
+                            st.caption(f"✅ Modelo funcionando: `{modelo}`")
+                            break
+
+                        elif resposta.status_code == 429:
+                            # Extrai a mensagem de limite para diagnóstico
+                            erro_json = resposta.json().get("error", {})
+                            msg_erro  = erro_json.get("message", "")
+
+                            if "limit: 0" in msg_erro:
+                                st.caption(
+                                    f"🔒 `{modelo}` — cota zero no plano atual. "
+                                    f"Tentando próximo..."
+                                )
                             else:
-                                st.warning(f"⚠ `{modelo_fallback}` também falhou ({resposta.status_code}).")
+                                st.caption(
+                                    f"⏳ `{modelo}` — limite de requisições atingido. "
+                                    f"Tentando próximo..."
+                                )
+                            continue
 
-                    # ── Processa a resposta ────────────────────────────────
-                    if resposta.status_code == 200:
-                        resultado_texto = (
-                            resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
-                        )
-                        resultado_limpo = limpar_json_ia(resultado_texto)
+                        elif resposta.status_code == 404:
+                            st.caption(f"❌ `{modelo}` — não encontrado. Tentando próximo...")
+                            continue
 
-                        try:
-                            json_pgr = json.loads(resultado_limpo)
-                        except json.JSONDecodeError:
-                            match = re.search(r'\[.*\]', resultado_limpo, re.DOTALL)
-                            if match:
-                                json_pgr = json.loads(match.group(0))
-                            else:
-                                st.error("❌ A IA retornou um formato inesperado. Tente novamente.")
-                                st.code(resultado_limpo[:500])
-                                st.stop()
-
-                        df_pcmso = processar_pcmso(json_pgr)
-                        if not df_pcmso.empty:
-                            html_pcmso = gerar_html_pcmso(df_pcmso)
-                            st.session_state["ultimo_html_pcmso"] = html_pcmso
-                            st.session_state["df_pcmso_preview"]  = df_pcmso
-                            st.success(f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames!")
                         else:
-                            st.warning(
-                                "⚠ A IA não encontrou riscos no documento. "
-                                "Verifique se é um PGR/Inventário de Riscos válido."
+                            st.caption(
+                                f"⚠ `{modelo}` retornou HTTP {resposta.status_code}. "
+                                f"Tentando próximo..."
                             )
+                            continue
+
+                    except requests.exceptions.Timeout:
+                        st.caption(f"⏱ `{modelo}` — timeout. Tentando próximo...")
+                        continue
+                    except Exception as e_req:
+                        st.caption(f"⚠ `{modelo}` — erro: {e_req}. Tentando próximo...")
+                        continue
+
+                # ── Nenhum modelo funcionou ────────────────────────────────
+                if not modelo_escolhido or resposta is None or resposta.status_code != 200:
+                    st.error("""
+❌ **Nenhum modelo de IA disponível conseguiu processar o documento.**
+
+**Causa mais provável:** Sua chave de API está no plano **gratuito (Free Tier)**,
+que tem cota zero (`limit: 0`) para os modelos mais recentes.
+
+**Como resolver:**
+1. Acesse [Google AI Studio](https://aistudio.google.com) → verifique seu plano
+2. Acesse [Google Cloud Console](https://console.cloud.google.com) → ative o faturamento
+3. Ou acesse [ai.dev/rate-limit](https://ai.dev/rate-limit) para ver seus limites atuais
+
+**Alternativa sem custo:** Reduza o tamanho do PDF (menos páginas) e tente novamente.
+O modelo `gemini-2.0-flash-lite` tem a cota gratuita mais generosa.
+                    """)
+                    st.stop()
+
+                # ── Processa a resposta do modelo que funcionou ────────────
+                try:
+                    resultado_texto = (
+                        resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
+                    )
+                    resultado_limpo = limpar_json_ia(resultado_texto)
+
+                    try:
+                        json_pgr = json.loads(resultado_limpo)
+                    except json.JSONDecodeError:
+                        match = re.search(r'\[.*\]', resultado_limpo, re.DOTALL)
+                        if match:
+                            json_pgr = json.loads(match.group(0))
+                        else:
+                            st.error("❌ A IA retornou um formato inesperado. Tente novamente.")
+                            st.code(resultado_limpo[:500])
+                            st.stop()
+
+                    df_pcmso = processar_pcmso(json_pgr)
+
+                    if not df_pcmso.empty:
+                        html_pcmso = gerar_html_pcmso(df_pcmso)
+                        st.session_state["ultimo_html_pcmso"] = html_pcmso
+                        st.session_state["df_pcmso_preview"]  = df_pcmso
+                        st.session_state["modelo_usado_pcmso"] = modelo_escolhido
+                        st.success(
+                            f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames! "
+                            f"(modelo: `{modelo_escolhido}`)"
+                        )
                     else:
-                        st.error(
-                            f"❌ Erro na API Gemini ({resposta.status_code}): "
-                            f"{resposta.text[:500]}"
+                        st.warning(
+                            "⚠ A IA não encontrou riscos no documento. "
+                            "Verifique se é um PGR/Inventário de Riscos válido."
                         )
 
-                except requests.exceptions.Timeout:
-                    st.error("❌ Timeout: A IA demorou mais de 2 minutos. Tente com um PDF menor.")
-                except Exception as e:
-                    st.error(f"❌ Erro inesperado: {e}")
+                except Exception as e_parse:
+                    st.error(f"❌ Erro ao processar resposta da IA: {e_parse}")
 
+    # ── Exibe resultado se já gerado ───────────────────────────────────────
     if "ultimo_html_pcmso" in st.session_state:
         st.markdown("---")
         st.markdown("### 📊 Prévia da Matriz de Exames")
@@ -1808,7 +1834,11 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
             )
         with col2:
             st.write(""); st.write("")
-            if st.button("💾 Gravar no Banco de Dados", key="btn_salvar_pcmso", use_container_width=True):
+            if st.button(
+                "💾 Gravar no Banco de Dados",
+                key="btn_salvar_pcmso",
+                use_container_width=True
+            ):
                 if nome_projeto_pcmso:
                     salvar_historico(
                         nome_projeto_pcmso + " (PCMSO)",
@@ -1821,7 +1851,8 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
         aba_preview, aba_download = st.tabs(["👁 Pré-visualizar", "📄 Baixar (.doc)"])
         with aba_preview:
             components.html(
-                st.session_state["ultimo_html_pcmso"], height=600, scrolling=True
+                st.session_state["ultimo_html_pcmso"],
+                height=600, scrolling=True
             )
         with aba_download:
             st.download_button(
