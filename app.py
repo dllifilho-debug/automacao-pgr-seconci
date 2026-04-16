@@ -1737,4 +1737,3 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
                 mime="application/msword",
                 use_container_width=True,
             )
-```
