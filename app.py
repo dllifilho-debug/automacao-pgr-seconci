@@ -1,6 +1,3 @@
-Vou montar o código completo com todas as correções integradas:
-
-```python
 import streamlit as st
 import streamlit.components.v1 as components
 import pdfplumber
