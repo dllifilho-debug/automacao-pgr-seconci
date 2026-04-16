@@ -1629,28 +1629,55 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
 ]
 """
                 try:
-                    url_lista  = "https://generativelanguage.googleapis.com/v1beta/models?key=" + CHAVE_API_GOOGLE
-                    resp_lista = requests.get(url_lista, timeout=15)
-                    modelo_escolhido = "models/gemini-1.5-flash"
+                    # ── CORREÇÃO: Lista de modelos atuais (2024/2025) ──────
+                    # Ordem de preferência: mais capaz → mais rápido
+                    MODELOS_PREFERENCIA = [
+                        "models/gemini-2.0-flash",
+                        "models/gemini-2.0-flash-lite",
+                        "models/gemini-1.5-flash-002",
+                        "models/gemini-1.5-flash-8b",
+                        "models/gemini-1.5-pro-002",
+                    ]
 
-                    if resp_lista.status_code == 200:
-                        modelos      = resp_lista.json().get("models", [])
-                        modelos_texto = [
-                            m["name"] for m in modelos
-                            if "generateContent" in m.get("supportedGenerationMethods", [])
-                        ]
-                        for pref in [
-                            "models/gemini-1.5-pro-latest",
-                            "models/gemini-1.5-pro",
-                            "models/gemini-1.5-flash-latest",
-                            "models/gemini-1.5-flash",
-                        ]:
-                            if pref in modelos_texto:
-                                modelo_escolhido = pref
-                                break
+                    modelo_escolhido = None
+
+                    # Tenta listar os modelos disponíveis na conta
+                    try:
+                        url_lista  = (
+                            "https://generativelanguage.googleapis.com/v1beta/models?key="
+                            + CHAVE_API_GOOGLE
+                        )
+                        resp_lista = requests.get(url_lista, timeout=15)
+
+                        if resp_lista.status_code == 200:
+                            modelos_disponiveis = resp_lista.json().get("models", [])
+                            nomes_disponiveis   = [
+                                m["name"] for m in modelos_disponiveis
+                                if "generateContent" in m.get("supportedGenerationMethods", [])
+                            ]
+                            st.caption(f"🔍 Modelos disponíveis: `{nomes_disponiveis}`")
+
+                            # Seleciona o primeiro da lista de preferência que estiver disponível
+                            for pref in MODELOS_PREFERENCIA:
+                                if pref in nomes_disponiveis:
+                                    modelo_escolhido = pref
+                                    break
+
+                            # Se nenhum da preferência estiver disponível,
+                            # usa o primeiro que suportar generateContent
+                            if not modelo_escolhido and nomes_disponiveis:
+                                modelo_escolhido = nomes_disponiveis[0]
+
+                    except Exception as e_lista:
+                        st.warning(f"⚠ Não foi possível listar modelos: {e_lista}")
+
+                    # Fallback hardcoded caso a listagem falhe
+                    if not modelo_escolhido:
+                        modelo_escolhido = "models/gemini-2.0-flash"
 
                     st.caption(f"🤖 Usando modelo: `{modelo_escolhido}`")
 
+                    # ── Chamada principal com o modelo selecionado ─────────
                     url_google = (
                         f"https://generativelanguage.googleapis.com/v1beta/"
                         f"{modelo_escolhido}:generateContent?key={CHAVE_API_GOOGLE}"
@@ -1674,11 +1701,39 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
                         timeout=120,
                     )
 
+                    # ── Se der 404, tenta o próximo modelo da lista ────────
+                    if resposta.status_code == 404:
+                        st.warning(
+                            f"⚠ Modelo `{modelo_escolhido}` retornou 404. "
+                            f"Tentando próximo modelo disponível..."
+                        )
+                        for modelo_fallback in MODELOS_PREFERENCIA:
+                            if modelo_fallback == modelo_escolhido:
+                                continue
+                            url_fallback = (
+                                f"https://generativelanguage.googleapis.com/v1beta/"
+                                f"{modelo_fallback}:generateContent?key={CHAVE_API_GOOGLE}"
+                            )
+                            resposta = requests.post(
+                                url_fallback,
+                                headers={"Content-Type": "application/json"},
+                                json=payload,
+                                timeout=120,
+                            )
+                            if resposta.status_code == 200:
+                                modelo_escolhido = modelo_fallback
+                                st.caption(f"✅ Fallback bem-sucedido com: `{modelo_escolhido}`")
+                                break
+                            else:
+                                st.warning(f"⚠ `{modelo_fallback}` também falhou ({resposta.status_code}).")
+
+                    # ── Processa a resposta ────────────────────────────────
                     if resposta.status_code == 200:
                         resultado_texto = (
                             resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
                         )
                         resultado_limpo = limpar_json_ia(resultado_texto)
+
                         try:
                             json_pgr = json.loads(resultado_limpo)
                         except json.JSONDecodeError:
@@ -1693,13 +1748,19 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
                         df_pcmso = processar_pcmso(json_pgr)
                         if not df_pcmso.empty:
                             html_pcmso = gerar_html_pcmso(df_pcmso)
-                            st.session_state["ultimo_html_pcmso"]  = html_pcmso
-                            st.session_state["df_pcmso_preview"]   = df_pcmso
+                            st.session_state["ultimo_html_pcmso"] = html_pcmso
+                            st.session_state["df_pcmso_preview"]  = df_pcmso
                             st.success(f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames!")
                         else:
-                            st.warning("⚠ A IA não encontrou riscos no documento. Verifique se é um PGR/Inventário de Riscos válido.")
+                            st.warning(
+                                "⚠ A IA não encontrou riscos no documento. "
+                                "Verifique se é um PGR/Inventário de Riscos válido."
+                            )
                     else:
-                        st.error(f"❌ Erro na API Gemini ({resposta.status_code}): {resposta.text[:300]}")
+                        st.error(
+                            f"❌ Erro na API Gemini ({resposta.status_code}): "
+                            f"{resposta.text[:500]}"
+                        )
 
                 except requests.exceptions.Timeout:
                     st.error("❌ Timeout: A IA demorou mais de 2 minutos. Tente com um PDF menor.")
@@ -1716,19 +1777,26 @@ Retorne APENAS JSON puro (sem markdown) neste formato exato:
 
         col1, col2 = st.columns([3, 1])
         with col1:
-            nome_projeto_pcmso = st.text_input("Nome da Empresa / Projeto (para salvar):", key="nome_pcmso")
+            nome_projeto_pcmso = st.text_input(
+                "Nome da Empresa / Projeto (para salvar):", key="nome_pcmso"
+            )
         with col2:
             st.write(""); st.write("")
             if st.button("💾 Gravar no Banco de Dados", key="btn_salvar_pcmso", use_container_width=True):
                 if nome_projeto_pcmso:
-                    salvar_historico(nome_projeto_pcmso + " (PCMSO)", st.session_state["ultimo_html_pcmso"])
+                    salvar_historico(
+                        nome_projeto_pcmso + " (PCMSO)",
+                        st.session_state["ultimo_html_pcmso"]
+                    )
                     st.success("✅ Salvo com sucesso!")
                 else:
                     st.error("Digite o nome do projeto antes de salvar.")
 
         aba_preview, aba_download = st.tabs(["👁 Pré-visualizar", "📄 Baixar (.doc)"])
         with aba_preview:
-            components.html(st.session_state["ultimo_html_pcmso"], height=600, scrolling=True)
+            components.html(
+                st.session_state["ultimo_html_pcmso"], height=600, scrolling=True
+            )
         with aba_download:
             st.download_button(
                 "⬇ Baixar Matriz PCMSO",
