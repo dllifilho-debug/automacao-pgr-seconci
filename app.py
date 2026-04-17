@@ -1181,18 +1181,118 @@ def normalizar_cargo(texto: str) -> str:
     return ""
 
 
+# ==========================================
+# PADRÕES RÍGIDOS PARA DETECÇÃO DE GHE
+# ==========================================
+PADROES_GHE_CONFIRMADOS = [
+    r'GHE\s*[\-–:]\s*\d+',
+    r'GHE\s+\d+',
+    r'GRUPO\s+HOMOG[EÊ]NEO\s+\d+',
+    r'GHE\s*[\-–]\s*[A-Z]',
+    r'^\s*GHE\s*\d+\s*[\-–]',
+]
+
+FALSOS_GHE = [
+    r'^endere[çc]o',
+    r'^telefone',
+    r'^cnpj',
+    r'^data',
+    r'^elabora[çc][aã]o',
+    r'^responsável',
+    r'^empresa',
+    r'^obra',
+    r'^local',
+    r'exposi[çc][aã]o\s*[–\-]\s*ghe',
+    r'^\d{2}/\d{2}/\d{4}',
+    r'cep:\s*\d',
+    r's/n',
+    r'www\.',
+    r'@',
+]
+
+
+def e_cabecalho_ghe_valido(linha: str) -> bool:
+    """
+    Verifica com critério RÍGIDO se a linha é realmente
+    um cabeçalho de GHE — evita falsos positivos.
+    """
+    linha_upper = linha.upper().strip()
+    linha_lower = linha.lower().strip()
+
+    # Rejeita linhas muito longas
+    if len(linha) > 100:
+        return False
+
+    # Rejeita padrões conhecidos de falsos positivos
+    for padrao_falso in FALSOS_GHE:
+        if re.search(padrao_falso, linha_lower):
+            return False
+
+    # Rejeita CEP
+    if re.search(r'\d{5}-\d{3}', linha):
+        return False
+
+    # Aceita apenas padrões confirmados de GHE
+    for padrao in PADROES_GHE_CONFIRMADOS:
+        if re.search(padrao, linha_upper):
+            return True
+
+    return False
+
+
+def extrair_ghe_fallback_flexivel(texto_pgr: str) -> list:
+    """
+    Fallback: agrupa TUDO em um único bloco geral.
+    Usado quando nenhum GHE com padrão rígido é encontrado.
+    """
+    linhas       = texto_pgr.split("\n")
+    todos_cargos = set()
+    todos_riscos = []
+    linhas_proc  = set()
+
+    for i, linha in enumerate(linhas):
+        linha_limpa = linha.strip()
+        linha_upper = linha_limpa.upper()
+
+        if not linha_upper or len(linha_upper) < 3:
+            continue
+
+        cargo_norm = normalizar_cargo(linha_limpa)
+        if cargo_norm:
+            todos_cargos.add(cargo_norm)
+
+        if i not in linhas_proc:
+            for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
+                if palavra_chave in linha_upper:
+                    agentes_exist = [r["nome_agente"] for r in todos_riscos]
+                    if nome_agente not in agentes_exist:
+                        todos_riscos.append({
+                            "nome_agente":       nome_agente,
+                            "perigo_especifico": linha_limpa[:120],
+                        })
+                    linhas_proc.add(i)
+                    break
+
+    if todos_cargos or todos_riscos:
+        return [{
+            "ghe":             "Geral (extraído automaticamente)",
+            "cargos":          sorted(list(todos_cargos)) or ["Verificar manualmente"],
+            "riscos_mapeados": todos_riscos,
+        }]
+
+    return []
+
+
 def extrair_ghe_texto(texto_pgr: str) -> list:
     """
-    Extrai GHEs, cargos e riscos do texto do PGR sem usar IA.
-    Versão corrigida — evita explosão combinatória de linhas.
+    Extrai GHEs com critério RÍGIDO.
+    Versão corrigida — evita explosão de linhas.
     """
-    linhas    = texto_pgr.split("\n")
-    blocos    = []
-    ghe_atual     = None
-    cargos_atual  = set()
-    riscos_atual  = []
-
-    # Controle para evitar que a mesma linha detecte múltiplos agentes
+    linhas   = texto_pgr.split("\n")
+    blocos   = []
+    ghe_atual    = None
+    cargos_atual = set()
+    riscos_atual = []
     linhas_processadas_risco = set()
 
     for i, linha in enumerate(linhas):
@@ -1202,60 +1302,48 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
         if not linha_upper or len(linha_upper) < 3:
             continue
 
-        # ── Detecta início de novo GHE ─────────────────────────────
-        eh_ghe = any(palavra in linha_upper for palavra in PALAVRAS_GHE)
+        # ── Detecta GHE com critério rígido ───────────────────────
+        if e_cabecalho_ghe_valido(linha_limpa):
+            if ghe_atual and (cargos_atual or riscos_atual):
+                blocos.append({
+                    "ghe":             ghe_atual,
+                    "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
+                    "riscos_mapeados": riscos_atual,
+                })
+            ghe_atual    = linha_limpa[:80]
+            cargos_atual = set()
+            riscos_atual = []
+            linhas_processadas_risco = set()
+            continue
 
-        # Linha curta com palavra-chave = cabeçalho de GHE
-        if eh_ghe and len(linha_limpa) < 80:
-            # Verifica se é realmente um cabeçalho (não uma célula de tabela)
-            tem_conteudo_cargo = any(
-                c in linha_upper for c in MAPA_CARGOS_CONHECIDOS
-            )
-            # Se contém cargo E palavra GHE — é cabeçalho de seção
-            if tem_conteudo_cargo or any(
-                p in linha_upper for p in ["GHE", "GRUPO HOMOGÊNEO", "SETOR"]
-            ):
-                if ghe_atual and (cargos_atual or riscos_atual):
-                    blocos.append({
-                        "ghe":             ghe_atual,
-                        "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
-                        "riscos_mapeados": riscos_atual,
-                    })
-                ghe_atual    = linha_limpa[:80]
-                cargos_atual = set()
-                riscos_atual = []
-                linhas_processadas_risco = set()
-                continue
+        # Ignora linhas fora de qualquer GHE
+        if ghe_atual is None:
+            continue
 
-        # ── Detecta cargos (somente linhas que parecem ser de cargo) ──
-        # Evita pegar cargos de dentro de células de tabela de risco
+        # ── Detecta cargos ─────────────────────────────────────────
         linha_parece_cargo = (
             len(linha_limpa) < 60 and
             not any(exc in linha_upper for exc in PALAVRAS_EXCLUIR_CARGO) and
-            not re.search(r'\d+\s*(ppm|mg|dB|m/s)', linha_upper)
+            not re.search(r'\d+\s*(ppm|mg|dB|m/s|%)', linha_upper) and
+            not re.search(r'\d{5}-\d{3}', linha_limpa)
         )
         if linha_parece_cargo:
             cargo_normalizado = normalizar_cargo(linha_limpa)
             if cargo_normalizado:
                 cargos_atual.add(cargo_normalizado)
 
-        # ── Detecta agentes/riscos ─────────────────────────────────
-        # Cada linha só contribui com UM agente (o mais específico)
+        # ── Detecta agentes/riscos (1 por linha) ───────────────────
         if i not in linhas_processadas_risco:
-            agente_encontrado = None
             for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
                 if palavra_chave in linha_upper:
-                    agente_encontrado = nome_agente
-                    break  # para no primeiro encontrado
-
-            if agente_encontrado:
-                agentes_existentes = [r["nome_agente"] for r in riscos_atual]
-                if agente_encontrado not in agentes_existentes:
-                    riscos_atual.append({
-                        "nome_agente":       agente_encontrado,
-                        "perigo_especifico": linha_limpa[:120],
-                    })
-                linhas_processadas_risco.add(i)
+                    agentes_existentes = [r["nome_agente"] for r in riscos_atual]
+                    if nome_agente not in agentes_existentes:
+                        riscos_atual.append({
+                            "nome_agente":       nome_agente,
+                            "perigo_especifico": linha_limpa[:120],
+                        })
+                    linhas_processadas_risco.add(i)
+                    break
 
     # Salva o último bloco
     if ghe_atual and (cargos_atual or riscos_atual):
@@ -1265,38 +1353,9 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
             "riscos_mapeados": riscos_atual,
         })
 
-    # ── Fallback: bloco geral se não encontrou estrutura ──────────
+    # Fallback se não encontrou nenhum GHE válido
     if not blocos:
-        todos_cargos = set()
-        todos_riscos = []
-        linhas_proc  = set()
-
-        for i, linha in enumerate(linhas):
-            linha_limpa = linha.strip()
-            linha_upper = linha_limpa.upper()
-
-            cargo_norm = normalizar_cargo(linha_limpa)
-            if cargo_norm:
-                todos_cargos.add(cargo_norm)
-
-            if i not in linhas_proc:
-                for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
-                    if palavra_chave in linha_upper:
-                        agentes_exist = [r["nome_agente"] for r in todos_riscos]
-                        if nome_agente not in agentes_exist:
-                            todos_riscos.append({
-                                "nome_agente":       nome_agente,
-                                "perigo_especifico": linha_limpa[:120],
-                            })
-                        linhas_proc.add(i)
-                        break  # uma linha = um agente
-
-        if todos_cargos or todos_riscos:
-            blocos.append({
-                "ghe":             "Geral (extraído automaticamente)",
-                "cargos":          sorted(list(todos_cargos)) or ["Verificar manualmente"],
-                "riscos_mapeados": todos_riscos,
-            })
+        blocos = extrair_ghe_fallback_flexivel(texto_pgr)
 
     return blocos
 
