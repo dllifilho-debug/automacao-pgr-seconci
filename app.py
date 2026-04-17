@@ -1090,6 +1090,233 @@ def gerar_html_secao_revisao(pendentes: list) -> str:
 
 
 # ==========================================
+# MÓDULO 2 — EXTRAÇÃO LOCAL SEM IA
+# ==========================================
+
+PALAVRAS_GHE = [
+    "GHE", "GRUPO HOMOGÊNEO", "SETOR", "DEPARTAMENTO",
+    "FUNÇÃO", "CARGO", "ATIVIDADE",
+]
+
+MAPA_AGENTES_TEXTO = {
+    # Químicos
+    "TOLUENO":            "Tolueno",
+    "XILENO":             "Xileno",
+    "BENZENO":            "Benzeno",
+    "ACETONA":            "Acetona",
+    "THINNER":            "Solventes (Thinner)",
+    "SOLVENTE":           "Solventes Orgânicos",
+    "TINTA":              "Tinta / Verniz (Solventes)",
+    "VERNIZ":             "Tinta / Verniz (Solventes)",
+    "PRIMER":             "Primer (Solventes)",
+    "FUNDO":              "Primer / Fundo (Solventes)",
+    "GRAXA":              "Graxa / Lubrificante",
+    "DIESEL":             "Diesel / Combustível",
+    "QUEROSENE":          "Querosene",
+    "ÁCIDO":              "Ácidos (geral)",
+    "CIMENTO":            "Cimento Portland (Poeiras)",
+    "SÍLICA":             "Sílica Cristalina (Quartzo)",
+    "POEIRA":             "Poeiras Minerais",
+    "AMIANTO":            "Asbesto / Amianto",
+    "CHUMBO":             "Chumbo (Fumos/Poeiras)",
+    # Físicos
+    "RUÍDO":              "Ruído Contínuo ou Intermitente",
+    "VIBRAÇÃO":           "Vibração (VMB/VCI)",
+    "CALOR":              "Calor (IBUTG)",
+    "FRIO":               "Frio",
+    "RADIAÇÃO":           "Radiações Ionizantes",
+    "ELETROMAGN":         "Radiações Não Ionizantes",
+    "PRESSÃO":            "Pressão Sonora / Atmosférica",
+    # Biológicos
+    "BIOLÓGICO":          "Agentes Biológicos",
+    "VÍRUS":              "Vírus",
+    "BACTÉRIA":           "Bactérias",
+    "FUNGO":              "Fungos",
+    "ESGOTO":             "Esgoto / Águas Servidas",
+    "LIXO":               "Resíduos Sólidos / Lixo",
+    "SANGUE":             "Material Biológico (Sangue/Fluidos)",
+    # Ergonômicos
+    "ERGONÔM":            "Fator Ergonômico",
+    "POSTURA":            "Postura Inadequada",
+    "LEVANTAMENTO":       "Levantamento de Carga",
+    "REPETITIV":          "Movimento Repetitivo",
+    "TRABALHO EM ALTURA": "Trabalho em Altura",
+    # Acidentes
+    "ELÉTRICO":           "Risco Elétrico",
+    "ELETRICIDADE":       "Risco Elétrico",
+    "ALTURA":             "Queda de Altura",
+    "MÁQUINA":            "Máquinas e Equipamentos",
+    "INCÊNDIO":           "Incêndio / Explosão",
+    "QUEDA":              "Queda de Altura",
+}
+
+MAPA_CARGOS_CONHECIDOS = [
+    "PEDREIRO", "SERVENTE", "ELETRICISTA", "ENCANADOR", "PINTOR",
+    "SOLDADOR", "CARPINTEIRO", "ARMADOR", "OPERADOR", "MOTORISTA",
+    "TÉCNICO", "ENGENHEIRO", "MESTRE", "ENCARREGADO", "ALMOXARIFE",
+    "ADMINISTRATIVO", "AUXILIAR", "ASSISTENTE", "GERENTE", "DIRETOR",
+    "RECEPCIONISTA", "SEGURANÇA", "VIGILANTE", "LIMPEZA", "ZELADOR",
+    "MÉDICO", "ENFERMEIRO", "TÉCNICO DE ENFERMAGEM", "BIOMÉDICO",
+    "LABORATORISTA", "FARMACÊUTICO",
+]
+
+
+def extrair_ghe_texto(texto_pgr: str) -> list:
+    """
+    Extrai GHEs, cargos e riscos do texto do PGR sem usar IA.
+    """
+    linhas    = texto_pgr.split("\n")
+    blocos    = []
+    ghe_atual     = None
+    cargos_atual  = set()
+    riscos_atual  = []
+
+    for linha in linhas:
+        linha_upper = linha.strip().upper()
+        if not linha_upper:
+            continue
+
+        # Detecta início de novo GHE
+        eh_ghe = any(palavra in linha_upper for palavra in PALAVRAS_GHE)
+        if eh_ghe and len(linha.strip()) < 80:
+            if ghe_atual and (cargos_atual or riscos_atual):
+                blocos.append({
+                    "ghe":             ghe_atual,
+                    "cargos":          list(cargos_atual) or ["Cargo não identificado"],
+                    "riscos_mapeados": riscos_atual,
+                })
+            ghe_atual    = linha.strip()
+            cargos_atual = set()
+            riscos_atual = []
+            continue
+
+        # Detecta cargos
+        for cargo in MAPA_CARGOS_CONHECIDOS:
+            if cargo in linha_upper:
+                cargos_atual.add(linha.strip()[:60])
+                break
+
+        # Detecta agentes/riscos
+        for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
+            if palavra_chave in linha_upper:
+                agentes_existentes = [r["nome_agente"] for r in riscos_atual]
+                if nome_agente not in agentes_existentes:
+                    riscos_atual.append({
+                        "nome_agente":       nome_agente,
+                        "perigo_especifico": linha.strip()[:120],
+                    })
+
+    # Salva o último bloco
+    if ghe_atual and (cargos_atual or riscos_atual):
+        blocos.append({
+            "ghe":             ghe_atual,
+            "cargos":          list(cargos_atual) or ["Cargo não identificado"],
+            "riscos_mapeados": riscos_atual,
+        })
+
+    # Fallback: bloco geral se não encontrou estrutura
+    if not blocos:
+        todos_cargos = set()
+        todos_riscos = []
+        for linha in linhas:
+            linha_upper = linha.strip().upper()
+            for cargo in MAPA_CARGOS_CONHECIDOS:
+                if cargo in linha_upper:
+                    todos_cargos.add(linha.strip()[:60])
+            for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
+                if palavra_chave in linha_upper:
+                    agentes_existentes = [r["nome_agente"] for r in todos_riscos]
+                    if nome_agente not in agentes_existentes:
+                        todos_riscos.append({
+                            "nome_agente":       nome_agente,
+                            "perigo_especifico": linha.strip()[:120],
+                        })
+        if todos_cargos or todos_riscos:
+            blocos.append({
+                "ghe":             "Geral (extraído automaticamente)",
+                "cargos":          list(todos_cargos) or ["Verificar manualmente"],
+                "riscos_mapeados": todos_riscos,
+            })
+
+    return blocos
+
+
+def extrair_pgr_com_fallback_ia(texto_pgr: str, pdf_b64: str) -> tuple:
+    """
+    Etapa 1: extração local por texto (gratuito)
+    Etapa 2: IA como fallback se local falhar
+    Retorna: (json_pgr, metodo_usado)
+    """
+    # Etapa 1: local
+    resultado_local = extrair_ghe_texto(texto_pgr)
+    tem_riscos = any(
+        len(bloco.get("riscos_mapeados", [])) > 0
+        for bloco in resultado_local
+    )
+    if resultado_local and tem_riscos:
+        return resultado_local, "local"
+
+    # Etapa 2: IA fallback
+    MODELOS_FALLBACK = [
+        "models/gemini-2.0-flash-lite",
+        "models/gemini-2.0-flash-lite-001",
+        "models/gemini-flash-lite-latest",
+        "models/gemini-2.0-flash",
+        "models/gemini-2.5-flash-lite",
+        "models/gemini-2.5-flash",
+    ]
+    prompt_extracao = """
+Você é um médico do trabalho. Analise este PDF (Inventário de Riscos).
+Identifique GHEs/Setores, Cargos e Agentes Nocivos.
+Retorne APENAS JSON puro neste formato:
+[{"ghe": "Nome", "cargos": ["Cargo"], "riscos_mapeados": [{"nome_agente": "Agente", "perigo_especifico": "Descrição"}]}]
+"""
+    for modelo in MODELOS_FALLBACK:
+        try:
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/"
+                f"{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
+            )
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"text": prompt_extracao},
+                        {"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}},
+                    ]
+                }],
+                "generationConfig": {
+                    "temperature": 0.0,
+                    "responseMimeType": "application/json",
+                },
+            }
+            resp = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=120,
+            )
+            if resp.status_code == 200:
+                texto = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                limpo = limpar_json_ia(texto)
+                try:
+                    dados = json.loads(limpo)
+                    if dados:
+                        return dados, "ia"
+                except Exception:
+                    match = re.search(r'\[.*\]', limpo, re.DOTALL)
+                    if match:
+                        dados = json.loads(match.group(0))
+                        if dados:
+                            return dados, "ia"
+            elif resp.status_code in [429, 404]:
+                continue
+        except Exception:
+            continue
+
+    return resultado_local, "local_parcial"
+
+
+# ==========================================
 # PROCESSAMENTO PCMSO
 # ==========================================
 def processar_pcmso(dados_pgr_json):
