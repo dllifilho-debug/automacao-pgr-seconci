@@ -1090,7 +1090,7 @@ def gerar_html_secao_revisao(pendentes: list) -> str:
 
 
 # ==========================================
-# MÓDULO 2 — EXTRAÇÃO LOCAL SEM IA
+# MÓDULO 2 — EXTRAÇÃO LOCAL SEM IA (VERSÃO CORRIGIDA)
 # ==========================================
 
 PALAVRAS_GHE = [
@@ -1109,7 +1109,6 @@ MAPA_AGENTES_TEXTO = {
     "TINTA":              "Tinta / Verniz (Solventes)",
     "VERNIZ":             "Tinta / Verniz (Solventes)",
     "PRIMER":             "Primer (Solventes)",
-    "FUNDO":              "Primer / Fundo (Solventes)",
     "GRAXA":              "Graxa / Lubrificante",
     "DIESEL":             "Diesel / Combustível",
     "QUEROSENE":          "Querosene",
@@ -1123,31 +1122,24 @@ MAPA_AGENTES_TEXTO = {
     "RUÍDO":              "Ruído Contínuo ou Intermitente",
     "VIBRAÇÃO":           "Vibração (VMB/VCI)",
     "CALOR":              "Calor (IBUTG)",
-    "FRIO":               "Frio",
     "RADIAÇÃO":           "Radiações Ionizantes",
-    "ELETROMAGN":         "Radiações Não Ionizantes",
-    "PRESSÃO":            "Pressão Sonora / Atmosférica",
     # Biológicos
     "BIOLÓGICO":          "Agentes Biológicos",
     "VÍRUS":              "Vírus",
     "BACTÉRIA":           "Bactérias",
-    "FUNGO":              "Fungos",
     "ESGOTO":             "Esgoto / Águas Servidas",
-    "LIXO":               "Resíduos Sólidos / Lixo",
     "SANGUE":             "Material Biológico (Sangue/Fluidos)",
     # Ergonômicos
     "ERGONÔM":            "Fator Ergonômico",
     "POSTURA":            "Postura Inadequada",
     "LEVANTAMENTO":       "Levantamento de Carga",
     "REPETITIV":          "Movimento Repetitivo",
-    "TRABALHO EM ALTURA": "Trabalho em Altura",
     # Acidentes
     "ELÉTRICO":           "Risco Elétrico",
     "ELETRICIDADE":       "Risco Elétrico",
     "ALTURA":             "Queda de Altura",
     "MÁQUINA":            "Máquinas e Equipamentos",
     "INCÊNDIO":           "Incêndio / Explosão",
-    "QUEDA":              "Queda de Altura",
 }
 
 MAPA_CARGOS_CONHECIDOS = [
@@ -1156,14 +1148,43 @@ MAPA_CARGOS_CONHECIDOS = [
     "TÉCNICO", "ENGENHEIRO", "MESTRE", "ENCARREGADO", "ALMOXARIFE",
     "ADMINISTRATIVO", "AUXILIAR", "ASSISTENTE", "GERENTE", "DIRETOR",
     "RECEPCIONISTA", "SEGURANÇA", "VIGILANTE", "LIMPEZA", "ZELADOR",
-    "MÉDICO", "ENFERMEIRO", "TÉCNICO DE ENFERMAGEM", "BIOMÉDICO",
-    "LABORATORISTA", "FARMACÊUTICO",
+    "MÉDICO", "ENFERMEIRO", "BIOMÉDICO", "LABORATORISTA", "FARMACÊUTICO",
 ]
+
+# Palavras que NÃO são cargos — evita falsos positivos
+PALAVRAS_EXCLUIR_CARGO = [
+    "CARGO", "FUNÇÃO", "SETOR", "GHE", "GRUPO", "RISCO", "PERIGO",
+    "AGENTE", "FONTE", "NÍVEL", "AÇÃO", "EPI", "PROBABILIDADE",
+    "SEVERIDADE", "TOLERÂNCIA", "LIMITE", "ANEXO", "NR-", "DECRETO",
+    "ESOCIAL", "PCMSO", "PGR", "FISPQ", "AVALIAÇÃO", "RESULTADO",
+    "MONITORAMENTO", "CONTROLE", "MEDIDA", "PROTEÇÃO",
+]
+
+
+def normalizar_cargo(texto: str) -> str:
+    """
+    Extrai apenas o nome do cargo de uma linha de texto.
+    Ex: 'GHE 01 - PEDREIRO E SERVENTE' → 'PEDREIRO'
+    """
+    texto_upper = texto.upper().strip()
+
+    # Remove prefixos comuns
+    for prefixo in ["GHE", "SETOR", "FUNÇÃO", "CARGO", "ATIVIDADE"]:
+        if texto_upper.startswith(prefixo):
+            texto_upper = re.sub(rf'^{prefixo}[\s\d\-:\.]*', '', texto_upper).strip()
+
+    # Encontra o cargo mais específico na linha
+    for cargo in MAPA_CARGOS_CONHECIDOS:
+        if cargo in texto_upper:
+            return cargo.title()
+
+    return ""
 
 
 def extrair_ghe_texto(texto_pgr: str) -> list:
     """
     Extrai GHEs, cargos e riscos do texto do PGR sem usar IA.
+    Versão corrigida — evita explosão combinatória de linhas.
     """
     linhas    = texto_pgr.split("\n")
     blocos    = []
@@ -1171,70 +1192,109 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
     cargos_atual  = set()
     riscos_atual  = []
 
-    for linha in linhas:
-        linha_upper = linha.strip().upper()
-        if not linha_upper:
+    # Controle para evitar que a mesma linha detecte múltiplos agentes
+    linhas_processadas_risco = set()
+
+    for i, linha in enumerate(linhas):
+        linha_limpa = linha.strip()
+        linha_upper = linha_limpa.upper()
+
+        if not linha_upper or len(linha_upper) < 3:
             continue
 
-        # Detecta início de novo GHE
+        # ── Detecta início de novo GHE ─────────────────────────────
         eh_ghe = any(palavra in linha_upper for palavra in PALAVRAS_GHE)
-        if eh_ghe and len(linha.strip()) < 80:
-            if ghe_atual and (cargos_atual or riscos_atual):
-                blocos.append({
-                    "ghe":             ghe_atual,
-                    "cargos":          list(cargos_atual) or ["Cargo não identificado"],
-                    "riscos_mapeados": riscos_atual,
-                })
-            ghe_atual    = linha.strip()
-            cargos_atual = set()
-            riscos_atual = []
-            continue
 
-        # Detecta cargos
-        for cargo in MAPA_CARGOS_CONHECIDOS:
-            if cargo in linha_upper:
-                cargos_atual.add(linha.strip()[:60])
-                break
-
-        # Detecta agentes/riscos
-        for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
-            if palavra_chave in linha_upper:
-                agentes_existentes = [r["nome_agente"] for r in riscos_atual]
-                if nome_agente not in agentes_existentes:
-                    riscos_atual.append({
-                        "nome_agente":       nome_agente,
-                        "perigo_especifico": linha.strip()[:120],
+        # Linha curta com palavra-chave = cabeçalho de GHE
+        if eh_ghe and len(linha_limpa) < 80:
+            # Verifica se é realmente um cabeçalho (não uma célula de tabela)
+            tem_conteudo_cargo = any(
+                c in linha_upper for c in MAPA_CARGOS_CONHECIDOS
+            )
+            # Se contém cargo E palavra GHE — é cabeçalho de seção
+            if tem_conteudo_cargo or any(
+                p in linha_upper for p in ["GHE", "GRUPO HOMOGÊNEO", "SETOR"]
+            ):
+                if ghe_atual and (cargos_atual or riscos_atual):
+                    blocos.append({
+                        "ghe":             ghe_atual,
+                        "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
+                        "riscos_mapeados": riscos_atual,
                     })
+                ghe_atual    = linha_limpa[:80]
+                cargos_atual = set()
+                riscos_atual = []
+                linhas_processadas_risco = set()
+                continue
+
+        # ── Detecta cargos (somente linhas que parecem ser de cargo) ──
+        # Evita pegar cargos de dentro de células de tabela de risco
+        linha_parece_cargo = (
+            len(linha_limpa) < 60 and
+            not any(exc in linha_upper for exc in PALAVRAS_EXCLUIR_CARGO) and
+            not re.search(r'\d+\s*(ppm|mg|dB|m/s)', linha_upper)
+        )
+        if linha_parece_cargo:
+            cargo_normalizado = normalizar_cargo(linha_limpa)
+            if cargo_normalizado:
+                cargos_atual.add(cargo_normalizado)
+
+        # ── Detecta agentes/riscos ─────────────────────────────────
+        # Cada linha só contribui com UM agente (o mais específico)
+        if i not in linhas_processadas_risco:
+            agente_encontrado = None
+            for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
+                if palavra_chave in linha_upper:
+                    agente_encontrado = nome_agente
+                    break  # para no primeiro encontrado
+
+            if agente_encontrado:
+                agentes_existentes = [r["nome_agente"] for r in riscos_atual]
+                if agente_encontrado not in agentes_existentes:
+                    riscos_atual.append({
+                        "nome_agente":       agente_encontrado,
+                        "perigo_especifico": linha_limpa[:120],
+                    })
+                linhas_processadas_risco.add(i)
 
     # Salva o último bloco
     if ghe_atual and (cargos_atual or riscos_atual):
         blocos.append({
             "ghe":             ghe_atual,
-            "cargos":          list(cargos_atual) or ["Cargo não identificado"],
+            "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
             "riscos_mapeados": riscos_atual,
         })
 
-    # Fallback: bloco geral se não encontrou estrutura
+    # ── Fallback: bloco geral se não encontrou estrutura ──────────
     if not blocos:
         todos_cargos = set()
         todos_riscos = []
-        for linha in linhas:
-            linha_upper = linha.strip().upper()
-            for cargo in MAPA_CARGOS_CONHECIDOS:
-                if cargo in linha_upper:
-                    todos_cargos.add(linha.strip()[:60])
-            for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
-                if palavra_chave in linha_upper:
-                    agentes_existentes = [r["nome_agente"] for r in todos_riscos]
-                    if nome_agente not in agentes_existentes:
-                        todos_riscos.append({
-                            "nome_agente":       nome_agente,
-                            "perigo_especifico": linha.strip()[:120],
-                        })
+        linhas_proc  = set()
+
+        for i, linha in enumerate(linhas):
+            linha_limpa = linha.strip()
+            linha_upper = linha_limpa.upper()
+
+            cargo_norm = normalizar_cargo(linha_limpa)
+            if cargo_norm:
+                todos_cargos.add(cargo_norm)
+
+            if i not in linhas_proc:
+                for palavra_chave, nome_agente in MAPA_AGENTES_TEXTO.items():
+                    if palavra_chave in linha_upper:
+                        agentes_exist = [r["nome_agente"] for r in todos_riscos]
+                        if nome_agente not in agentes_exist:
+                            todos_riscos.append({
+                                "nome_agente":       nome_agente,
+                                "perigo_especifico": linha_limpa[:120],
+                            })
+                        linhas_proc.add(i)
+                        break  # uma linha = um agente
+
         if todos_cargos or todos_riscos:
             blocos.append({
                 "ghe":             "Geral (extraído automaticamente)",
-                "cargos":          list(todos_cargos) or ["Verificar manualmente"],
+                "cargos":          sorted(list(todos_cargos)) or ["Verificar manualmente"],
                 "riscos_mapeados": todos_riscos,
             })
 
@@ -1247,7 +1307,6 @@ def extrair_pgr_com_fallback_ia(texto_pgr: str, pdf_b64: str) -> tuple:
     Etapa 2: IA como fallback se local falhar
     Retorna: (json_pgr, metodo_usado)
     """
-    # Etapa 1: local
     resultado_local = extrair_ghe_texto(texto_pgr)
     tem_riscos = any(
         len(bloco.get("riscos_mapeados", [])) > 0
@@ -1256,7 +1315,6 @@ def extrair_pgr_com_fallback_ia(texto_pgr: str, pdf_b64: str) -> tuple:
     if resultado_local and tem_riscos:
         return resultado_local, "local"
 
-    # Etapa 2: IA fallback
     MODELOS_FALLBACK = [
         "models/gemini-2.0-flash-lite",
         "models/gemini-2.0-flash-lite-001",
@@ -1317,27 +1375,55 @@ Retorne APENAS JSON puro neste formato:
 
 
 # ==========================================
-# PROCESSAMENTO PCMSO
+# PROCESSAMENTO PCMSO — VERSÃO CORRIGIDA
 # ==========================================
 def processar_pcmso(dados_pgr_json):
+    """
+    Versão corrigida: evita explosão de linhas.
+    Lógica: 1 linha por exame único por cargo por GHE.
+    """
     tabela_pcmso = []
+
     for ghe in dados_pgr_json:
         nome_ghe = ghe.get("ghe", "Sem GHE")
         cargos   = ghe.get("cargos", [])
         riscos   = ghe.get("riscos_mapeados", [])
 
+        # ── Limita cargos: máx 10 por GHE para evitar explosão ────
+        # Se tiver mais, agrupa os excedentes
+        if len(cargos) > 10:
+            cargos_principais = cargos[:10]
+            cargos_extras     = cargos[10:]
+            cargos = cargos_principais
+            # Adiciona um cargo genérico para os extras
+            if cargos_extras:
+                cargos.append(f"Demais funções ({len(cargos_extras)} cargos)")
+
         for cargo in cargos:
-            exames_do_cargo = [{
-                "exame": "Exame Clínico (Anamnese/Físico)",
+            # Conjunto de exames para este cargo (sem duplicatas)
+            exames_set = {}
+
+            # 1. Exame clínico básico — sempre obrigatório (NR-07)
+            exames_set["Exame Clínico (Anamnese/Físico)"] = {
+                "exame":         "Exame Clínico (Anamnese/Físico)",
                 "periodicidade": "12 MESES",
-                "motivo": "NR-07 Básico",
-            }]
+                "motivo":        "NR-07 Básico",
+            }
+
+            # 2. Exames por cargo (matriz_funcao_exame)
             cargo_upper = cargo.upper()
-
-            for funcao_chave, exames in matriz_funcao_exame.items():
+            for funcao_chave, exames_funcao in matriz_funcao_exame.items():
                 if funcao_chave in cargo_upper:
-                    exames_do_cargo.extend(exames)
+                    for ex in exames_funcao:
+                        # Usa o nome do exame como chave — evita duplicata
+                        if ex["exame"] not in exames_set:
+                            exames_set[ex["exame"]] = {
+                                "exame":         ex["exame"],
+                                "periodicidade": ex["periodicidade"],
+                                "motivo":        f"Função: {funcao_chave.title()}",
+                            }
 
+            # 3. Exames por risco (matriz_risco_exame)
             for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
                 perigo = risco.get("perigo_especifico", "").upper()
@@ -1345,24 +1431,33 @@ def processar_pcmso(dados_pgr_json):
 
                 for agente_chave, regra in matriz_risco_exame.items():
                     if agente_chave in texto_risco:
-                        exames_do_cargo.append({
-                            "exame":         regra["exame"],
-                            "periodicidade": regra["periodico"],
-                            "motivo":        f"Exposição a {agente_chave}",
-                        })
+                        if regra["exame"] not in exames_set:
+                            exames_set[regra["exame"]] = {
+                                "exame":         regra["exame"],
+                                "periodicidade": regra["periodico"],
+                                "motivo":        f"Exposição: {agente_chave.title()}",
+                            }
 
+                # Trabalho em altura — protocolo especial
                 if "ALTURA" in texto_risco:
-                    exames_do_cargo.extend(matriz_funcao_exame["TRABALHO EM ALTURA"])
+                    for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
+                        if ex["exame"] not in exames_set:
+                            exames_set[ex["exame"]] = {
+                                "exame":         ex["exame"],
+                                "periodicidade": ex["periodicidade"],
+                                "motivo":        "Trabalho em Altura (NR-35)",
+                            }
 
-            exames_unicos = list({v["exame"]: v for v in exames_do_cargo}.values())
-            for ex in exames_unicos:
+            # 4. Gera as linhas finais — 1 por exame único
+            for exame_info in exames_set.values():
                 tabela_pcmso.append({
-                    "GHE / Setor":                  nome_ghe,
-                    "Cargo":                        cargo,
-                    "Exame Clínico/Complementar":   ex["exame"],
-                    "Periodicidade":                ex.get("periodicidade", ex.get("periodico", "12 MESES")),
-                    "Justificativa Legal / Risco":  ex.get("motivo", "Protocolo Função"),
+                    "GHE / Setor":                 nome_ghe,
+                    "Cargo":                       cargo,
+                    "Exame Clínico/Complementar":  exame_info["exame"],
+                    "Periodicidade":               exame_info["periodicidade"],
+                    "Justificativa Legal / Risco": exame_info["motivo"],
                 })
+
     return pd.DataFrame(tabela_pcmso)
 
 
