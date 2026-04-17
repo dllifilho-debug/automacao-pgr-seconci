@@ -1540,77 +1540,6 @@ def processar_pcmso(dados_pgr_json):
 
     return pd.DataFrame(tabela_pcmso)
 
-        # ── Limita cargos: máx 10 por GHE para evitar explosão ────
-        # Se tiver mais, agrupa os excedentes
-        if len(cargos) > 10:
-            cargos_principais = cargos[:10]
-            cargos_extras     = cargos[10:]
-            cargos = cargos_principais
-            # Adiciona um cargo genérico para os extras
-            if cargos_extras:
-                cargos.append(f"Demais funções ({len(cargos_extras)} cargos)")
-
-        for cargo in cargos:
-            # Conjunto de exames para este cargo (sem duplicatas)
-            exames_set = {}
-
-            # 1. Exame clínico básico — sempre obrigatório (NR-07)
-            exames_set["Exame Clínico (Anamnese/Físico)"] = {
-                "exame":         "Exame Clínico (Anamnese/Físico)",
-                "periodicidade": "12 MESES",
-                "motivo":        "NR-07 Básico",
-            }
-
-            # 2. Exames por cargo (matriz_funcao_exame)
-            cargo_upper = cargo.upper()
-            for funcao_chave, exames_funcao in matriz_funcao_exame.items():
-                if funcao_chave in cargo_upper:
-                    for ex in exames_funcao:
-                        # Usa o nome do exame como chave — evita duplicata
-                        if ex["exame"] not in exames_set:
-                            exames_set[ex["exame"]] = {
-                                "exame":         ex["exame"],
-                                "periodicidade": ex["periodicidade"],
-                                "motivo":        f"Função: {funcao_chave.title()}",
-                            }
-
-            # 3. Exames por risco (matriz_risco_exame)
-            for risco in riscos:
-                agente = risco.get("nome_agente", "").upper()
-                perigo = risco.get("perigo_especifico", "").upper()
-                texto_risco = agente + " " + perigo
-
-                for agente_chave, regra in matriz_risco_exame.items():
-                    if agente_chave in texto_risco:
-                        if regra["exame"] not in exames_set:
-                            exames_set[regra["exame"]] = {
-                                "exame":         regra["exame"],
-                                "periodicidade": regra["periodico"],
-                                "motivo":        f"Exposição: {agente_chave.title()}",
-                            }
-
-                # Trabalho em altura — protocolo especial
-                if "ALTURA" in texto_risco:
-                    for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
-                        if ex["exame"] not in exames_set:
-                            exames_set[ex["exame"]] = {
-                                "exame":         ex["exame"],
-                                "periodicidade": ex["periodicidade"],
-                                "motivo":        "Trabalho em Altura (NR-35)",
-                            }
-
-            # 4. Gera as linhas finais — 1 por exame único
-            for exame_info in exames_set.values():
-                tabela_pcmso.append({
-                    "GHE / Setor":                 nome_ghe,
-                    "Cargo":                       cargo,
-                    "Exame Clínico/Complementar":  exame_info["exame"],
-                    "Periodicidade":               exame_info["periodicidade"],
-                    "Justificativa Legal / Risco": exame_info["motivo"],
-                })
-
-    return pd.DataFrame(tabela_pcmso)
-
 
 # ==========================================
 # GERADORES DE HTML
@@ -2137,11 +2066,11 @@ elif "2️⃣" in modulo_selecionado:
                 )
 
                 # ← COLE O DEBUG AQUI (temporário)
-with st.expander("🔬 DEBUG: Primeiras 100 linhas do PDF"):
-    linhas_debug = texto_pgr.split("\n")
-    for i, l in enumerate(linhas_debug[:100]):
-        if l.strip():
-            st.text(f"[{i:03d}] {l}")
+                with st.expander("🔬 DEBUG: Primeiras 100 linhas do PDF"):
+                    linhas_debug = texto_pgr.split("\n")
+                    for i, l in enumerate(linhas_debug[:100]):
+                        if l.strip():
+                            st.text(f"[{i:03d}] {l}")
 
 
                 json_pgr, metodo = extrair_pgr_com_fallback_ia(texto_pgr, pdf_b64)
