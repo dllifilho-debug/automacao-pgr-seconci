@@ -1462,7 +1462,7 @@ def processar_pcmso(dados_pgr_json):
         cargos   = ghe.get("cargos", [])
         riscos   = ghe.get("riscos_mapeados", [])
 
-         # ── NOVO: Rejeita GHEs com nomes claramente inválidos ─────
+        # Rejeita GHEs com nomes claramente inválidos
         nome_ghe_upper = nome_ghe.upper()
         palavras_invalidas_ghe = [
             "QUANTIDADE", "PREVISTOS", "EXPOSTOS", "TOTAL DE",
@@ -1471,31 +1471,27 @@ def processar_pcmso(dados_pgr_json):
             "TRAJETÓRIA", "DESCRIÇÃO",
         ]
         if any(p in nome_ghe_upper for p in palavras_invalidas_ghe):
-            continue  # ← pula esse GHE inválido
+            continue
 
-        # ── NOVO: Limita cargos a no máximo 15 ───────────────────
+        # Limita cargos a no máximo 15
         if len(cargos) > 15:
-            st.warning(
-                f"⚠ GHE '{nome_ghe[:40]}' tem {len(cargos)} cargos. "
-                f"Limitando a 15 para evitar explosão de linhas."
-            )
             cargos = cargos[:15]
 
-        # ── NOVO: Limita riscos a no máximo 10 ───────────────────
+        # Limita riscos a no máximo 10
         if len(riscos) > 10:
             riscos = riscos[:10]
 
         for cargo in cargos:
             exames_set = {}
 
-            # Exame clínico básico
+            # Exame clínico básico — sempre obrigatório (NR-07)
             exames_set["Exame Clínico (Anamnese/Físico)"] = {
                 "exame":         "Exame Clínico (Anamnese/Físico)",
                 "periodicidade": "12 MESES",
                 "motivo":        "NR-07 Básico",
             }
 
-            # Por cargo
+            # Exames por cargo (matriz_funcao_exame)
             cargo_upper = cargo.upper()
             for funcao_chave, exames_funcao in matriz_funcao_exame.items():
                 if funcao_chave in cargo_upper:
@@ -1507,7 +1503,7 @@ def processar_pcmso(dados_pgr_json):
                                 "motivo":        f"Função: {funcao_chave.title()}",
                             }
 
-            # Por risco
+            # Exames por risco (matriz_risco_exame)
             for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
                 perigo = risco.get("perigo_especifico", "").upper()
@@ -1522,6 +1518,7 @@ def processar_pcmso(dados_pgr_json):
                                 "motivo":        f"Exposição: {agente_chave.title()}",
                             }
 
+                # Trabalho em altura — protocolo especial
                 if "ALTURA" in texto_risco:
                     for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
                         if ex["exame"] not in exames_set:
@@ -1531,6 +1528,7 @@ def processar_pcmso(dados_pgr_json):
                                 "motivo":        "Trabalho em Altura (NR-35)",
                             }
 
+            # Gera as linhas finais — 1 por exame único
             for exame_info in exames_set.values():
                 tabela_pcmso.append({
                     "GHE / Setor":                 nome_ghe,
