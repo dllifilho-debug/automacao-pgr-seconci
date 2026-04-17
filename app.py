@@ -1848,204 +1848,93 @@ elif "1️⃣" in modulo_selecionado:
 # ── MÓDULO 2: MEDICINA ────────────────────────────────────────────────────────
 elif "2️⃣" in modulo_selecionado:
     st.header("🩺 Módulo Médico: Importador de PGR e Gerador de PCMSO")
-    st.info("Faça o upload do Inventário de Riscos (PGR). A IA fará a leitura e o cruzamento com as matrizes da NR-07.")
+
+    st.info("""
+    **Motor de extração em 2 etapas:**
+    🟢 **Etapa 1 — Extração Local (gratuita, instantânea):** lê o texto do PGR
+    diretamente, identifica GHEs, cargos e agentes por palavras-chave.
+    🟣 **Etapa 2 — IA (fallback opcional):** acionada automaticamente apenas
+    se a extração local não encontrar dados suficientes.
+    """)
 
     arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
     if arquivo_pgr:
         st.markdown("<br>", unsafe_allow_html=True)
+
         if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
-            with st.spinner("Motor IA analisando o documento... Aguarde."):
+            with st.spinner("Extraindo dados do PGR..."):
+
                 pdf_bytes = arquivo_pgr.getvalue()
                 pdf_b64   = base64.b64encode(pdf_bytes).decode("utf-8")
+                texto_pgr = ""
 
-                prompt_extracao = """
-Você é um médico do trabalho e engenheiro de segurança. Analise este documento
-PDF (Inventário de Riscos Ocupacionais).
-Sua missão é CAÇAR qualquer relação entre Funções/Cargos e Agentes Nocivos
-(Físicos, Químicos, Biológicos).
-CRÍTICO: Para cada risco encontrado, classifique o "nome_agente" de forma clara
-(ex: "Risco Biológico", "Ruído", "Produtos Químicos").
-Se não houver a palavra "GHE", agrupe pelo nome do "Setor" ou da "Função". NUNCA retorne vazio.
-Retorne APENAS JSON puro (sem markdown) neste formato exato:
-[
-  {
-    "ghe": "Nome do Setor, GHE ou Função",
-    "cargos": ["Nome do Cargo 1", "Nome do Cargo 2"],
-    "riscos_mapeados": [
-      {"nome_agente": "Ex: Risco Biológico", "perigo_especifico": "Ex: Exposição a vírus"}
-    ]
-  }
-]
-"""
-                # ── Descobre os modelos disponíveis na conta ───────────────
-                modelos_disponiveis = []
                 try:
-                    url_lista  = (
-                        "https://generativelanguage.googleapis.com/v1beta/models?key="
-                        + CHAVE_API_GOOGLE
-                    )
-                    resp_lista = requests.get(url_lista, timeout=15)
-                    if resp_lista.status_code == 200:
-                        todos = resp_lista.json().get("models", [])
-                        modelos_disponiveis = [
-                            m["name"] for m in todos
-                            if "generateContent" in m.get("supportedGenerationMethods", [])
-                        ]
-                except Exception as e_lista:
-                    st.warning(f"⚠ Não foi possível listar modelos: {e_lista}")
-
-                # ── Ordem de preferência ───────────────────────────────────
-                # Começa pelos mais leves (free tier) → mais pesados (pago)
-                ORDEM_PREFERENCIA = [
-                    "models/gemini-2.0-flash-lite",
-                    "models/gemini-2.0-flash-lite-001",
-                    "models/gemini-flash-lite-latest",
-                    "models/gemini-2.0-flash",
-                    "models/gemini-2.0-flash-001",
-                    "models/gemini-flash-latest",
-                    "models/gemini-2.5-flash-lite",
-                    "models/gemini-2.5-flash",
-                    "models/gemini-2.5-pro",
-                    "models/gemini-pro-latest",
-                ]
-
-                # Filtra apenas os que estão disponíveis na conta
-                candidatos = [m for m in ORDEM_PREFERENCIA if m in modelos_disponiveis]
-
-                # Se a lista filtrada estiver vazia, tenta todos da preferência
-                if not candidatos:
-                    candidatos = ORDEM_PREFERENCIA
-
-                modelo_escolhido = None
-                resposta         = None
-
-                # ── Tenta cada modelo até um funcionar ────────────────────
-                for modelo in candidatos:
-                    st.caption(f"🔄 Tentando modelo: `{modelo}`")
-
-                    url_google = (
-                        f"https://generativelanguage.googleapis.com/v1beta/"
-                        f"{modelo}:generateContent?key={CHAVE_API_GOOGLE}"
-                    )
-                    payload = {
-                        "contents": [{
-                            "parts": [
-                                {"text": prompt_extracao},
-                                {"inlineData": {"mimeType": "application/pdf", "data": pdf_b64}},
-                            ]
-                        }],
-                        "generationConfig": {
-                            "temperature": 0.0,
-                            "responseMimeType": "application/json",
-                        },
-                    }
-
-                    try:
-                        resposta = requests.post(
-                            url_google,
-                            headers={"Content-Type": "application/json"},
-                            json=payload,
-                            timeout=120,
-                        )
-
-                        if resposta.status_code == 200:
-                            modelo_escolhido = modelo
-                            st.caption(f"✅ Modelo funcionando: `{modelo}`")
-                            break
-
-                        elif resposta.status_code == 429:
-                            # Extrai a mensagem de limite para diagnóstico
-                            erro_json = resposta.json().get("error", {})
-                            msg_erro  = erro_json.get("message", "")
-
-                            if "limit: 0" in msg_erro:
-                                st.caption(
-                                    f"🔒 `{modelo}` — cota zero no plano atual. "
-                                    f"Tentando próximo..."
-                                )
-                            else:
-                                st.caption(
-                                    f"⏳ `{modelo}` — limite de requisições atingido. "
-                                    f"Tentando próximo..."
-                                )
-                            continue
-
-                        elif resposta.status_code == 404:
-                            st.caption(f"❌ `{modelo}` — não encontrado. Tentando próximo...")
-                            continue
-
-                        else:
-                            st.caption(
-                                f"⚠ `{modelo}` retornou HTTP {resposta.status_code}. "
-                                f"Tentando próximo..."
-                            )
-                            continue
-
-                    except requests.exceptions.Timeout:
-                        st.caption(f"⏱ `{modelo}` — timeout. Tentando próximo...")
-                        continue
-                    except Exception as e_req:
-                        st.caption(f"⚠ `{modelo}` — erro: {e_req}. Tentando próximo...")
-                        continue
-
-                # ── Nenhum modelo funcionou ────────────────────────────────
-                if not modelo_escolhido or resposta is None or resposta.status_code != 200:
-                    st.error("""
-❌ **Nenhum modelo de IA disponível conseguiu processar o documento.**
-
-**Causa mais provável:** Sua chave de API está no plano **gratuito (Free Tier)**,
-que tem cota zero (`limit: 0`) para os modelos mais recentes.
-
-**Como resolver:**
-1. Acesse [Google AI Studio](https://aistudio.google.com) → verifique seu plano
-2. Acesse [Google Cloud Console](https://console.cloud.google.com) → ative o faturamento
-3. Ou acesse [ai.dev/rate-limit](https://ai.dev/rate-limit) para ver seus limites atuais
-
-**Alternativa sem custo:** Reduza o tamanho do PDF (menos páginas) e tente novamente.
-O modelo `gemini-2.0-flash-lite` tem a cota gratuita mais generosa.
-                    """)
+                    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+                        texto_pgr = "\n".join([
+                            p.extract_text() or "" for p in pdf.pages
+                        ])
+                except Exception as e_pdf:
+                    st.error(f"❌ Erro ao ler o PDF: {e_pdf}")
                     st.stop()
 
-                # ── Processa a resposta do modelo que funcionou ────────────
-                try:
-                    resultado_texto = (
-                        resposta.json()["candidates"][0]["content"]["parts"][0]["text"]
+                if not texto_pgr.strip():
+                    st.error(
+                        "❌ O PDF não contém texto extraível. "
+                        "Verifique se o arquivo não é uma imagem escaneada."
                     )
-                    resultado_limpo = limpar_json_ia(resultado_texto)
+                    st.stop()
 
-                    try:
-                        json_pgr = json.loads(resultado_limpo)
-                    except json.JSONDecodeError:
-                        match = re.search(r'\[.*\]', resultado_limpo, re.DOTALL)
-                        if match:
-                            json_pgr = json.loads(match.group(0))
-                        else:
-                            st.error("❌ A IA retornou um formato inesperado. Tente novamente.")
-                            st.code(resultado_limpo[:500])
-                            st.stop()
+                st.caption(
+                    f"📄 Texto extraído: {len(texto_pgr)} caracteres "
+                    f"em {arquivo_pgr.name}"
+                )
 
-                    df_pcmso = processar_pcmso(json_pgr)
+                json_pgr, metodo = extrair_pgr_com_fallback_ia(texto_pgr, pdf_b64)
 
-                    if not df_pcmso.empty:
-                        html_pcmso = gerar_html_pcmso(df_pcmso)
-                        st.session_state["ultimo_html_pcmso"] = html_pcmso
-                        st.session_state["df_pcmso_preview"]  = df_pcmso
-                        st.session_state["modelo_usado_pcmso"] = modelo_escolhido
-                        st.success(
-                            f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames! "
-                            f"(modelo: `{modelo_escolhido}`)"
-                        )
-                    else:
-                        st.warning(
-                            "⚠ A IA não encontrou riscos no documento. "
-                            "Verifique se é um PGR/Inventário de Riscos válido."
-                        )
+                if metodo == "local":
+                    st.success("✅ Dados extraídos localmente — sem consumo de IA!")
+                elif metodo == "ia":
+                    st.info("🟣 Extração local insuficiente — IA foi acionada como fallback.")
+                else:
+                    st.warning(
+                        "⚠ Extração parcial — alguns dados podem precisar de "
+                        "ajuste manual na tabela abaixo."
+                    )
 
-                except Exception as e_parse:
-                    st.error(f"❌ Erro ao processar resposta da IA: {e_parse}")
+                if json_pgr:
+                    with st.expander("🔍 Ver dados extraídos (antes de gerar PCMSO)"):
+                        for bloco in json_pgr:
+                            st.markdown(f"**GHE:** {bloco.get('ghe', '-')}")
+                            st.markdown(f"**Cargos:** {', '.join(bloco.get('cargos', []))}")
+                            riscos = bloco.get('riscos_mapeados', [])
+                            st.markdown(
+                                f"**Riscos:** {', '.join([r['nome_agente'] for r in riscos])}"
+                            )
+                            st.markdown("---")
 
-    # ── Exibe resultado se já gerado ───────────────────────────────────────
+                df_pcmso = processar_pcmso(json_pgr)
+
+                if not df_pcmso.empty:
+                    html_pcmso = gerar_html_pcmso(df_pcmso)
+                    st.session_state["ultimo_html_pcmso"] = html_pcmso
+                    st.session_state["df_pcmso_preview"]  = df_pcmso
+                    st.success(
+                        f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames!"
+                    )
+                else:
+                    st.warning("""
+⚠ **Nenhum dado encontrado no PGR.**
+
+Possíveis causas:
+- O PDF é uma imagem escaneada (sem texto digital)
+- O formato do PGR é muito diferente do padrão
+- Nenhum agente de risco conhecido foi identificado
+
+**Sugestão:** Use o PGR gerado pelo próprio sistema (Módulo 1)
+para garantir compatibilidade máxima.
+                    """)
+
     if "ultimo_html_pcmso" in st.session_state:
         st.markdown("---")
         st.markdown("### 📊 Prévia da Matriz de Exames")
@@ -2064,12 +1953,12 @@ O modelo `gemini-2.0-flash-lite` tem a cota gratuita mais generosa.
             if st.button(
                 "💾 Gravar no Banco de Dados",
                 key="btn_salvar_pcmso",
-                use_container_width=True
+                use_container_width=True,
             ):
                 if nome_projeto_pcmso:
                     salvar_historico(
                         nome_projeto_pcmso + " (PCMSO)",
-                        st.session_state["ultimo_html_pcmso"]
+                        st.session_state["ultimo_html_pcmso"],
                     )
                     st.success("✅ Salvo com sucesso!")
                 else:
@@ -2079,7 +1968,7 @@ O modelo `gemini-2.0-flash-lite` tem a cota gratuita mais generosa.
         with aba_preview:
             components.html(
                 st.session_state["ultimo_html_pcmso"],
-                height=600, scrolling=True
+                height=600, scrolling=True,
             )
         with aba_download:
             st.download_button(
