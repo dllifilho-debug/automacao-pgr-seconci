@@ -1208,6 +1208,20 @@ FALSOS_GHE = [
     r's/n',
     r'www\.',
     r'@',
+     # ← ADICIONE ESTAS LINHAS:
+    r'quantidade\s+de\s+funcion',   # "Quantidade de Funcionários..."
+    r'previstos?\s+neste',          # "previstos neste GHE"
+    r'expostos?\s+neste',           # "expostos neste GHE"
+    r'^\d+\s+funcion',              # "02 funcionários..."
+    r'^total\s+de',                 # "Total de funcionários"
+    r'^n[uú]mero\s+de',             # "Número de trabalhadores"
+    r'^qt[de]',                     # "Qtd", "Qte"
+    r'^subgrupo',                   # "Subgrupo de risco"
+    r'^descri[çc][aã]o',            # "Descrição do GHE"
+    r'^medidas?\s+de\s+controle',   # "Medidas de controle"
+    r'^fonte\s+geradora',           # "Fonte geradora"
+    r'^trajetória',                 # "Trajetória"
+    r'^meio\s+de\s+propaga',        # "Meio de propagação"
 ]
 
 
@@ -1447,6 +1461,86 @@ def processar_pcmso(dados_pgr_json):
         nome_ghe = ghe.get("ghe", "Sem GHE")
         cargos   = ghe.get("cargos", [])
         riscos   = ghe.get("riscos_mapeados", [])
+
+         # ── NOVO: Rejeita GHEs com nomes claramente inválidos ─────
+        nome_ghe_upper = nome_ghe.upper()
+        palavras_invalidas_ghe = [
+            "QUANTIDADE", "PREVISTOS", "EXPOSTOS", "TOTAL DE",
+            "NÚMERO DE", "FUNCIONÁRIOS", "TRABALHADORES",
+            "MEDIDAS DE CONTROLE", "FONTE GERADORA",
+            "TRAJETÓRIA", "DESCRIÇÃO",
+        ]
+        if any(p in nome_ghe_upper for p in palavras_invalidas_ghe):
+            continue  # ← pula esse GHE inválido
+
+        # ── NOVO: Limita cargos a no máximo 15 ───────────────────
+        if len(cargos) > 15:
+            st.warning(
+                f"⚠ GHE '{nome_ghe[:40]}' tem {len(cargos)} cargos. "
+                f"Limitando a 15 para evitar explosão de linhas."
+            )
+            cargos = cargos[:15]
+
+        # ── NOVO: Limita riscos a no máximo 10 ───────────────────
+        if len(riscos) > 10:
+            riscos = riscos[:10]
+
+        for cargo in cargos:
+            exames_set = {}
+
+            # Exame clínico básico
+            exames_set["Exame Clínico (Anamnese/Físico)"] = {
+                "exame":         "Exame Clínico (Anamnese/Físico)",
+                "periodicidade": "12 MESES",
+                "motivo":        "NR-07 Básico",
+            }
+
+            # Por cargo
+            cargo_upper = cargo.upper()
+            for funcao_chave, exames_funcao in matriz_funcao_exame.items():
+                if funcao_chave in cargo_upper:
+                    for ex in exames_funcao:
+                        if ex["exame"] not in exames_set:
+                            exames_set[ex["exame"]] = {
+                                "exame":         ex["exame"],
+                                "periodicidade": ex["periodicidade"],
+                                "motivo":        f"Função: {funcao_chave.title()}",
+                            }
+
+            # Por risco
+            for risco in riscos:
+                agente = risco.get("nome_agente", "").upper()
+                perigo = risco.get("perigo_especifico", "").upper()
+                texto_risco = agente + " " + perigo
+
+                for agente_chave, regra in matriz_risco_exame.items():
+                    if agente_chave in texto_risco:
+                        if regra["exame"] not in exames_set:
+                            exames_set[regra["exame"]] = {
+                                "exame":         regra["exame"],
+                                "periodicidade": regra["periodico"],
+                                "motivo":        f"Exposição: {agente_chave.title()}",
+                            }
+
+                if "ALTURA" in texto_risco:
+                    for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
+                        if ex["exame"] not in exames_set:
+                            exames_set[ex["exame"]] = {
+                                "exame":         ex["exame"],
+                                "periodicidade": ex["periodicidade"],
+                                "motivo":        "Trabalho em Altura (NR-35)",
+                            }
+
+            for exame_info in exames_set.values():
+                tabela_pcmso.append({
+                    "GHE / Setor":                 nome_ghe,
+                    "Cargo":                       cargo,
+                    "Exame Clínico/Complementar":  exame_info["exame"],
+                    "Periodicidade":               exame_info["periodicidade"],
+                    "Justificativa Legal / Risco": exame_info["motivo"],
+                })
+
+    return pd.DataFrame(tabela_pcmso)
 
         # ── Limita cargos: máx 10 por GHE para evitar explosão ────
         # Se tiver mais, agrupa os excedentes
@@ -2043,6 +2137,14 @@ elif "2️⃣" in modulo_selecionado:
                     f"📄 Texto extraído: {len(texto_pgr)} caracteres "
                     f"em {arquivo_pgr.name}"
                 )
+
+                # ← COLE O DEBUG AQUI (temporário)
+with st.expander("🔬 DEBUG: Primeiras 100 linhas do PDF"):
+    linhas_debug = texto_pgr.split("\n")
+    for i, l in enumerate(linhas_debug[:100]):
+        if l.strip():
+            st.text(f"[{i:03d}] {l}")
+
 
                 json_pgr, metodo = extrair_pgr_com_fallback_ia(texto_pgr, pdf_b64)
 
