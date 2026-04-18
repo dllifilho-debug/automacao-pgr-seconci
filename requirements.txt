@@ -1,5 +1,22 @@
-streamlit
-pdfplumber
-pandas
-google-generativeai
-requests
+# ============================================================
+# requirements.txt — Automação SST Seconci-GO
+# Atualizado: Abril 2026
+# ============================================================
+
+# Interface web
+streamlit==1.56.0
+
+# Extração de PDF
+pdfplumber==0.11.9
+
+# Manipulação de dados
+# pandas 2.2.3 = última versão estável da série 2.x
+# (pandas 3.x requer Python ≥ 3.11 e tem breaking changes)
+pandas==2.2.3
+
+# Requisições HTTP (usado para REST direto com Gemini API)
+requests==2.33.1
+
+# NOTA: google-generativeai foi REMOVIDO.
+# O app.py usa chamadas REST diretas via 'requests' —
+# o SDK google-generativeai não é necessário e está deprecated.
