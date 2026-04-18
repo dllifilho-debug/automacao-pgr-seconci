@@ -694,7 +694,7 @@ ALIAS_CARGOS = {
     "AUXILIAR ADMINISTRATIVO": "ADMINISTRATIVO",
     "AUX. TÉCNICO":         "TÉCNICO",
     "TÉCNICO DE SEGURANÇA": "TÉCNICO",
-    "TÉCNICO SST":          "TÉCNICO",
+    "TÉCNICO SST":          "Técnico SST",  # FIX-1: preserva nome completo para PCMSO
     "TEC. SEGURANÇA":       "TÉCNICO",
     "OPERADOR DE GRUA":     "OPERADOR",
     "OPERADOR DE GUINDASTE":"OPERADOR",
@@ -1531,17 +1531,72 @@ def extrair_ghe_fallback_flexivel(texto_pgr: str) -> list:
     return []
 
 
+# ══════════════════════════════════════════════════════════════
+# FIX-2: Mapa semântico GHE-nome → cargo (específico Seconci)
+# Usado como Estratégia 4 (fallback) quando o parser não
+# encontra cargo explícito no texto do bloco GHE.
+# ══════════════════════════════════════════════════════════════
+MAPA_GHE_CARGO_SECONCI = {
+    "ENGENHARIA":       "Técnico SST",
+    "SESMT":            "Técnico SST",
+    "SUPERVISÃO":       "Pintor",
+    "ALMOXARIFADO":     "Almoxarife",
+    "LIMPEZA":          "Limpeza",
+    "ADMINISTRAÇÃO":    "Administrativo",
+    "PRODUÇÃO":         "Servente",
+    "CARPINTARIA":      "Carpinteiro",
+    "ARMAÇÃO":          "Armador",
+    "HIDRO":            "Encanador",
+    "ELÉTRICA":         "Eletricista",
+    "BETONEIRA":        "Operador",
+    "SINALIZAÇÃO":      "Sinaleiro",
+    "OPERAÇÃO DE GRUA": "Operador",
+    "ELEVADOR":         "Operador",
+    "PINTURA":          "Pintor",
+    "SERRALHERIA":      "Serralheiro",
+    "MONTAGEM":         "Montador",
+}
+
+
+def extrair_cargo_por_ghe(nome_ghe: str) -> str:
+    """Estratégia 4: resolve cargo pelo nome do GHE via MAPA_GHE_CARGO_SECONCI."""
+    nome_upper = nome_ghe.upper()
+    for chave, cargo in MAPA_GHE_CARGO_SECONCI.items():
+        if chave in nome_upper:
+            return cargo
+    return ""
+
+
 def extrair_ghe_texto(texto_pgr: str) -> list:
     """
-    Extrai GHEs com critério RÍGIDO.
-    Versão corrigida — evita explosão de linhas.
+    Extrai GHEs com critério RÍGIDO — parser multi-estratégia.
+
+    Estratégia 1 — Label explícito: FUNÇÃO:/CARGO: seguido do valor.
+    Estratégia 2 — Tabela OCR com pipe: FUNÇÃO | Carpinteiro.
+    Estratégia 3 — Matching posicional: palavra-cargo no corpo do texto.
+    Estratégia 4 — Fallback semântico: resolve pelo nome do GHE via
+                   MAPA_GHE_CARGO_SECONCI.
+
+    FIX-2: flush salva o bloco sempre que um GHE é detectado (não apenas
+    quando cargos/riscos já foram encontrados), evitando perda de GHEs
+    com conteúdo mínimo.
     """
     linhas   = texto_pgr.split("\n")
     blocos   = []
-    ghe_atual    = None
-    cargos_atual = set()
-    riscos_atual = []
+    ghe_atual            = None
+    cargos_atual         = set()
+    riscos_atual         = []
     linhas_processadas_risco = set()
+    cargo_encontrado     = False
+
+    re_cargo_label  = re.compile(
+        r'(?:FUN[ÇC][ÃA]O|CARGO|ATIVIDADE)\s*[:\-–|]\s*(.+)',
+        re.IGNORECASE
+    )
+    re_cargo_tabela = re.compile(
+        r'(?:FUN[ÇC][ÃA]O|CARGO)\s*\|\s*(.+?)(?:\s*\||$)',
+        re.IGNORECASE
+    )
 
     for i, linha in enumerate(linhas):
         linha_limpa = linha.strip()
@@ -1552,33 +1607,57 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
 
         # ── Detecta GHE com critério rígido ───────────────────────
         if e_cabecalho_ghe_valido(linha_limpa):
-            if ghe_atual and (cargos_atual or riscos_atual):
+            if ghe_atual is not None:           # FIX-2: salva sempre
                 blocos.append({
                     "ghe":             ghe_atual,
-                    "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
+                    "cargos":          sorted(list(cargos_atual)),
                     "riscos_mapeados": riscos_atual,
                 })
             ghe_atual    = linha_limpa[:80]
             cargos_atual = set()
             riscos_atual = []
             linhas_processadas_risco = set()
+            cargo_encontrado = False
             continue
 
-        # Ignora linhas fora de qualquer GHE
         if ghe_atual is None:
             continue
 
-        # ── Detecta cargos ─────────────────────────────────────────
-        linha_parece_cargo = (
-            len(linha_limpa) < 60 and
-            not any(exc in linha_upper for exc in PALAVRAS_EXCLUIR_CARGO) and
-            not re.search(r'\d+\s*(ppm|mg|dB|m/s|%)', linha_upper) and
-            not re.search(r'\d{5}-\d{3}', linha_limpa)
-        )
-        if linha_parece_cargo:
-            cargo_normalizado = normalizar_cargo(linha_limpa)
-            if cargo_normalizado:
-                cargos_atual.add(cargo_normalizado)
+        # ── Estratégia 1: label explícito ─────────────────────────
+        m_label = re_cargo_label.search(linha_limpa)
+        if m_label:
+            cargo_raw = re.sub(r'[|\\/*<>]', '', m_label.group(1)).strip()
+            if cargo_raw and not any(exc in cargo_raw.upper() for exc in PALAVRAS_EXCLUIR_CARGO):
+                cargo_norm = normalizar_cargo(cargo_raw)
+                if cargo_norm:
+                    cargos_atual.add(cargo_norm)
+                    cargo_encontrado = True
+            continue
+
+        # ── Estratégia 2: tabela OCR com pipe ─────────────────────
+        m_tabela = re_cargo_tabela.search(linha_limpa)
+        if m_tabela:
+            cargo_raw = re.sub(r'[|\\/*<>]', '', m_tabela.group(1)).strip()
+            if cargo_raw and not any(exc in cargo_raw.upper() for exc in PALAVRAS_EXCLUIR_CARGO):
+                cargo_norm = normalizar_cargo(cargo_raw)
+                if cargo_norm:
+                    cargos_atual.add(cargo_norm)
+                    cargo_encontrado = True
+            continue
+
+        # ── Estratégia 3: matching posicional ─────────────────────
+        if not cargo_encontrado:
+            linha_parece_cargo = (
+                len(linha_limpa) < 60 and
+                not any(exc in linha_upper for exc in PALAVRAS_EXCLUIR_CARGO) and
+                not re.search(r'\d+\s*(ppm|mg|dB|m/s|%)', linha_upper) and
+                not re.search(r'\d{5}-\d{3}', linha_limpa)
+            )
+            if linha_parece_cargo:
+                cargo_norm = normalizar_cargo(linha_limpa)
+                if cargo_norm:
+                    cargos_atual.add(cargo_norm)
+                    cargo_encontrado = True
 
         # ── Detecta agentes/riscos (1 por linha) ───────────────────
         if i not in linhas_processadas_risco:
@@ -1593,15 +1672,24 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
                     linhas_processadas_risco.add(i)
                     break
 
-    # Salva o último bloco
-    if ghe_atual and (cargos_atual or riscos_atual):
+    # Flush do último bloco
+    if ghe_atual is not None:                   # FIX-2: salva sempre
         blocos.append({
             "ghe":             ghe_atual,
-            "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
+            "cargos":          sorted(list(cargos_atual)),
             "riscos_mapeados": riscos_atual,
         })
 
-    # Fallback se não encontrou nenhum GHE válido
+    # ── Estratégia 4: fallback semântico por nome do GHE ──────────
+    for bloco in blocos:
+        if not bloco["cargos"]:
+            cargo_fb = extrair_cargo_por_ghe(bloco["ghe"])
+            bloco["cargos"] = (
+                [cargo_fb] if cargo_fb
+                else ["⚠️ Verificar manualmente — Cargo não identificado"]
+            )
+
+    # Fallback estrutural se zero GHEs detectados
     if not blocos:
         blocos = extrair_ghe_fallback_flexivel(texto_pgr)
 
