@@ -1599,6 +1599,10 @@ _CARGOS_SUSPEITOS_IA = {
     "SEGURANÇA", "MÉDICO", "TÉCNICO", "TRABALHADOR",
     "FUNCIONÁRIO", "COLABORADOR", "VERIFICAR MANUALMENTE",
     "⚠️ VERIFICAR MANUALMENTE — CARGO NÃO IDENTIFICADO",
+    "LIMPEZA",   # FIX-7: IA coloca "Limpeza" em GHEs que não são de limpeza
+    "SERVENTE",  # FIX-7: IA coloca genericamente em obras
+    "OPERÁRIO",  # FIX-7: cargo genérico da IA
+    "AUXILIAR",  # FIX-7: cargo genérico da IA
 }
 
 
