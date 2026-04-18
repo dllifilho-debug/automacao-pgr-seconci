@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components  # mantido para compatibilidade
 import pdfplumber
 import re
 import pandas as pd
@@ -93,9 +93,9 @@ init_db()
 # BARRA LATERAL (MENU E HISTÓRICO)
 # ==========================================
 if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", use_column_width=True)
+    st.sidebar.image("logo.png", width=220)
 elif os.path.exists("logo.jpg"):
-    st.sidebar.image("logo.jpg", use_column_width=True)
+    st.sidebar.image("logo.jpg", width=220)
 else:
     st.sidebar.markdown(
         "<h2 style='text-align: center; color: #084D22;'>SECONCI-GO</h2>",
