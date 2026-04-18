@@ -695,6 +695,9 @@ ALIAS_CARGOS = {
     "AUX. TÉCNICO":         "TÉCNICO",
     "TÉCNICO DE SEGURANÇA": "TÉCNICO",
     "TÉCNICO SST":          "Técnico SST",  # FIX-1: preserva nome completo para PCMSO
+    "TÉCNICO DE SST":       "Técnico SST",
+    "SEGURANÇA DO TRABALHO":"Técnico SST",
+    "TÉC. SEGURANÇA DO TRABALHO": "Técnico SST",
     "TEC. SEGURANÇA":       "TÉCNICO",
     "OPERADOR DE GRUA":     "OPERADOR",
     "OPERADOR DE GUINDASTE":"OPERADOR",
@@ -1537,25 +1540,83 @@ def extrair_ghe_fallback_flexivel(texto_pgr: str) -> list:
 # encontra cargo explícito no texto do bloco GHE.
 # ══════════════════════════════════════════════════════════════
 MAPA_GHE_CARGO_SECONCI = {
-    "ENGENHARIA":       "Técnico SST",
-    "SESMT":            "Técnico SST",
-    "SUPERVISÃO":       "Pintor",
-    "ALMOXARIFADO":     "Almoxarife",
-    "LIMPEZA":          "Limpeza",
-    "ADMINISTRAÇÃO":    "Administrativo",
-    "PRODUÇÃO":         "Servente",
-    "CARPINTARIA":      "Carpinteiro",
-    "ARMAÇÃO":          "Armador",
-    "HIDRO":            "Encanador",
-    "ELÉTRICA":         "Eletricista",
-    "BETONEIRA":        "Operador",
-    "SINALIZAÇÃO":      "Sinaleiro",
-    "OPERAÇÃO DE GRUA": "Operador",
-    "ELEVADOR":         "Operador",
-    "PINTURA":          "Pintor",
-    "SERRALHERIA":      "Serralheiro",
-    "MONTAGEM":         "Montador",
+    # ── Construção civil / Obra ────────────────────────────────
+    "ENGENHARIA":            "Técnico SST",
+    "SESMT":                 "Técnico SST",
+    "SUPERVISÃO":            "Técnico SST",
+    "ALMOXARIFADO":          "Almoxarife",
+    "PRODUÇÃO":              "Servente",
+    "CARPINTARIA":           "Carpinteiro",
+    "ARMAÇÃO":               "Armador",
+    "HIDRO":                 "Encanador",
+    "ELÉTRICA":              "Eletricista",
+    "BETONEIRA":             "Operador",
+    "SINALIZAÇÃO":           "Sinaleiro",
+    "OPERAÇÃO DE GRUA":      "Operador",
+    "ELEVADOR":              "Operador",
+    "PINTURA":               "Pintor",
+    "SERRALHERIA":           "Serralheiro",
+    "MONTAGEM":              "Montador",
+    # ── Administrativo / Escritório ───────────────────────────
+    "ADMINISTRAÇÃO":         "Administrativo",
+    "ADMINISTRATIVO":        "Administrativo",
+    "FINANCEIRO":            "Administrativo",
+    "COMERCIAL":             "Administrativo",
+    "JURÍDICO":              "Administrativo",
+    "RECURSOS HUMANOS":      "Administrativo",
+    "DEPARTAMENTO PESSOAL":  "Administrativo",
+    "MARKETING":             "Administrativo",
+    "PLANEJAMENTO":          "Administrativo",
+    "ATENDIMENTO":           "Administrativo",
+    "SERVIÇO SOCIAL":        "Administrativo",
+    "ADM SAÚDE":             "Administrativo",
+    "ADM":                   "Administrativo",
+    "SUPRIMENTOS":           "Almoxarife",
+    # ── TI / Técnico ──────────────────────────────────────────
+    "TECNOLOGIA":            "Técnico",
+    "INFORMAÇÃO":            "Técnico",
+    "PABX":                  "Técnico",
+    "QUALIDADE":             "Técnico",
+    "MANUTENÇÃO":            "Técnico",
+    "SEGURANÇA DO TRABALHO": "Técnico SST",
+    "SST":                   "Técnico SST",
+    "ODONTOLOGIA":           "Técnico",
+    # ── Saúde / Medicina ──────────────────────────────────────
+    "COORDENAÇÃO DE SAÚDE":  "Médico",
+    "MEDICINA":              "Médico",
+    "SAÚDE":                 "Técnico",
+    "ENFERMAGEM":            "Técnico",
+    # ── Limpeza / Zeladoria ───────────────────────────────────
+    "LIMPEZA":               "Limpeza",
+    "ZELADORIA":             "Zelador",
+    "PORTARIA":              "Vigia",
 }
+
+# Cargos genéricos que a IA retorna erroneamente quando não
+# encontra o cargo real no PDF. Se o cargo vier nesta lista
+# E o GHE tiver uma chave no mapa → substituir pelo correto.
+_CARGOS_SUSPEITOS_IA = {
+    "SEGURANÇA", "MÉDICO", "TÉCNICO", "TRABALHADOR",
+    "FUNCIONÁRIO", "COLABORADOR", "VERIFICAR MANUALMENTE",
+    "⚠️ VERIFICAR MANUALMENTE — CARGO NÃO IDENTIFICADO",
+}
+
+
+def resolver_cargo_pelo_ghe(nome_ghe: str, cargo_atual: str) -> str:
+    """
+    FIX-3/4: Corrige cargos suspeitos/genéricos gerados pela IA
+    usando o nome do GHE como âncora semântica.
+    Também funciona para cargos vazios do extrator local.
+    """
+    cargo_upper = cargo_atual.upper().strip()
+    if cargo_upper and cargo_upper not in _CARGOS_SUSPEITOS_IA:
+        return cargo_atual
+    nome_upper = nome_ghe.upper()
+    # Busca da chave mais específica primeiro (ordena por comprimento desc)
+    for chave in sorted(MAPA_GHE_CARGO_SECONCI.keys(), key=len, reverse=True):
+        if chave in nome_upper:
+            return MAPA_GHE_CARGO_SECONCI[chave]
+    return cargo_atual
 
 
 def extrair_cargo_por_ghe(nome_ghe: str) -> str:
@@ -1719,10 +1780,22 @@ def extrair_pgr_com_fallback_ia(texto_pgr: str, pdf_b64: str) -> tuple:
         "models/gemini-2.5-flash",
     ]
     prompt_extracao = """
-Você é um médico do trabalho. Analise este PDF (Inventário de Riscos).
-Identifique GHEs/Setores, Cargos e Agentes Nocivos.
-Retorne APENAS JSON puro neste formato:
-[{"ghe": "Nome", "cargos": ["Cargo"], "riscos_mapeados": [{"nome_agente": "Agente", "perigo_especifico": "Descrição"}]}]
+Você é um médico do trabalho e especialista em SST. Analise este PDF (Inventário de Riscos / PGR).
+Identifique todos os GHEs/Setores com seus Cargos reais e Agentes de Risco.
+
+REGRAS IMPORTANTES PARA O CAMPO "cargos":
+- Use o cargo REAL da função (ex: Carpinteiro, Armador, Pintor, Eletricista)
+- Nunca use "Segurança" como cargo genérico — use "Técnico SST" para profissionais de segurança
+- Nunca use "Limpeza" para setores que não sejam de higienização
+- Para GHEs administrativos (Financeiro, RH, Comercial): use "Administrativo"
+- Para GHEs de TI / Tecnologia: use "Técnico"
+- Para GHEs de Manutenção: use "Técnico"
+- Para GHEs de Almoxarifado / Suprimentos: use "Almoxarife"
+- Para GHEs de Saúde / Medicina: use "Médico" ou "Técnico" conforme o setor
+- Se não conseguir identificar o cargo, use o nome do setor do GHE como referência
+
+Retorne APENAS JSON puro neste formato (sem markdown, sem explicação):
+[{"ghe": "GHE 01 - NOME DO SETOR", "cargos": ["Cargo Real"], "riscos_mapeados": [{"nome_agente": "Agente", "perigo_especifico": "Descrição breve"}]}]
 """
     for modelo in MODELOS_FALLBACK:
         try:
@@ -1805,6 +1878,9 @@ def processar_pcmso(dados_pgr_json):
 
         for cargo in cargos:
             exames_set = {}
+
+            # FIX-3: corrige cargo suspeito/genérico da IA usando nome do GHE
+            cargo = resolver_cargo_pelo_ghe(nome_ghe, cargo)
 
             # Exame clínico básico — sempre obrigatório (NR-07)
             # NC-3: Chave única "EXAME_CLINICO_BASE" evita duplicidade com variantes geradas pela IA
