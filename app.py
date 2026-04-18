@@ -734,9 +734,13 @@ def normalizar_cargo(cargo: str) -> str:
 matriz_risco_exame = {
     "TOLUENO":   {"exame": "Ortocresol na Urina",                        "periodico": "6 MESES"},
     "RUÍDO":     {"exame": "Audiometria",                                 "periodico": "12 MESES"},
-    "SÍLICA":    {"exame": "Raio-X de Tórax (OIT) + Espirometria",       "periodico": "12 a 24 MESES"},
+    "SÍLICA":    {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "12 MESES"},  # NC-6: Sílica/quartzo — RX 12m (NR-07 Quadro II)
+    "QUARTZO":   {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "12 MESES"},  # NC-6: Quartzo
+    "ESPIROMETRIA SÍLICA": {"exame": "Espirometria (VEF1/CVF)",           "periodico": "24 MESES"},  # NC-6: Espirometria contato pulmonar
     "VIBRAÇÃO":  {"exame": "Avaliação Clínica e Osteomuscular",           "periodico": "12 MESES"},
-    "POEIRA":    {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "12 MESES"},
+    "POEIRA":         {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "60 MESES"},  # NC-6: PNOS — NR-07 Quadro II: 60 meses
+    "POEIRA MINERAL": {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "12 MESES"},  # NC-6: Sílica/quartzo/betoneira — 12 meses
+    "POEIRA MADEIRA": {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "60 MESES"},  # NC-6: PNOS madeira — 60 meses
     "BIOLÓGIC":  {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
     "SANGUE":    {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
     "VÍRUS":     {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
@@ -801,16 +805,16 @@ matriz_funcao_exame = {
     ],
     # ══ MELHORIA 1: Cargos da construção civil adicionados ══════════
     "PINTOR": [
-        {"exame": "Exame Clínico",                          "periodicidade": "6 MESES"},
-        {"exame": "Hemograma Completo",                     "periodicidade": "6 MESES"},
-        {"exame": "Reticulócitos",                          "periodicidade": "6 MESES"},
-        {"exame": "Ácido trans,trans-mucônico (urina)",     "periodicidade": "6 MESES"},
-        {"exame": "Ortocresol na Urina (IBE Tolueno)",      "periodicidade": "6 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",                "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT",                          "periodicidade": "24 MESES"},
-        {"exame": "Audiometria",                            "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                        "periodicidade": "12 MESES"},
-        {"exame": "Avaliação Dermatológica",                "periodicidade": "12 MESES"},
+        {"exame": "Exame Clínico (Anamnese/Físico)",           "periodicidade": "6 MESES"},   # NC-5: semestral obrigatório (tolueno)
+        {"exame": "Hemograma Completo",                         "periodicidade": "6 MESES"},
+        {"exame": "Contagem de Reticulócitos",                  "periodicidade": "6 MESES"},   # NC-4: NR-07 Anexo II — exposição benzeno/tolueno
+        {"exame": "Ácido trans,trans-mucônico (urina)",         "periodicidade": "6 MESES"},
+        {"exame": "Ortocresol na Urina (IBE Tolueno)",          "periodicidade": "6 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)",                    "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT",                               "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",                                 "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",                             "periodicidade": "12 MESES"},
+        {"exame": "Avaliação Dermatológica",                     "periodicidade": "12 MESES"},
     ],
     "ARMADOR": [
         {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
@@ -875,6 +879,19 @@ matriz_funcao_exame = {
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
         {"exame": "Audiometria",     "periodicidade": "12 MESES"},
     ],
+    # NC-4: Alias "PINTURA" garante cobertura de GHEs de pintura sem cargo explícito
+    "PINTURA": [
+        {"exame": "Exame Clínico (Anamnese/Físico)",           "periodicidade": "6 MESES"},
+        {"exame": "Hemograma Completo",                         "periodicidade": "6 MESES"},
+        {"exame": "Contagem de Reticulócitos",                  "periodicidade": "6 MESES"},  # NC-4: obrigatório exposição benzeno/tolueno
+        {"exame": "Ácido trans,trans-mucônico (urina)",         "periodicidade": "6 MESES"},
+        {"exame": "Ortocresol na Urina (IBE Tolueno)",          "periodicidade": "6 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)",                    "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT",                               "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",                                 "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",                             "periodicidade": "12 MESES"},
+        {"exame": "Avaliação Dermatológica",                     "periodicidade": "12 MESES"},
+    ],
     "SEGURANÇA": [
         {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
         {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
@@ -925,10 +942,20 @@ def periodicidade_mais_restritiva(p1: str, p2: str) -> str:
 
 def adicionar_exame_dedup(exames_set: dict, exame_info: dict):
     """
-    Adiciona exame ao set com deduplicação inteligente:
-    se o exame já existir, mantém a periodicidade mais restritiva.
+    NC-3: Adiciona exame ao set com deduplicação inteligente.
+    Normaliza variantes de "Exame Clínico" para chave única,
+    evitando duplicidade de Exame Clínico no output final.
+    Mantém a periodicidade mais restritiva em caso de conflito.
     """
-    nome = exame_info["exame"]
+    _VARIANTES_EC = {
+        "EXAME CLÍNICO", "EXAME CLINICO",
+        "EXAME CLÍNICO (ANAMNESE/FÍSICO)", "EXAME CLINICO (ANAMNESE/FISICO)",
+        "EXAME CLÍNICO OCUPACIONAL", "EXAME CLÍNICO (ANAMNESE)",
+    }
+    exame_info = dict(exame_info)
+    if exame_info["exame"].upper().strip() in _VARIANTES_EC or exame_info["exame"].upper().startswith("EXAME CL"):
+        exame_info["exame"] = "Exame Clínico (Anamnese/Físico)"
+    nome = "EXAME_CLINICO_BASE" if exame_info["exame"] == "Exame Clínico (Anamnese/Físico)" else exame_info["exame"]
     if nome not in exames_set:
         exames_set[nome] = dict(exame_info)
     else:
@@ -1692,7 +1719,8 @@ def processar_pcmso(dados_pgr_json):
             exames_set = {}
 
             # Exame clínico básico — sempre obrigatório (NR-07)
-            exames_set["Exame Clínico (Anamnese/Físico)"] = {
+            # NC-3: Chave única "EXAME_CLINICO_BASE" evita duplicidade com variantes geradas pela IA
+            exames_set["EXAME_CLINICO_BASE"] = {
                 "exame":         "Exame Clínico (Anamnese/Físico)",
                 "periodicidade": "12 MESES",
                 "motivo":        "NR-07 Básico",
@@ -1729,8 +1757,27 @@ def processar_pcmso(dados_pgr_json):
                             "motivo":        f"Exposição: {agente_chave.title()}",
                         })
 
-                # Trabalho em altura — protocolo especial
-                if "ALTURA" in texto_risco:
+                # NC-7: Bloquear protocolo NR-35 para funções/GHEs administrativos
+                _CARGOS_ADMIN_NR35 = {
+                    "ADMINISTRATIVO", "RECEPCIONISTA", "GESTOR", "ANALISTA",
+                    "ASSISTENTE", "AUXILIAR", "COORDENADOR", "DIRETOR",
+                    "GERENTE", "SUPERVISOR ADMINISTRATIVO", "ESTAGIÁRIO",
+                    "JOVEM APRENDIZ", "TÉCNICO ADMINISTRATIVO",
+                }
+                _GHES_ADMIN_NR35 = {
+                    "ADMINISTRAÇÃO", "PÓS-VENDA", "PLANEJAMENTO",
+                    "NOVOS NEGÓCIOS", "SUPRIMENTOS", "MARKETING",
+                    "TECNOLOGIA DE INFORMAÇÃO", "TI", "RH", "RECURSOS HUMANOS",
+                    "DEPARTAMENTO PESSOAL", "FINANCEIRO", "CONTABILIDADE",
+                }
+                _cargo_upper_nr35 = cargo_norm.upper()
+                _ghe_upper_nr35   = nome_ghe.upper()
+                _e_admin = (
+                    any(a in _cargo_upper_nr35 for a in _CARGOS_ADMIN_NR35) or
+                    any(g in _ghe_upper_nr35   for g in _GHES_ADMIN_NR35)
+                )
+                # Trabalho em altura — protocolo especial (apenas se não for cargo/GHE admin)
+                if "ALTURA" in texto_risco and not _e_admin:
                     for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
                         adicionar_exame_dedup(exames_set, {
                             "exame":         ex["exame"],
@@ -1942,10 +1989,20 @@ def gerar_html_pcmso(df_pcmso, cabecalho: dict = None):
       <th>Periodicidade</th><th>Justificativa / Agente</th>
     </tr>
     """
+    # NC-2: Identificar cargos não resolvidos e destacar no HTML
+    _ghe_anterior = None
     for _, row in df_pcmso.iterrows():
+        _cargo_val = str(row["Cargo"])
+        _e_pendente = "verificar" in _cargo_val.lower() or _cargo_val.strip() == "" or _cargo_val == "—"
+        _bg_row = "background-color:#FFF3CD;border-left:4px solid #FFA000;" if _e_pendente else ""
+        _cargo_display = (
+            f"⚠️ {_cargo_val} <br><small style='color:#c0392b;font-size:8pt'>"
+            f"Cargo não identificado — preencher antes de emitir ASO</small>"
+        ) if _e_pendente else _cargo_val
         html += (
-            f"<tr><td><strong>{row['GHE / Setor']}</strong></td>"
-            f"<td>{row['Cargo']}</td>"
+            f"<tr style='{_bg_row}'>"
+            f"<td><strong>{row['GHE / Setor']}</strong></td>"
+            f"<td>{_cargo_display}</td>"
             f"<td>{row['Exame Clínico/Complementar']}</td>"
             f"<td>{row['Periodicidade']}</td>"
             f"<td>{row['Justificativa Legal / Risco']}</td></tr>"
@@ -2277,12 +2334,12 @@ elif "2️⃣" in modulo_selecionado:
     se a extração local não encontrar dados suficientes.
     """)
 
-    with st.expander("📋 Dados de Identificação do PCMSO (obrigatório — NR-07 item 7.5.19.1)", expanded=False):
+    with st.expander("📋 Dados de Identificação do PCMSO (obrigatório — NR-07 item 7.5.19.1)", expanded=True):
         col_a, col_b = st.columns(2)
         with col_a:
-            pcmso_razao_social    = st.text_input("Razão Social da Empresa", key="pcmso_razao")
-            pcmso_cnpj            = st.text_input("CNPJ", key="pcmso_cnpj")
-            pcmso_medico_rt       = st.text_input("Médico Responsável (Nome + CRM)", key="pcmso_medico")
+            pcmso_razao_social    = st.text_input("Razão Social da Empresa \u002a", key="pcmso_razao", help="Obrigatório — NR-07 item 7.5.19.1")
+            pcmso_cnpj            = st.text_input("CNPJ \u002a", key="pcmso_cnpj", help="Obrigatório — identifica o estabelecimento")
+            pcmso_medico_rt       = st.text_input("Médico Responsável RT (Nome + CRM) \u002a", key="pcmso_medico", help="Obrigatório — ex: Dra. Patrícia Montalvo Moraes CRM-GO 14.949")
         with col_b:
             pcmso_vig_ini         = st.date_input("Vigência — Início", key="pcmso_ini")
             pcmso_vig_fim         = st.date_input("Vigência — Fim",    key="pcmso_fim")
@@ -2301,7 +2358,19 @@ elif "2️⃣" in modulo_selecionado:
     if arquivo_pgr:
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True):
+        # NC-1: Validar campos obrigatórios antes de permitir geração
+        _campos_ok = (
+            bool(st.session_state.get("pcmso_razao", "").strip()) and
+            bool(st.session_state.get("pcmso_cnpj", "").strip()) and
+            bool(st.session_state.get("pcmso_medico", "").strip())
+        )
+        if not _campos_ok:
+            st.warning(
+                "⚠️ **Preencha os campos obrigatórios antes de gerar o PCMSO:** "
+                "Razão Social, CNPJ e Médico Responsável (RT) são exigidos pela NR-07 item 7.5.19.1."
+            )
+
+        if st.button("🚀 Extrair Riscos e Gerar PCMSO", type="primary", use_container_width=True, disabled=not _campos_ok):
             with st.spinner("Extraindo dados do PGR..."):
 
                 pdf_bytes = arquivo_pgr.getvalue()
@@ -2369,6 +2438,17 @@ elif "2️⃣" in modulo_selecionado:
                     st.success(
                         f"✅ PCMSO gerado com {len(df_pcmso)} linhas de exames!"
                     )
+                    # NC-2: Alertar sobre cargos não identificados
+                    _cargos_pendentes = df_pcmso[
+                        df_pcmso["Cargo"].str.lower().str.contains("verificar", na=False) |
+                        (df_pcmso["Cargo"].str.strip() == "")
+                    ]["GHE / Setor"].unique()
+                    if len(_cargos_pendentes) > 0:
+                        st.warning(
+                            f"⚠️ **{len(_cargos_pendentes)} GHE(s) com cargo não identificado:** "
+                            f"{', '.join(_cargos_pendentes[:5])}{'...' if len(_cargos_pendentes) > 5 else ''}. "
+                            f"Preencha os cargos reais antes de emitir os ASOs (NR-07 item 7.4.1)."
+                        )
                 else:
                     st.warning("""
 ⚠ **Nenhum dado encontrado no PGR.**
