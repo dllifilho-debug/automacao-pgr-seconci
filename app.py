@@ -681,104 +681,73 @@ dicionario_campo = {
     },
 }
 
+# ══ MELHORIA 5: Dicionário de alias para normalização de cargos ══
+ALIAS_CARGOS = {
+    # Cargo genérico → chaves reconhecidas pela matriz_funcao_exame
+    "AUX. PINTOR":          "PINTOR",
+    "AUXILIAR DE PINTURA":  "PINTOR",
+    "PINTOR DE OBRAS":      "PINTOR",
+    "AUX. SERVIÇOS GERAIS": "LIMPEZA",
+    "AUXILIAR DE LIMPEZA":  "LIMPEZA",
+    "AUX. ALMOXARIFADO":    "ALMOXARIFE",
+    "AUX. ADMINISTRATIVO":  "ADMINISTRATIVO",
+    "AUXILIAR ADMINISTRATIVO": "ADMINISTRATIVO",
+    "AUX. TÉCNICO":         "TÉCNICO",
+    "TÉCNICO DE SEGURANÇA": "TÉCNICO",
+    "TÉCNICO SST":          "TÉCNICO",
+    "TEC. SEGURANÇA":       "TÉCNICO",
+    "OPERADOR DE GRUA":     "OPERADOR",
+    "OPERADOR DE GUINDASTE":"OPERADOR",
+    "OPERADOR DE MÁQUINAS": "OPERADOR",
+    "OP. BETONEIRA":        "OPERADOR",
+    "MONTADOR DE ANDAIME":  "MONTADOR",
+    "ARMADOR DE FERRO":     "ARMADOR",
+    "CARPINTEIRO DE FORMA": "CARPINTEIRO",
+    "CARPINTEIRO DE OBRAS": "CARPINTEIRO",
+    "SINALEIRO DE GRUA":    "SINALEIRO",
+    "VIGILANTE":            "VIGIA",
+    "VIGILÂNCIA":           "VIGIA",
+    "COORD.":               "COORDENADOR",
+    "ENG.":                 "ENGENHEIRO",
+    "MOTORISTA DE OBRA":    "MOTORISTA",
+}
+
+def normalizar_cargo(cargo: str) -> str:
+    """
+    Normaliza o cargo para a chave reconhecida pela matriz_funcao_exame.
+    Tenta correspondência exata (via alias) antes do matching parcial.
+    """
+    cargo_upper = cargo.upper().strip()
+    # 1) Alias exato
+    if cargo_upper in ALIAS_CARGOS:
+        return ALIAS_CARGOS[cargo_upper]
+    # 2) Alias parcial
+    for alias, normalizado in ALIAS_CARGOS.items():
+        if alias in cargo_upper:
+            return normalizado
+    # 3) Retorna o original para matching parcial normal na matriz
+    return cargo
+
 # ==========================================
 # DICIONÁRIOS FASE 2 (CLÍNICA E PCMSO)
 # ==========================================
 matriz_risco_exame = {
     "TOLUENO":   {"exame": "Ortocresol na Urina",                        "periodico": "6 MESES"},
     "RUÍDO":     {"exame": "Audiometria",                                 "periodico": "12 MESES"},
-    "SÍLICA":    {"exame": "RX Tórax OIT (Leitura OIT)",                "periodico": "12 MESES"},
-    "QUARTZO":   {"exame": "RX Tórax OIT (Leitura OIT)",                "periodico": "12 MESES"},
-    "CIMENTO":   {"exame": "RX Tórax OIT (Leitura OIT)",                "periodico": "12 MESES"},
-    "ESPIROMET": {"exame": "Espirometria (VEF1/CVF)",                   "periodico": "24 MESES"},
+    "SÍLICA":    {"exame": "Raio-X de Tórax (OIT) + Espirometria",       "periodico": "12 a 24 MESES"},
     "VIBRAÇÃO":  {"exame": "Avaliação Clínica e Osteomuscular",           "periodico": "12 MESES"},
-    "POEIRA":    {"exame": "RX Tórax OIT (Leitura OIT)",                "periodico": "60 MESES"},  # PNOS/gesso/madeira
-    "BIOLÓGICO": {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
+    "POEIRA":    {"exame": "Raio-X de Tórax (OIT)",                      "periodico": "12 MESES"},
+    "BIOLÓGIC":  {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
     "SANGUE":    {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
     "VÍRUS":     {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
     "BACTÉRIA":  {"exame": "HBsAg / Anti-HBs / Anti-HCV",               "periodico": "12 a 24 MESES"},
-    "QUÍMICO":   {"exame": "Hemograma Completo / Avaliação Hepática",    "periodico": "12 MESES"},
+    "QUÍMIC":    {"exame": "Hemograma Completo / Avaliação Hepática",    "periodico": "12 MESES"},
     "BENZENO":   {"exame": "Ácido trans,trans-mucônico / Hemograma",     "periodico": "6 MESES"},
     "CHUMBO":    {"exame": "Chumbo no Sangue (PbS) + ALA-U",            "periodico": "6 MESES"},
-    "AMIANTO":   {"exame": "RX Tórax OIT (Leitura OIT)",                "periodico": "12 MESES"},
-    "ASBESTOS":  {"exame": "Espirometria (VEF1/CVF)",                   "periodico": "12 MESES"},
+    "AMIANTO":   {"exame": "Raio-X (OIT) + Espirometria + TC de Tórax", "periodico": "12 MESES"},
 }
 
 matriz_funcao_exame = {
-    "ARMADOR": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-    ],
-    "CARPINTEIRO": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "60 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "60 MESES"},
-    ],
-    "MESTRE": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-    ],
-    "ENCARREGADO": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-    ],
-    "PINTOR": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "6 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma Completo",                "periodicidade": "6 MESES"},
-        {"exame": "Contagem de Reticulócitos",         "periodicidade": "6 MESES"},
-        {"exame": "Ácido Trans,Trans Mucônico (urina)","periodicidade": "6 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "24 MESES"},
-    ],
-    "SERVENTE": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "24 MESES"},
-    ],
-    "SOLDADOR": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "6 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "12 MESES"},
-        {"exame": "Carboxihemoglobina no Sangue",      "periodicidade": "6 MESES"},
-    ],
-    "MOTORISTA": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-    ],
     "TRABALHO EM ALTURA": [
         {"exame": "Hemograma",              "periodicidade": "12 MESES"},
         {"exame": "Glicemia de Jejum",      "periodicidade": "12 MESES"},
@@ -788,35 +757,30 @@ matriz_funcao_exame = {
         {"exame": "Avaliação Psicossocial", "periodicidade": "12 MESES"},
     ],
     "ENCANADOR": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "24 MESES"},
+        {"exame": "Exame Clínico",      "periodicidade": "6 MESES"},
+        {"exame": "Audiometria",        "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",    "periodicidade": "12 MESES"},
+        {"exame": "ECG",                "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum",  "periodicidade": "12 MESES"},
+        {"exame": "Hemograma",          "periodicidade": "12 MESES"},
+        {"exame": "Espirometria",       "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT",       "periodicidade": "12 MESES"},
     ],
     "PEDREIRO": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "Espirometria (VEF1/CVF)",           "periodicidade": "24 MESES"},
-        {"exame": "RX Tórax OIT (Leitura OIT)",        "periodicidade": "24 MESES"},
+        {"exame": "Exame Clínico",  "periodicidade": "6 MESES"},
+        {"exame": "RX Tórax OIT",  "periodicidade": "12 MESES"},
+        {"exame": "Espirometria",   "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",    "periodicidade": "12 MESES"},
     ],
     "ELETRICISTA": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "6 MESES"},
-        {"exame": "ECG",                               "periodicidade": "12 MESES"},
-        {"exame": "Audiometria",                       "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual",                   "periodicidade": "12 MESES"},
-        {"exame": "Hemograma",                         "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum",                 "periodicidade": "12 MESES"},
+        {"exame": "Exame Clínico",   "periodicidade": "6 MESES"},
+        {"exame": "ECG",             "periodicidade": "12 MESES"},
+        {"exame": "Audiometria",     "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
     ],
     "ADMINISTRATIVO": [
-        {"exame": "Exame Clínico (Anamnese/Físico)",  "periodicidade": "12 MESES"},
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
     ],
     "RECEPCIONISTA": [{"exame": "Exame Clínico", "periodicidade": "12 MESES"}],
     "GESTOR":        [{"exame": "Exame Clínico", "periodicidade": "12 MESES"}],
@@ -835,11 +799,149 @@ matriz_funcao_exame = {
         {"exame": "Anti-HBs", "periodicidade": "24 MESES"},
         {"exame": "Anti-HCV", "periodicidade": "12 MESES"},
     ],
+    # ══ MELHORIA 1: Cargos da construção civil adicionados ══════════
+    "PINTOR": [
+        {"exame": "Exame Clínico",                          "periodicidade": "6 MESES"},
+        {"exame": "Hemograma Completo",                     "periodicidade": "6 MESES"},
+        {"exame": "Reticulócitos",                          "periodicidade": "6 MESES"},
+        {"exame": "Ácido trans,trans-mucônico (urina)",     "periodicidade": "6 MESES"},
+        {"exame": "Ortocresol na Urina (IBE Tolueno)",      "periodicidade": "6 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)",                "periodicidade": "24 MESES"},
+        {"exame": "RX Tórax OIT",                          "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",                            "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",                        "periodicidade": "12 MESES"},
+        {"exame": "Avaliação Dermatológica",                "periodicidade": "12 MESES"},
+    ],
+    "ARMADOR": [
+        {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
+        {"exame": "RX Tórax OIT",           "periodicidade": "12 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)", "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",             "periodicidade": "12 MESES"},
+    ],
+    "CARPINTEIRO": [
+        {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
+        {"exame": "Audiometria",             "periodicidade": "12 MESES"},
+        {"exame": "RX Tórax OIT",           "periodicidade": "60 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)", "periodicidade": "60 MESES"},
+    ],
+    "SERRALHEIRO": [
+        {"exame": "Exame Clínico",       "periodicidade": "6 MESES"},
+        {"exame": "Audiometria",         "periodicidade": "12 MESES"},
+        {"exame": "Hemograma Completo",  "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",     "periodicidade": "12 MESES"},
+    ],
+    "MONTADOR": [
+        {"exame": "Exame Clínico",   "periodicidade": "6 MESES"},
+        {"exame": "Audiometria",     "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
+    "SINALEIRO": [
+        {"exame": "Exame Clínico",   "periodicidade": "6 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
+    "OPERADOR": [
+        {"exame": "Exame Clínico",                      "periodicidade": "12 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)",             "periodicidade": "24 MESES"},
+        {"exame": "Avaliação Clínica e Osteomuscular",   "periodicidade": "12 MESES"},
+        {"exame": "Audiometria",                         "periodicidade": "12 MESES"},
+    ],
+    "ALMOXARIFE": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
+    "LIMPEZA": [
+        {"exame": "Exame Clínico",           "periodicidade": "12 MESES"},
+        {"exame": "HBsAg / Anti-HBs / Anti-HCV", "periodicidade": "12 a 24 MESES"},
+    ],
+    "SERVENTE": [
+        {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
+        {"exame": "RX Tórax OIT",           "periodicidade": "24 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)", "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",             "periodicidade": "12 MESES"},
+    ],
+    "GESSEIRO": [
+        {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
+        {"exame": "RX Tórax OIT",           "periodicidade": "60 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)", "periodicidade": "60 MESES"},
+    ],
+    "AZULEJISTA": [
+        {"exame": "Exame Clínico",           "periodicidade": "6 MESES"},
+        {"exame": "RX Tórax OIT",           "periodicidade": "12 MESES"},
+        {"exame": "Espirometria (VEF1/CVF)", "periodicidade": "24 MESES"},
+        {"exame": "Audiometria",             "periodicidade": "12 MESES"},
+    ],
+    "VIGIA": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+        {"exame": "Audiometria",     "periodicidade": "12 MESES"},
+    ],
+    "SEGURANÇA": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+        {"exame": "Audiometria",     "periodicidade": "12 MESES"},
+    ],
+    "MOTORISTA": [
+        {"exame": "Exame Clínico",        "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual",      "periodicidade": "12 MESES"},
+        {"exame": "Audiometria",          "periodicidade": "12 MESES"},
+        {"exame": "ECG",                  "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum",    "periodicidade": "12 MESES"},
+        {"exame": "Hemograma Completo",   "periodicidade": "12 MESES"},
+    ],
+    "COORDENADOR": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
+    "ENGENHEIRO": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
+    "TÉCNICO": [
+        {"exame": "Exame Clínico",   "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual", "periodicidade": "12 MESES"},
+    ],
 }
 
 # ==========================================
 # FUNÇÕES AUXILIARES
 # ==========================================
+# ══ MELHORIA 2: Ordem de periodicidade para deduplicação restritiva ══
+ORDEM_PERIODICIDADE = [
+    "1 MÊS", "2 MESES", "3 MESES", "6 MESES",
+    "12 MESES", "12 A 24 MESES", "24 MESES",
+    "36 MESES", "48 MESES", "60 MESES",
+]
+
+def periodicidade_mais_restritiva(p1: str, p2: str) -> str:
+    """Retorna a periodicidade mais frequente (menor intervalo) entre duas."""
+    def idx(p):
+        pu = p.upper().strip()
+        for i, ref in enumerate(ORDEM_PERIODICIDADE):
+            if ref in pu:
+                return i
+        return 99
+    return p1 if idx(p1) <= idx(p2) else p2
+
+
+def adicionar_exame_dedup(exames_set: dict, exame_info: dict):
+    """
+    Adiciona exame ao set com deduplicação inteligente:
+    se o exame já existir, mantém a periodicidade mais restritiva.
+    """
+    nome = exame_info["exame"]
+    if nome not in exames_set:
+        exames_set[nome] = dict(exame_info)
+    else:
+        atual = exames_set[nome]["periodicidade"]
+        nova  = exame_info["periodicidade"]
+        exames_set[nome]["periodicidade"] = periodicidade_mais_restritiva(atual, nova)
+        # Consolida motivos sem duplicar
+        motivo_atual = exames_set[nome].get("motivo", "")
+        motivo_novo  = exame_info.get("motivo", "")
+        if motivo_novo and motivo_novo not in motivo_atual:
+            exames_set[nome]["motivo"] = f"{motivo_atual} | {motivo_novo}".strip(" |")
+
+
 def limpar_json_ia(texto_bruto):
     texto = texto_bruto.strip()
     texto = re.sub(r'^```json\s*', '', texto, flags=re.IGNORECASE)
@@ -847,6 +949,28 @@ def limpar_json_ia(texto_bruto):
     texto = re.sub(r'\s*```$',     '', texto)
     return texto.strip()
 
+
+# ══ MELHORIA 3: Palavras-chave para validar risco biológico real ══
+RISCOS_BIOLOGICOS_VALIDOS = {
+    "ESGOTO", "FOSSA", "LIXO", "RESÍDUO", "SANGUE",
+    "FLUIDO", "HOSPITALAR", "SAÚDE", "MICROORGANISMO",
+    "VÍRUS", "BACTÉRIA", "FUNGO", "BIOLÓGICO",
+    "INFECTOCONTAGIOS", "PATÓGENO",
+}
+
+def tem_risco_biologico_real(riscos: list) -> bool:
+    """Verifica se há risco biológico documentado no PGR para este GHE."""
+    for r in riscos:
+        texto = (
+            r.get("nome_agente", "") + " " +
+            r.get("perigo_especifico", "") + " " +
+            r.get("Perigo Identificado", "")
+        ).upper()
+        if any(bio in texto for bio in RISCOS_BIOLOGICOS_VALIDOS):
+            return True
+    return False
+
+CHAVES_BIOLOGICAS_MATRIZ = {"BIOLÓGIC", "SANGUE", "VÍRUS", "BACTÉRIA"}
 
 # ==========================================
 # CORREÇÃO 1: Validação robusta de números CAS
@@ -1185,10 +1309,6 @@ MAPA_AGENTES_TEXTO = {
     # Químicos
     "TOLUENO":            "Tolueno",
     "XILENO":             "Xileno",
-    "NÉVOA":              "Névoas (Solventes/Tintas)",
-    "NEVOA":              "Névoas (Solventes/Tintas)",
-    "TINTA":              "Tinta / Verniz (Solventes)",
-    "XILENO":             "Xileno",
     "BENZENO":            "Benzeno",
     "ACETONA":            "Acetona",
     "THINNER":            "Solventes (Thinner)",
@@ -1377,7 +1497,7 @@ def extrair_ghe_fallback_flexivel(texto_pgr: str) -> list:
     if todos_cargos or todos_riscos:
         return [{
             "ghe":             "Geral (extraído automaticamente)",
-            "cargos":          sorted(list(todos_cargos)) or ["NÃO IDENTIFICADO — Revisar"],
+            "cargos":          sorted(list(todos_cargos)) or ["Verificar manualmente"],
             "riscos_mapeados": todos_riscos,
         }]
 
@@ -1408,7 +1528,7 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
             if ghe_atual and (cargos_atual or riscos_atual):
                 blocos.append({
                     "ghe":             ghe_atual,
-                    "cargos":          sorted(list(cargos_atual)) or ["NÃO IDENTIFICADO — Revisar"],
+                    "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
                     "riscos_mapeados": riscos_atual,
                 })
             ghe_atual    = linha_limpa[:80]
@@ -1450,7 +1570,7 @@ def extrair_ghe_texto(texto_pgr: str) -> list:
     if ghe_atual and (cargos_atual or riscos_atual):
         blocos.append({
             "ghe":             ghe_atual,
-            "cargos":          sorted(list(cargos_atual)) or ["NÃO IDENTIFICADO — Revisar"],
+            "cargos":          sorted(list(cargos_atual)) or ["Verificar manualmente"],
             "riscos_mapeados": riscos_atual,
         })
 
@@ -1544,16 +1664,7 @@ def processar_pcmso(dados_pgr_json):
     """
     tabela_pcmso = []
 
-    # Deduplicação de GHEs por nome (evita duplicatas no PDF)
-    ghe_vistos = {}
-    dados_pgr_dedup = []
-    for bloco in dados_pgr_json:
-        nome_norm = bloco.get("ghe", "").strip().upper()
-        if nome_norm not in ghe_vistos:
-            ghe_vistos[nome_norm] = True
-            dados_pgr_dedup.append(bloco)
-
-    for ghe in dados_pgr_dedup:
+    for ghe in dados_pgr_json:
         nome_ghe = ghe.get("ghe", "Sem GHE")
         cargos   = ghe.get("cargos", [])
         riscos   = ghe.get("riscos_mapeados", [])
@@ -1587,28 +1698,85 @@ def processar_pcmso(dados_pgr_json):
                 "motivo":        "NR-07 Básico",
             }
 
-            cargo_upper = cargo.upper()
-
-            # Alerta para cargos não identificados
-            if "NÃO IDENTIFICADO" in cargo_upper:
-                tabela_pcmso.append({
-                    "GHE / Setor":                 nome_ghe,
-                    "Cargo":                       "⚠ " + cargo + " — Verificar PGR",
-                    "Exame Clínico/Complementar":  "REVISÃO NECESSÁRIA",
-                    "Periodicidade":               "—",
-                    "Justificativa Legal / Risco": "Cargo não reconhecido automaticamente. Revisar o PGR.",
-                })
-                continue
-
-            # Cargos administrativos sem risco — apenas exame clínico
-            CARGOS_ADM = {"ADMINISTRATIVO", "RECEPCIONISTA", "GESTOR", "GERENTE",
-                          "DIRETOR", "ASSISTENTE", "AUXILIAR ADMINISTRATIVO", "ALMOXARIFE"}
-            e_cargo_adm = any(adm in cargo_upper for adm in CARGOS_ADM)
-
             # Exames por cargo (matriz_funcao_exame)
+            # MELHORIA 5 + 2: normalizar cargo e deduplicate com periodicidade restritiva
+            cargo_norm  = normalizar_cargo(cargo)
+            cargo_upper = cargo_norm.upper()
             for funcao_chave, exames_funcao in matriz_funcao_exame.items():
                 if funcao_chave in cargo_upper:
                     for ex in exames_funcao:
+                        adicionar_exame_dedup(exames_set, {
+                            "exame":         ex["exame"],
+                            "periodicidade": ex["periodicidade"],
+                            "motivo":        f"Função: {funcao_chave.title()}",
+                        })
+
+            # MELHORIA 2+3: Exames por risco com dedup restritiva e filtro biológico condicional
+            _bio_real = tem_risco_biologico_real(riscos)
+            for risco in riscos:
+                agente = risco.get("nome_agente", "").upper()
+                perigo = risco.get("perigo_especifico", "").upper()
+                texto_risco = agente + " " + perigo
+
+                for agente_chave, regra in matriz_risco_exame.items():
+                    # MELHORIA 3: bloquear exames biológicos sem risco documentado
+                    if agente_chave in CHAVES_BIOLOGICAS_MATRIZ and not _bio_real:
+                        continue
+                    if agente_chave in texto_risco:
+                        adicionar_exame_dedup(exames_set, {
+                            "exame":         regra["exame"],
+                            "periodicidade": regra["periodico"],
+                            "motivo":        f"Exposição: {agente_chave.title()}",
+                        })
+
+                # Trabalho em altura — protocolo especial
+                if "ALTURA" in texto_risco:
+                    for ex in matriz_funcao_exame.get("TRABALHO EM ALTURA", []):
+                        adicionar_exame_dedup(exames_set, {
+                            "exame":         ex["exame"],
+                            "periodicidade": ex["periodicidade"],
+                            "motivo":        "Trabalho em Altura (NR-35)",
+                        })
+
+            # Gera as linhas finais — 1 por exame único
+            for exame_info in exames_set.values():
+                tabela_pcmso.append({
+                    "GHE / Setor":                 nome_ghe,
+                    "Cargo":                       cargo,
+                    "Exame Clínico/Complementar":  exame_info["exame"],
+                    "Periodicidade":               exame_info["periodicidade"],
+                    "Justificativa Legal / Risco": exame_info["motivo"],
+                })
+
+    return pd.DataFrame(tabela_pcmso)
+
+        # ── Limita cargos: máx 10 por GHE para evitar explosão ────
+        # Se tiver mais, agrupa os excedentes
+        if len(cargos) > 10:
+            cargos_principais = cargos[:10]
+            cargos_extras     = cargos[10:]
+            cargos = cargos_principais
+            # Adiciona um cargo genérico para os extras
+            if cargos_extras:
+                cargos.append(f"Demais funções ({len(cargos_extras)} cargos)")
+
+        for cargo in cargos:
+            # Conjunto de exames para este cargo (sem duplicatas)
+            exames_set = {}
+
+            # 1. Exame clínico básico — sempre obrigatório (NR-07)
+            exames_set["Exame Clínico (Anamnese/Físico)"] = {
+                "exame":         "Exame Clínico (Anamnese/Físico)",
+                "periodicidade": "12 MESES",
+                "motivo":        "NR-07 Básico",
+            }
+
+            # 2. Exames por cargo (matriz_funcao_exame)
+            cargo_upper = cargo.upper()
+            for funcao_chave, exames_funcao in matriz_funcao_exame.items():
+                if funcao_chave in cargo_upper:
+                    for ex in exames_funcao:
+                        # Usa o nome do exame como chave — evita duplicata
                         if ex["exame"] not in exames_set:
                             exames_set[ex["exame"]] = {
                                 "exame":         ex["exame"],
@@ -1616,10 +1784,8 @@ def processar_pcmso(dados_pgr_json):
                                 "motivo":        f"Função: {funcao_chave.title()}",
                             }
 
-            # Exames por risco (matriz_risco_exame) — ignorar para ADM
-            riscos_processar = [] if e_cargo_adm else riscos
-
-            for risco in riscos_processar:
+            # 3. Exames por risco (matriz_risco_exame)
+            for risco in riscos:
                 agente = risco.get("nome_agente", "").upper()
                 perigo = risco.get("perigo_especifico", "").upper()
                 texto_risco = agente + " " + perigo
@@ -1643,7 +1809,7 @@ def processar_pcmso(dados_pgr_json):
                                 "motivo":        "Trabalho em Altura (NR-35)",
                             }
 
-            # Gera as linhas finais — 1 por exame único
+            # 4. Gera as linhas finais — 1 por exame único
             for exame_info in exames_set.values():
                 tabela_pcmso.append({
                     "GHE / Setor":                 nome_ghe,
@@ -1791,7 +1957,39 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos, pendentes=None):
     return html_content
 
 
-def gerar_html_pcmso(df_pcmso):
+def gerar_html_pcmso(df_pcmso, cabecalho: dict = None):
+    if not cabecalho:
+        cabecalho = st.session_state.get("pcmso_cabecalho", {})
+    razao  = cabecalho.get("razao_social", "")  or "Empresa não informada"
+    cnpj   = cabecalho.get("cnpj", "")          or "—"
+    medico = cabecalho.get("medico_rt", "")     or "Não informado"
+    vig_i  = cabecalho.get("vig_ini", "")       or "—"
+    vig_f  = cabecalho.get("vig_fim", "")       or "—"
+    tec    = cabecalho.get("responsavel_tec", "") or ""
+    cab_html = f"""
+    <table style='width:100%;border-collapse:collapse;margin-bottom:12px;font-size:9pt;border:1px solid #084D22'>
+      <tr style='background:#084D22;color:#fff'>
+        <td colspan='4' style='padding:8px;font-size:11pt;font-weight:bold'>
+          PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL — PCMSO
+        </td>
+      </tr>
+      <tr>
+        <td style='padding:6px;border:1px solid #ccc;width:40%'><b>Empresa:</b> {razao}</td>
+        <td style='padding:6px;border:1px solid #ccc;width:20%'><b>CNPJ:</b> {cnpj}</td>
+        <td style='padding:6px;border:1px solid #ccc;width:20%'><b>Vigência:</b> {vig_i} a {vig_f}</td>
+        <td style='padding:6px;border:1px solid #ccc;width:20%'><b>Emissão:</b> {datetime.now().strftime("%d/%m/%Y")}</td>
+      </tr>
+      <tr>
+        <td colspan='2' style='padding:6px;border:1px solid #ccc'><b>Médico Responsável (RT):</b> {medico}</td>
+        <td colspan='2' style='padding:6px;border:1px solid #ccc'><b>Técnico SST:</b> {tec if tec else "—"}</td>
+      </tr>
+      <tr style='background:#f9f9f9'>
+        <td colspan='4' style='padding:5px 6px;font-size:8pt;color:#555'>
+          Documento gerado automaticamente pelo Sistema Automação SST — Seconci-GO |
+          Base legal: NR-07 (Port. 1.031/2018), NR-09 e Decreto 3.048/99.
+        </td>
+      </tr>
+    </table>"""
     html = """<html xmlns:o="urn:schemas-microsoft-com:office:office"
     xmlns:w="urn:schemas-microsoft-com:office:word"
     xmlns="http://www.w3.org/TR/REC-html40">
@@ -1806,6 +2004,8 @@ def gerar_html_pcmso(df_pcmso):
       td { border: 1px solid #000000; padding: 10px 8px; vertical-align: top; }
       tr:nth-child(even) { background-color: #F4F8F5; }
     </style></head><body>
+    <!-- MELHORIA 4: Cabeçalho de identificação do PCMSO -->
+    {cab_html}
     <div class='header'>MATRIZ DE EXAMES - PCMSO (GERADO VIA IA)</div>
     <table><tr>
       <th>GHE / Setor</th><th>Cargo</th>
@@ -1822,6 +2022,7 @@ def gerar_html_pcmso(df_pcmso):
             f"<td>{row['Justificativa Legal / Risco']}</td></tr>"
         )
     html += "</table></body></html>"
+    html = html.replace("{cab_html}", cab_html)
     return html
 
 
@@ -2147,6 +2348,25 @@ elif "2️⃣" in modulo_selecionado:
     se a extração local não encontrar dados suficientes.
     """)
 
+    with st.expander("📋 Dados de Identificação do PCMSO (obrigatório — NR-07 item 7.5.19.1)", expanded=False):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            pcmso_razao_social    = st.text_input("Razão Social da Empresa", key="pcmso_razao")
+            pcmso_cnpj            = st.text_input("CNPJ", key="pcmso_cnpj")
+            pcmso_medico_rt       = st.text_input("Médico Responsável (Nome + CRM)", key="pcmso_medico")
+        with col_b:
+            pcmso_vig_ini         = st.date_input("Vigência — Início", key="pcmso_ini")
+            pcmso_vig_fim         = st.date_input("Vigência — Fim",    key="pcmso_fim")
+            pcmso_responsavel_tec = st.text_input("Técnico SST Responsável (opcional)", key="pcmso_tec")
+        st.session_state["pcmso_cabecalho"] = {
+            "razao_social": pcmso_razao_social,
+            "cnpj": pcmso_cnpj,
+            "medico_rt": pcmso_medico_rt,
+            "vig_ini": str(pcmso_vig_ini),
+            "vig_fim": str(pcmso_vig_fim),
+            "responsavel_tec": pcmso_responsavel_tec,
+        }
+
     arquivo_pgr = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
     if arquivo_pgr:
@@ -2179,6 +2399,14 @@ elif "2️⃣" in modulo_selecionado:
                     f"📄 Texto extraído: {len(texto_pgr)} caracteres "
                     f"em {arquivo_pgr.name}"
                 )
+
+                # ← COLE O DEBUG AQUI (temporário)
+with st.expander("🔬 DEBUG: Primeiras 100 linhas do PDF"):
+    linhas_debug = texto_pgr.split("\n")
+    for i, l in enumerate(linhas_debug[:100]):
+        if l.strip():
+            st.text(f"[{i:03d}] {l}")
+
 
                 json_pgr, metodo = extrair_pgr_com_fallback_ia(texto_pgr, pdf_b64)
 
