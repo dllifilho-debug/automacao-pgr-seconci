@@ -67,8 +67,10 @@ _INVALIDOS_GHE_REGEX = [
     r"^\w\)\s+",
     r"departamento de seguranca",
     r"quantitativa",
-    r"verificacao do",
-    r"para verifica",
+    r"verifica", 
+   r"para verifica",
+  r"setor/ghe",
+r"setor\s*/\s*ghe",
 ]
 
 _PALAVRAS_CANTEIRO = [
