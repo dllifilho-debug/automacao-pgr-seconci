@@ -1,24 +1,38 @@
 """
 Modulo Medicina: PGR -> PCMSO
 Logica pura — sem Streamlit. UI fica no app.py.
+
+CORRECOES v2:
+  [Bug 1] Trigger de GHE reescrito com regex — evita falsos positivos em
+          linhas "CARGO/FUNCAO:", "DESCRICAO DAS ATIVIDADES EXERCIDAS:", etc.
+  [Bug 2] normalizar_texto() aplica unicodedata antes de todas as comparacoes,
+          resolvendo divergencia DESCRICAO vs DESCRIÇAO em _INVALIDOS_GHE.
+  [Bug 3] Criterio de fallback agora exige GHE com nome curto e valido + cargos,
+          evitando falso positivo quando so ha lixo textual extraido.
 """
+
 import io
-import pdfplumber
-import pandas as pd
+import re
+import unicodedata
 from datetime import datetime
 
-import streamlit as st
+import pdfplumber
+import pandas as pd
 
 from data.matriz_exames    import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
-from utils.cargo_utils     import normalizar_cargo, MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO
+from utils.cargo_utils     import normalizar_cargo, normalizar_texto, MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO
 from utils.exame_utils     import adicionar_exame_dedup
 from utils.biologico_utils import tem_risco_biologico_real, CHAVES_BIOLOGICAS_MATRIZ
-from utils.ia_client       import extrair_pgr_via_ia
 
+# ── Constantes ──────────────────────────────────────────────────────────
+
+# [Bug 2 FIX] Todos os termos sem acento para bater com normalizar_texto()
 _INVALIDOS_GHE = [
     "QUANTIDADE","PREVISTOS","EXPOSTOS","TOTAL DE","NUMERO DE",
     "FUNCIONARIOS","TRABALHADORES","MEDIDAS DE CONTROLE",
     "FONTE GERADORA","TRAJETORIA","DESCRICAO",
+    "ATIVIDADES EXERCIDAS","INFORMACOES SOBRE",
+    "PAGINA DE REVISAO","IDENTIFICACAO DA EMPRESA",
 ]
 
 _CARGOS_ADMIN = {
@@ -28,33 +42,84 @@ _CARGOS_ADMIN = {
 
 _GHES_ADMIN = {
     "ADMINISTRACAO","PLANEJAMENTO","SUPRIMENTOS","MARKETING",
-    "TI","RH","RECURSOS HUMANOS","FINANCEIRO","CONTABILIDADE",
+    "TI","RH","RECURSOS HUMANOS","FINANCEIRO","CONTABILIDADE","ESCRITORIO",
 }
 
 _MAPA_AGENTES = {
-    "TOLUENO":"Tolueno","XILENO":"Xileno","BENZENO":"Benzeno",
-    "ACETONA":"Acetona","THINNER":"Solventes (Thinner)",
-    "SOLVENTE":"Solventes Organicos","TINTA":"Tinta / Verniz (Solventes)",
-    "VERNIZ":"Tinta / Verniz (Solventes)","PRIMER":"Primer (Solventes)",
-    "GRAXA":"Graxas / Lubrificantes","DIESEL":"Diesel / Combustivel",
-    "QUEROSENE":"Querosene","ACIDO":"Acidos (geral)",
-    "CIMENTO":"Cimento Portland (Poeiras)","SILICA":"Silica Cristalina (Quartzo)",
-    "POEIRA":"Poeiras Minerais","AMIANTO":"Asbesto / Amianto",
-    "CHUMBO":"Chumbo (Fumos/Poeiras)",
-    "RUIDO":"Ruido Continuo ou Intermitente","VIBRACAO":"Vibracao (VMB/VCI)",
-    "CALOR":"Calor (IBUTG)","RADIACAO":"Radiacoes Ionizantes",
-    "BIOLOGICO":"Agentes Biologicos","ESGOTO":"Esgoto / Aguas Servidas",
-    "SANGUE":"Material Biologico (Sangue/Fluidos)",
-    "ERGONO":"Fator Ergonomico","POSTURA":"Postura Inadequada",
-    "LEVANTAMENTO":"Levantamento de Carga","REPETITIVO":"Movimento Repetitivo",
-    "ELETRICO":"Risco Eletrico","ALTURA":"Queda de Altura",
-    "MAQUINA":"Maquinas e Equipamentos","INCENDIO":"Incendio / Explosao",
+    "TOLUENO":      "Tolueno",
+    "XILENO":       "Xileno",
+    "BENZENO":      "Benzeno",
+    "ACETONA":      "Acetona",
+    "THINNER":      "Solventes (Thinner)",
+    "SOLVENTE":     "Solventes Organicos",
+    "TINTA":        "Tinta / Verniz (Solventes)",
+    "VERNIZ":       "Tinta / Verniz (Solventes)",
+    "PRIMER":       "Primer (Solventes)",
+    "GRAXA":        "Graxas / Lubrificantes",
+    "DIESEL":       "Diesel / Combustivel",
+    "QUEROSENE":    "Querosene",
+    "ACIDO":        "Acidos (geral)",
+    "CIMENTO":      "Cimento Portland (Poeiras)",
+    "SILICA":       "Silica Cristalina (Quartzo)",
+    "POEIRA":       "Poeiras Minerais",
+    "AMIANTO":      "Asbesto / Amianto",
+    "CHUMBO":       "Chumbo (Fumos/Poeiras)",
+    "RUIDO":        "Ruido Continuo ou Intermitente",
+    "VIBRACAO":     "Vibracao (VMB/VCI)",
+    "CALOR":        "Calor (IBUTG)",
+    "RADIACAO":     "Radiacoes Ionizantes",
+    "BIOLOGICO":    "Agentes Biologicos",
+    "ESGOTO":       "Esgoto / Aguas Servidas",
+    "SANGUE":       "Material Biologico (Sangue/Fluidos)",
+    "ERGONO":       "Fator Ergonomico",
+    "POSTURA":      "Postura Inadequada",
+    "LEVANTAMENTO": "Levantamento de Carga",
+    "REPETITIVO":   "Movimento Repetitivo",
+    "ELETRICO":     "Risco Eletrico",
+    "ALTURA":       "Queda de Altura",
+    "MAQUINA":      "Maquinas e Equipamentos",
+    "INCENDIO":     "Incendio / Explosao",
 }
 
-_PALAVRAS_GHE = [
-    "GHE","GRUPO HOMOGENEO","SETOR","DEPARTAMENTO","FUNCAO","CARGO","ATIVIDADE",
-]
+# [Bug 1 FIX] Regex seletivo para linhas que realmente marcam um GHE
+_RE_GHE = re.compile(
+    r"(?:GHE[\s:.\-]+\w|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)",
+    re.IGNORECASE,
+)
 
+_PALAVRAS_GHE_FRACAS = ["DEPARTAMENTO", "ATIVIDADE"]
+
+
+def _is_linha_ghe(linha: str) -> bool:
+    """[Bug 1 FIX] Detecta GHE real via regex forte ou palavras fracas em linhas curtas."""
+    if _RE_GHE.search(linha):
+        return True
+    lu = normalizar_texto(linha)
+    if len(linha) <= 80 and "/" not in linha:
+        if any(p in lu for p in _PALAVRAS_GHE_FRACAS):
+            return True
+    return False
+
+
+def _ghe_valido(nome_ghe: str) -> bool:
+    """[Bug 2 FIX] Compara _INVALIDOS_GHE após normalização de acentos."""
+    norm = normalizar_texto(nome_ghe)
+    return not any(inv in norm for inv in _INVALIDOS_GHE)
+
+
+def _fallback_necessario(ghes: list) -> bool:
+    """
+    [Bug 3 FIX] Criterio de qualidade real:
+    Exige ao menos 1 GHE com nome normalizado <= 60 chars e pelo menos 1 cargo.
+    """
+    for g in ghes:
+        nome_norm = normalizar_texto(g["ghe"])
+        if len(nome_norm) <= 60 and g["cargos"]:
+            return False
+    return True
+
+
+# ── Funções principais ──────────────────────────────────────────────────
 
 def extrair_texto_pdf(uploaded_file) -> str:
     """Extrai texto de UploadedFile do Streamlit via pdfplumber."""
@@ -67,8 +132,22 @@ def extrair_texto_pdf(uploaded_file) -> str:
     return "\n".join(texto)
 
 
+def extrair_texto_pdf_path(caminho: str) -> str:
+    """Versao standalone (testes sem Streamlit) — aceita path local."""
+    texto = []
+    with pdfplumber.open(caminho) as pdf:
+        for pagina in pdf.pages:
+            t = pagina.extract_text()
+            if t:
+                texto.append(t)
+    return "\n".join(texto)
+
+
 def extrair_pgr_local(texto: str) -> list:
-    """Camada 1 — extracao por palavras-chave, sem IA."""
+    """
+    Camada 1 — extracao por palavras-chave, sem IA.
+    Bugs 1 e 2 corrigidos aqui.
+    """
     linhas = texto.split("\n")
     ghes, ghe_atual, agentes_set = [], None, set()
 
@@ -76,9 +155,9 @@ def extrair_pgr_local(texto: str) -> list:
         lc = linha.strip()
         if not lc:
             continue
-        lu = lc.upper()
+        lu = normalizar_texto(lc)
 
-        if any(p in lu for p in _PALAVRAS_GHE) and len(lc) < 120:
+        if _is_linha_ghe(lc) and len(lc) < 120:
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
             ghe_atual   = {"ghe": lc, "cargos": [], "riscos_mapeados": []}
@@ -88,45 +167,59 @@ def extrair_pgr_local(texto: str) -> list:
         if ghe_atual is None:
             continue
 
-        if not any(exc in lu for exc in PALAVRAS_EXCLUIR_CARGO):
+        if not any(normalizar_texto(exc) in lu for exc in PALAVRAS_EXCLUIR_CARGO):
             for cargo in MAPA_CARGOS_CONHECIDOS:
-                if cargo in lu and cargo not in [c.upper() for c in ghe_atual["cargos"]]:
-                    ghe_atual["cargos"].append(cargo.title())
+                cargo_norm = normalizar_texto(cargo)
+                if cargo_norm in lu and cargo not in ghe_atual["cargos"]:
+                    ghe_atual["cargos"].append(cargo)
                     break
 
         for palavra, agente in _MAPA_AGENTES.items():
             if palavra in lu and agente not in agentes_set:
                 agentes_set.add(agente)
                 ghe_atual["riscos_mapeados"].append({
-                    "nome_agente":        agente,
-                    "perigo_especifico":  lc[:200],
+                    "nome_agente":       agente,
+                    "perigo_especifico": lc[:200],
                 })
 
     if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
         ghes.append(ghe_atual)
+
     return ghes
 
 
-def extrair_pgr_com_fallback(texto_pgr: str) -> tuple:
-    """Motor cascata: Local -> IA. Retorna (dados, fonte)."""
-    chave = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', "").replace("'", "")
+def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
+    """
+    Motor cascata: Local -> IA.
+    Retorna (dados, fonte) onde fonte = "local" | "ia" | "parcial".
+    [Bug 3 FIX] _fallback_necessario() verifica qualidade real dos GHEs.
+    """
     local = extrair_pgr_local(texto_pgr)
-    if len(local) >= 2 and any(g["cargos"] or g["riscos_mapeados"] for g in local):
+
+    if not _fallback_necessario(local):
         return local, "local"
-    st.info("Extracao local insuficiente — acionando IA (Gemini)...")
-    ia = extrair_pgr_via_ia(texto_pgr, chave)
-    return (ia, "ia") if ia else (local or [], "parcial")
+
+    if chave_api:
+        try:
+            from utils.ia_client import extrair_pgr_via_ia
+            ia = extrair_pgr_via_ia(texto_pgr, chave_api)
+            return (ia, "ia") if ia else (local or [], "parcial")
+        except Exception as e:
+            print(f"[WARN] Falha na IA: {e}")
+
+    return (local or [], "parcial")
 
 
 def processar_pcmso(dados_pgr: list) -> pd.DataFrame:
     """Gera DataFrame com 1 linha por exame por cargo por GHE."""
     linhas = []
     for ghe in dados_pgr:
-        nome_ghe = ghe.get("ghe", "Sem GHE")
-        cargos   = ghe.get("cargos", [])[:15]
-        riscos   = ghe.get("riscos_mapeados", [])[:10]
+        nome_ghe  = ghe.get("ghe", "Sem GHE")
+        nome_norm = normalizar_texto(nome_ghe)
+        cargos    = ghe.get("cargos", [])[:15]
+        riscos    = ghe.get("riscos_mapeados", [])[:10]
 
-        if any(p in nome_ghe.upper() for p in _INVALIDOS_GHE):
+        if not _ghe_valido(nome_ghe):
             continue
 
         for cargo in cargos:
@@ -139,6 +232,7 @@ def processar_pcmso(dados_pgr: list) -> pd.DataFrame:
 
             cargo_norm  = normalizar_cargo(cargo)
             cargo_upper = cargo_norm.upper()
+
             for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
                 if funcao in cargo_upper:
                     for ex in lista_ex:
@@ -146,9 +240,9 @@ def processar_pcmso(dados_pgr: list) -> pd.DataFrame:
 
             bio_real = tem_risco_biologico_real(riscos)
             for risco in riscos:
-                texto_r = (
+                texto_r = normalizar_texto(
                     risco.get("nome_agente", "") + " " + risco.get("perigo_especifico", "")
-                ).upper()
+                )
 
                 for chave_r, regra in MATRIZ_RISCO_EXAME.items():
                     if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
@@ -162,7 +256,7 @@ def processar_pcmso(dados_pgr: list) -> pd.DataFrame:
 
                 _admin = (
                     any(a in cargo_upper for a in _CARGOS_ADMIN) or
-                    any(g in nome_ghe.upper() for g in _GHES_ADMIN)
+                    any(g in nome_norm   for g in _GHES_ADMIN)
                 )
                 if "ALTURA" in texto_r and not _admin:
                     for ex in MATRIZ_FUNCAO_EXAME.get("TRABALHO EM ALTURA", []):
@@ -183,7 +277,7 @@ def processar_pcmso(dados_pgr: list) -> pd.DataFrame:
 def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
     """Gera HTML completo do PCMSO a partir do DataFrame."""
     if not cabecalho:
-        cabecalho = st.session_state.get("pcmso_cabecalho", {})
+        cabecalho = {}
 
     razao  = cabecalho.get("razao_social",    "Empresa nao informada")
     cnpj   = cabecalho.get("cnpj",            "---")
@@ -198,16 +292,16 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
         pendente   = "verificar" in cargo_val.lower() or not cargo_val.strip()
         bg         = "background-color:#FFF3CD;" if pendente else ""
         cargo_disp = (
-            f"ATENCAO: {cargo_val} <small style='color:#c0392b'>(Cargo nao identificado)</small>"
+            f'ATENCAO: {cargo_val} <small style="color:#c0392b">(Cargo nao identificado)</small>'
             if pendente else cargo_val
         )
         linhas_html += (
-            f"<tr style='{bg}'>"
-            f"<td><strong>{row['GHE / Setor']}</strong></td>"
-            f"<td>{cargo_disp}</td>"
-            f"<td>{row['Exame Clinico/Complementar']}</td>"
-            f"<td>{row['Periodicidade']}</td>"
-            f"<td>{row['Justificativa Legal / Risco']}</td></tr>"
+            f'<tr style="{bg}">'
+            f'<td><strong>{row["GHE / Setor"]}</strong></td>'
+            f'<td>{cargo_disp}</td>'
+            f'<td>{row["Exame Clinico/Complementar"]}</td>'
+            f'<td>{row["Periodicidade"]}</td>'
+            f'<td>{row["Justificativa Legal / Risco"]}</td></tr>'
         )
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">

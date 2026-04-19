@@ -1,74 +1,97 @@
-"""Matrizes clinicas NR-07: exames por risco e por funcao."""
 
-ALIAS_CARGOS: dict = {
-    "AUX. PINTOR":"PINTOR","AUXILIAR DE PINTURA":"PINTOR","PINTOR DE OBRAS":"PINTOR",
-    "AUX. SERVICOS GERAIS":"LIMPEZA","AUXILIAR DE LIMPEZA":"LIMPEZA",
-    "AUX. ALMOXARIFADO":"ALMOXARIFE","AUX. ADMINISTRATIVO":"ADMINISTRATIVO",
-    "AUXILIAR ADMINISTRATIVO":"ADMINISTRATIVO","AUX. TECNICO":"TECNICO",
-    "TECNICO DE SEGURANCA":"TECNICO","TECNICO SST":"Tecnico SST",
-    "TECNICO DE SST":"Tecnico SST","SEGURANCA DO TRABALHO":"Tecnico SST",
-    "TEC. SEGURANCA DO TRABALHO":"Tecnico SST",
-    "OPERADOR DE GRUA":"OPERADOR","OPERADOR DE GUINDASTE":"OPERADOR",
-    "OPERADOR DE MAQUINAS":"OPERADOR","OP. BETONEIRA":"OPERADOR",
-    "MONTADOR DE ANDAIME":"MONTADOR","ARMADOR DE FERRO":"ARMADOR",
-    "CARPINTEIRO DE FORMA":"CARPINTEIRO","CARPINTEIRO DE OBRAS":"CARPINTEIRO",
-    "SINALEIRO DE GRUA":"SINALEIRO","VIGILANTE":"VIGIA","VIGILANCIA":"VIGIA",
-    "COORD.":"COORDENADOR","ENG.":"ENGENHEIRO","MOTORISTA DE OBRA":"MOTORISTA",
+MATRIZ_FUNCAO_EXAME = {
+    "ADMINISTRATIVO": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "ASSISTENTE": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "AUXILIAR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "ENGENHEIRO": [
+        {"exame": "Audiometria Tonal (PTA)", "periodicidade": "12 MESES"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "RECEPCIONISTA": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "COMPRADOR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    ],
+    "GERENTE": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+        {"exame": "Eletrocardiograma (ECG)", "periodicidade": "24 MESES"},
+    ],
+    "TRABALHO EM ALTURA": [
+        {"exame": "Avaliacao Psicologica (NR-35)", "periodicidade": "12 MESES"},
+        {"exame": "Eletrocardiograma (ECG)", "periodicidade": "12 MESES"},
+        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
+        {"exame": "Acuidade Visual (NR-35)", "periodicidade": "12 MESES"},
+    ],
+    "SERVICOS GERAIS": [
+        {"exame": "Hemograma Completo", "periodicidade": "24 MESES"},
+    ],
+    "LIMPEZA": [
+        {"exame": "Hemograma Completo", "periodicidade": "24 MESES"},
+    ],
 }
 
-MATRIZ_RISCO_EXAME: dict = {
-    "TOLUENO":            {"exame":"Ortocresol na Urina","periodico":"6 MESES"},
-    "XILENO":             {"exame":"Acidos Metilhipuricos na Urina","periodico":"6 MESES"},
-    "BENZENO":            {"exame":"Acido trans,trans-muconico (ATM) na Urina","periodico":"6 MESES"},
-    "CHUMBO":             {"exame":"Chumbo no Sangue (PbS) e ALA-U","periodico":"6 MESES"},
-    "RUIDO":              {"exame":"Audiometria","periodico":"12 MESES"},
-    "SILICA":             {"exame":"Raio-X de Torax (OIT)","periodico":"12 MESES"},
-    "QUARTZO":            {"exame":"Raio-X de Torax (OIT)","periodico":"12 MESES"},
-    "ESPIROMETRIA SILICA":{"exame":"Espirometria (VEF1/CVF)","periodico":"24 MESES"},
-    "VIBRACAO":           {"exame":"Avaliacao Clinica e Osteomuscular","periodico":"12 MESES"},
-    "POEIRA":             {"exame":"Raio-X de Torax (OIT)","periodico":"60 MESES"},
-    "POEIRA MINERAL":     {"exame":"Raio-X de Torax (OIT)","periodico":"12 MESES"},
-    "BIOLOGICO":          {"exame":"HBsAg / Anti-HBs / Anti-HCV","periodico":"12 a 24 MESES"},
-    "SANGUE":             {"exame":"HBsAg / Anti-HBs / Anti-HCV","periodico":"12 a 24 MESES"},
-    "MATERIAL BIOLOGICO": {"exame":"HBsAg / Anti-HBs / Anti-HCV + Hemograma","periodico":"12 MESES"},
-    "HEXANO":             {"exame":"2,5-Hexanodiona na Urina","periodico":"6 MESES"},
-    "CALOR":              {"exame":"Avaliacao Clinica (Estresse Termico)","periodico":"12 MESES"},
-    "CIMENTO":            {"exame":"Raio-X de Torax (OIT) e Espirometria","periodico":"24 MESES"},
-    "COBALTO":            {"exame":"Cobalto na Urina (pos-jornada)","periodico":"6 MESES"},
-    "CANCERIGENO":        {"exame":"Hemograma Completo + Avaliacao Clinica Oncologica","periodico":"12 MESES"},
-    "ERGONO":             {"exame":"Avaliacao Clinica e Osteomuscular","periodico":"12 MESES"},
-    "POSTURA":            {"exame":"Avaliacao Clinica e Osteomuscular","periodico":"12 MESES"},
-    "LEVANTAMENTO":       {"exame":"Avaliacao Osteomuscular (DORT/LER)","periodico":"12 MESES"},
-    "REPETITIVO":         {"exame":"Avaliacao Osteomuscular (DORT/LER)","periodico":"12 MESES"},
-    "ELETRICO":           {"exame":"Eletrocardiograma (ECG)","periodico":"24 MESES"},
-    "ELETRICIDADE":       {"exame":"Eletrocardiograma (ECG)","periodico":"24 MESES"},
-    "RADIACAO":           {"exame":"Hemograma Completo + Dosimetria","periodico":"12 MESES"},
-    "ACETONA":            {"exame":"Avaliacao Clinica Neurologica","periodico":"12 MESES"},
-    "SOLVENTE":           {"exame":"Avaliacao Clinica Neurologica / Hepatica","periodico":"12 MESES"},
-}
-
-MATRIZ_FUNCAO_EXAME: dict = {
-    "ELETRICISTA":        [{"exame":"Eletrocardiograma (ECG)","periodicidade":"24 MESES"},
-                           {"exame":"Acuidade Visual","periodicidade":"24 MESES"}],
-    "MOTORISTA":          [{"exame":"Acuidade Visual","periodicidade":"12 MESES"},
-                           {"exame":"Avaliacao Psicologica","periodicidade":"24 MESES"},
-                           {"exame":"Audiometria","periodicidade":"24 MESES"}],
-    "SOLDADOR":           [{"exame":"Raio-X de Torax (OIT)","periodicidade":"24 MESES"},
-                           {"exame":"Espirometria","periodicidade":"24 MESES"},
-                           {"exame":"Acuidade Visual","periodicidade":"12 MESES"}],
-    "OPERADOR":           [{"exame":"Acuidade Visual","periodicidade":"12 MESES"},
-                           {"exame":"Avaliacao Psicologica","periodicidade":"24 MESES"}],
-    "TRABALHO EM ALTURA": [{"exame":"Acuidade Visual","periodicidade":"12 MESES"},
-                           {"exame":"Avaliacao Clinica (Labirinto / Equilibrio)","periodicidade":"12 MESES"},
-                           {"exame":"Eletrocardiograma (ECG)","periodicidade":"24 MESES"}],
-    "PINTOR":             [{"exame":"Avaliacao Clinica Neurologica","periodicidade":"12 MESES"},
-                           {"exame":"Raio-X de Torax (OIT)","periodicidade":"60 MESES"}],
-    "PEDREIRO":           [{"exame":"Raio-X de Torax (OIT)","periodicidade":"24 MESES"},
-                           {"exame":"Espirometria","periodicidade":"24 MESES"}],
-    "CARPINTEIRO":        [{"exame":"Audiometria","periodicidade":"24 MESES"},
-                           {"exame":"Raio-X de Torax (OIT)","periodicidade":"60 MESES"}],
-    "ENCANADOR":          [{"exame":"Raio-X de Torax (OIT)","periodicidade":"60 MESES"},
-                           {"exame":"Avaliacao Clinica","periodicidade":"12 MESES"}],
-    "ALMOXARIFE":         [{"exame":"Avaliacao Osteomuscular (DORT/LER)","periodicidade":"12 MESES"}],
-    "ADMINISTRATIVO":     [{"exame":"Avaliacao Oftalmologica (Acuidade Visual)","periodicidade":"24 MESES"}],
+MATRIZ_RISCO_EXAME = {
+    "RUIDO": {
+        "exame": "Audiometria Tonal (PTA)",
+        "periodico": "12 MESES",
+    },
+    "RUIDO CONTINUO": {
+        "exame": "Audiometria Tonal (PTA)",
+        "periodico": "12 MESES",
+    },
+    "POEIRA": {
+        "exame": "Raio-X de Torax (OIT)",
+        "periodico": "60 MESES",
+    },
+    "CIMENTO": {
+        "exame": "Raio-X de Torax (OIT) e Espirometria",
+        "periodico": "24 MESES",
+    },
+    "SILICA": {
+        "exame": "Raio-X de Torax (OIT) e Espirometria",
+        "periodico": "12 MESES",
+    },
+    "VIBRACAO": {
+        "exame": "Avaliacao Neurológica e Vascular",
+        "periodico": "24 MESES",
+    },
+    "CALOR": {
+        "exame": "Hemograma Completo + Ureia + Creatinina",
+        "periodico": "12 MESES",
+    },
+    "BIOLOGICO": {
+        "exame": "Anti-HBs + HBsAg + Anti-HCV",
+        "periodico": "12 MESES",
+    },
+    "ESGOTO": {
+        "exame": "Coproparasitologico + Anti-HBs",
+        "periodico": "12 MESES",
+    },
+    "SANGUE": {
+        "exame": "Anti-HBs + HBsAg + Anti-HCV + HIV (com consentimento)",
+        "periodico": "12 MESES",
+    },
+    "BENZENO": {
+        "exame": "Hemograma Completo + Fenol Urinario",
+        "periodico": "06 MESES",
+    },
+    "TOLUENO": {
+        "exame": "Acido Hipurico Urinario",
+        "periodico": "06 MESES",
+    },
+    "CHUMBO": {
+        "exame": "Chumbo no Sangue (ZPP)",
+        "periodico": "06 MESES",
+    },
+    "ALTURA": {
+        "exame": "Avaliacao Psicologica (NR-35)",
+        "periodico": "12 MESES",
+    },
 }

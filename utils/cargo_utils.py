@@ -1,31 +1,44 @@
-"""Normalizacao de cargos — unica definicao no projeto."""
-from data.matriz_exames import ALIAS_CARGOS
 
-MAPA_CARGOS_CONHECIDOS: list = [
-    "PEDREIRO","SERVENTE","ELETRICISTA","ENCANADOR","PINTOR","SOLDADOR",
-    "CARPINTEIRO","ARMADOR","OPERADOR","MOTORISTA","TECNICO","ENGENHEIRO",
-    "MESTRE","ENCARREGADO","ALMOXARIFE","ADMINISTRATIVO","AUXILIAR",
-    "ASSISTENTE","GERENTE","DIRETOR","RECEPCIONISTA","SEGURANCA","VIGIA",
-    "LIMPEZA","ZELADOR","MEDICO","ENFERMEIRO","MONTADOR","SINALEIRO",
-    "APONTADOR","AJUDANTE","LABORATORISTA","BIOQUIMICO",
+import unicodedata
+
+MAPA_CARGOS_CONHECIDOS = [
+    "GERENTE ADMINISTRATIVO",
+    "ASSISTENTE ADMINISTRATIVO",
+    "AUXILIAR ADMINISTRATIVO",
+    "COMPRADOR",
+    "AUXILIAR DE COMPRAS",
+    "TELEFONISTA",
+    "RECEPCIONISTA",
+    "ENGENHEIRO CIVIL",
+    "AUXILIAR SERVICOS GERAIS",
+    "AUXILIAR DE ENGENHARIA CIVIL",
+    "TECNICO DE SEGURANCA DO TRABALHO",
+    "MENOR APRENDIZ",
+    "AUXILIAR DE LIMPEZA",
+    "SERVICOS GERAIS",
+    "OPERADOR DE MAQUINAS",
+    "MOTORISTA",
+    "ELETRICISTA",
+    "SOLDADOR",
+    "CARPINTEIRO",
+    "PEDREIRO",
+    "SERVENTE DE OBRA",
 ]
 
-PALAVRAS_EXCLUIR_CARGO: list = [
-    "CARGO","FUNCAO","SETOR","GHE","GRUPO","RISCO","PERIGO","AGENTE",
-    "FONTE","NIVEL","ACAO","EPI","PROBABILIDADE","SEVERIDADE","TOLERANCIA",
-    "LIMITE","ANEXO","NR-","DECRETO","ESOCIAL","PCMSO","PGR","FISPQ",
-    "AVALIACAO","RESULTADO","MONITORAMENTO","CONTROLE","MEDIDA","PROTECAO",
+PALAVRAS_EXCLUIR_CARGO = [
+    "QUANTIDADE","TOTAL","NUMERO","MEDIDAS","FONTE","TRAJETORIA",
+    "DESCRICAO","EQUIPAMENTO","PERIODICIDADE","RISCOS","AGENTES",
+    "AVALIACAO","CONTROLE","RESULTADO","DADOS","ANALISE",
 ]
+
+
+def normalizar_texto(texto: str) -> str:
+    """Remove acentos e converte para uppercase."""
+    nfkd = unicodedata.normalize("NFD", texto)
+    sem_acento = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return sem_acento.upper()
 
 
 def normalizar_cargo(cargo: str) -> str:
-    cargo_upper = cargo.upper().strip()
-    if cargo_upper in ALIAS_CARGOS:
-        return ALIAS_CARGOS[cargo_upper]
-    for alias, norm in ALIAS_CARGOS.items():
-        if alias in cargo_upper:
-            return norm
-    for nome in MAPA_CARGOS_CONHECIDOS:
-        if nome in cargo_upper:
-            return nome.title()
-    return cargo
+    """Normaliza cargo removendo acentos e deixando em uppercase."""
+    return normalizar_texto(cargo)
