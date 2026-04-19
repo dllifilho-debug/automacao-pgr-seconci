@@ -1,9 +1,8 @@
 """
 Automacao SST - Seconci GO
-app.py v5.1 — try/except para revelar erro real em processar_pcmso
+app.py v5.2 — warnings deprecation corrigidos (width, st.iframe)
 """
 import streamlit as st
-import streamlit.components.v1 as components
 import traceback
 import os
 from datetime import date
@@ -69,7 +68,8 @@ else:
 # ── Roteador ─────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
-    components.html(historico_html, height=700, scrolling=True)
+    # FIX v5.2 — st.components.v1.html → st.iframe
+    st.iframe(historico_html, height=700, scrolling=True)
 
 elif modulo == "Dashboard":
     st.title("Dashboard - Sistema Integrado SST")
@@ -115,7 +115,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",  value=cab.get("responsavel_tec",""))
             obra     = st.text_input("Obra / Unidade (opcional)",           value=cab.get("obra",""))
 
-        # ── Campo tipo_ambiente ───────────────────────────────────
         st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
         _opcoes_amb = {
             "🏗️ Canteiro de Obras / Obra": "canteiro",
@@ -148,7 +147,8 @@ elif modulo == "Medicina: PGR - PCMSO":
 
     pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
-    if st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True):
+    # FIX v5.2 — use_container_width → width='stretch'
+    if st.button("Extrair Riscos e Gerar PCMSO", width='stretch'):
         if not pdf_file:
             st.error("Faca upload do PDF do PGR antes de continuar.")
             st.stop()
@@ -176,7 +176,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
             st.stop()
 
-        # ── DEBUG: inspecionar estrutura dos GHEs extraídos ──────
         with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
             for g in dados_ghe[:3]:
                 st.json(g)
@@ -195,7 +194,8 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.stop()
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
-        st.dataframe(df_pcmso, use_container_width=True)
+        # FIX v5.2 — use_container_width → width='stretch'
+        st.dataframe(df_pcmso, width='stretch')
 
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
 
@@ -220,25 +220,28 @@ elif modulo == "Medicina: PGR - PCMSO":
         col_html, col_docx = st.columns(2)
 
         with col_html:
+            # FIX v5.2 — use_container_width → width='stretch'
             st.download_button(
                 label="📄 Baixar PCMSO (.html)",
                 data=html_pcmso.encode("utf-8"),
                 file_name=f"PCMSO_{nome_arquivo}.html",
                 mime="text/html",
-                use_container_width=True,
+                width='stretch',
             )
 
         with col_docx:
+            # FIX v5.2 — use_container_width → width='stretch'
             st.download_button(
                 label="📝 Baixar PCMSO (.docx)",
                 data=bytes_docx,
                 file_name=f"PCMSO_{nome_arquivo}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
+                width='stretch',
             )
 
         with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
-            components.html(html_pcmso, height=600, scrolling=True)
+            # FIX v5.2 — st.components.v1.html → st.iframe
+            st.iframe(html_pcmso, height=600, scrolling=True)
 
         if razao_social and medico_rt:
             nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
