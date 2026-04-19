@@ -1,7 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py: APENAS interface Streamlit (roteador de telas).
-Toda logica de negocio esta em modules/ e utils/.
+app.py v5 — campo tipo_ambiente no formulario PCMSO
 """
 import streamlit as st
 import streamlit.components.v1 as components
@@ -14,34 +13,30 @@ from modules.modulo_pcmso import (extrair_texto_pdf, extrair_pgr_com_fallback,
                                    processar_pcmso, gerar_html_pcmso,
                                    gerar_docx_pcmso)
 
-# ── Configuracao de pagina ────────────────────────────────────────
-st.set_page_config(
-    page_title="Automacao SST - Seconci GO",
-    layout="wide",
-    page_icon=":shield:",
-)
+st.set_page_config(page_title="Automacao SST - Seconci GO",
+                   layout="wide", page_icon=":shield:")
 
 st.markdown("""<style>
   .block-container{padding-top:2rem;padding-bottom:2rem;}
   .stButton>button{background-color:#084D22;color:white;border-radius:8px;
-    border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;font-weight:600;padding:.5rem 1rem;}
+    border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;
+    font-weight:600;padding:.5rem 1rem;}
   .stButton>button:hover{background-color:#1AA04B;transform:translateY(-2px);}
   h1,h2,h3{color:#084D22!important;}
   [data-testid="stSidebar"]{background:#F4F8F5;border-right:1px solid #E0ECE4;}
-  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;border-radius:12px;background:#FAFFFA;}
+  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;
+    border-radius:12px;background:#FAFFFA;}
   .stAlert{border-radius:8px;border-left:5px solid #084D22;}
 </style>""", unsafe_allow_html=True)
 
 # ── Sidebar ───────────────────────────────────────────────────────
-for logo in ("logo.png", "logo.jpg"):
+for logo in ("logo.png","logo.jpg"):
     if os.path.exists(logo):
-        st.sidebar.image(logo, width=220)
-        break
+        st.sidebar.image(logo, width=220); break
 else:
     st.sidebar.markdown(
         "<h2 style='text-align:center;color:#084D22;'>SECONCI-GO</h2>",
-        unsafe_allow_html=True,
-    )
+        unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.title("Modulos do Sistema")
@@ -53,7 +48,7 @@ modulo = st.sidebar.radio("Selecione a funcionalidade:", [
 
 st.sidebar.markdown("---")
 st.sidebar.title("Historico de Laudos")
-historico      = carregar_historico()
+historico = carregar_historico()
 historico_html = None
 
 if historico:
@@ -63,7 +58,7 @@ if historico:
     ]
     sel = st.sidebar.selectbox("Carregar projeto:", opcoes)
     if sel != "Selecione um projeto salvo...":
-        id_sel         = int(sel.split(" - ")[0])
+        id_sel = int(sel.split(" - ")[0])
         historico_html = carregar_html_historico(id_sel)
         if historico_html:
             st.sidebar.success("Projeto carregado.")
@@ -79,7 +74,7 @@ elif modulo == "Dashboard":
     st.title("Dashboard - Sistema Integrado SST")
     try:
         sb        = get_supabase()
-        total     = sb.table("historico_laudos").select("id",  count="exact").execute().count or 0
+        total     = sb.table("historico_laudos").select("id", count="exact").execute().count or 0
         total_cas = sb.table("dicionario_dinamico").select("cas", count="exact").execute().count or 0
     except Exception:
         total, total_cas = 0, 0
@@ -94,7 +89,7 @@ elif modulo == "Engenharia: FISPQ / FDS - PGR":
         from modules.modulo_engenharia import render_engenharia
         render_engenharia()
     except ImportError:
-        st.warning("modulo_engenharia.py nao encontrado — o codigo original ja esta la?")
+        st.warning("modulo_engenharia.py nao encontrado.")
 
 elif modulo == "Medicina: PGR - PCMSO":
     st.title("Modulo Medico: Importador de PGR e Gerador de PCMSO")
@@ -107,15 +102,37 @@ elif modulo == "Medicina: PGR - PCMSO":
     with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
         col1, col2 = st.columns(2)
         cab = st.session_state.get("pcmso_cabecalho", {})
+
         with col1:
-            razao_social = st.text_input("Razao Social da Empresa *",           value=cab.get("razao_social", ""))
-            cnpj         = st.text_input("CNPJ *",                               value=cab.get("cnpj", ""))
-            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
+            razao_social = st.text_input("Razao Social da Empresa *",           value=cab.get("razao_social",""))
+            cnpj         = st.text_input("CNPJ *",                               value=cab.get("cnpj",""))
+            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt",""))
+
         with col2:
             vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
             vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
-            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",       value=cab.get("responsavel_tec", ""))
-            obra     = st.text_input("Obra / Unidade (opcional)",                value=cab.get("obra", ""))
+            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",  value=cab.get("responsavel_tec",""))
+            obra     = st.text_input("Obra / Unidade (opcional)",           value=cab.get("obra",""))
+
+        # ── Campo tipo_ambiente ───────────────────────────────────
+        st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
+        _opcoes_amb = {
+            "🏗️ Canteiro de Obras / Obra": "canteiro",
+            "🏢 Escritório Corporativo":   "escritorio",
+            "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
+        }
+        _label_amb = st.radio(
+            "Selecione o tipo:",
+            list(_opcoes_amb.keys()),
+            index=1,
+            help=(
+                "Canteiro → todo cargo recebe pacote completo (Audiometria, ECG, Espirometria, RX).\n"
+                "Escritório → cargo admin recebe só Exame Clínico + Acuidade Visual.\n"
+                "Misto → sistema detecta por GHE automaticamente."
+            ),
+            horizontal=True,
+        )
+        tipo_ambiente = _opcoes_amb[_label_amb]
 
         st.session_state["pcmso_cabecalho"] = {
             "razao_social":    razao_social,
@@ -126,6 +143,7 @@ elif modulo == "Medicina: PGR - PCMSO":
             "responsavel_tec": resp_tec,
             "obra":            obra,
         }
+        st.session_state["tipo_ambiente"] = tipo_ambiente
 
     pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
@@ -157,23 +175,21 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
             st.stop()
 
-        with st.spinner("Gerando matriz PCMSO..."):
-            df_pcmso = processar_pcmso(dados_ghe)
+        tipo_amb = st.session_state.get("tipo_ambiente","escritorio")
+        with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
+            df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
         st.dataframe(df_pcmso, use_container_width=True)
 
-        # ── Gerar documentos ──────────────────────────────────────────────────
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
-
         html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
 
         with st.spinner("Gerando DOCX..."):
             bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
 
-        nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
+        nome_arquivo = razao_social.replace(" ","_")[:30] if razao_social else "PCMSO"
 
-        # ── Botoes de download lado a lado ────────────────────────────────────
         st.markdown("### ⬇️ Baixar PCMSO")
         col_html, col_docx = st.columns(2)
 
@@ -195,11 +211,9 @@ elif modulo == "Medicina: PGR - PCMSO":
                 use_container_width=True,
             )
 
-        # ── Preview HTML inline ───────────────────────────────────────────────
         with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
             components.html(html_pcmso, height=600, scrolling=True)
 
-        # ── Salvar no historico ───────────────────────────────────────────────
         if razao_social and medico_rt:
             nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
             salvar_historico(nome_proj, html_pcmso)
