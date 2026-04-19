@@ -41,7 +41,7 @@ _INVALIDOS_GHE = [
 
 # FIX v4.2 — padrões regex que NUNCA são nome de GHE
 _INVALIDOS_GHE_REGEX = [
-    r"^-\s+\w",                      # "- Comunicar ao..."
+    r"^-\s+\w",
     r"comunicar",
     r"desempenha",
     r"utilizam.se",
@@ -64,6 +64,12 @@ _INVALIDOS_GHE_REGEX = [
     r"verificar\s+",
     r"realizar\s+",
     r"responsav",
+    r"^\w\)\s+",
+    r"departamento de seguranca",
+    r"quantitativa",
+    r"verificacao do",
+    r"para verifica",
+]
 ]
 
 _PALAVRAS_CANTEIRO = [
