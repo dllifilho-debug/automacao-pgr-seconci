@@ -1,9 +1,9 @@
 """
-modules/modulo_pcmso.py — v4
+modules/modulo_pcmso.py — v4.1
 Ajustes:
-  [1] Campo tipo_ambiente: canteiro / escritorio / misto
-  [2] Limpeza de nome do GHE (remove lixo textual do PDF)
-  [3] DOCX com layout fiel ao adendo Dinamica Engenharia
+  [1] _PACOTE_CANTEIRO: chave "obs" → "motivo" resolvida no loop (sem depender do merge)
+  [2] Guards contra None em cargos/riscos_mapeados
+  [3] _fmt_per: proteção contra tipo não-string
 """
 
 import io, re, unicodedata
@@ -58,13 +58,13 @@ _RISCOS_CANTEIRO = [
 
 # Pacote padrao canteiro — baseado na matriz RICCO/HETRIN validada Dra. Patricia
 _PACOTE_CANTEIRO = [
-    {"exame": "Audiometria Tonal (PTA)",                   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Canteiro de obras"},
-    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)",  "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Eletrocardiograma (ECG)",                    "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Glicemia de Jejum",                          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Hemograma Completo",                         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Espirometria",                               "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
-    {"exame": "Raio-X de Torax OIT",                        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Audiometria Tonal (PTA)",                    "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Canteiro de obras"},
+    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)",   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Eletrocardiograma (ECG)",                     "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Glicemia de Jejum",                           "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Hemograma Completo",                          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Espirometria",                                "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Raio-X de Torax OIT",                         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
 ]
 
 _LIXO_GHE = [
@@ -135,22 +135,27 @@ def _fallback_necessario(ghes: list) -> bool:
     return True
 
 
-def _fmt_per(per: str) -> str:
-    if not per:
+def _fmt_per(per) -> str:
+    # FIX v4.1 — proteção contra tipo não-string (bool, None, int)
+    if per is None or per is False:
         return "-"
-    per = per.strip().upper().replace("MESES","").strip()
+    per = str(per).strip().upper().replace("MESES", "").strip()
+    if not per or per in ("TRUE","FALSE","NONE"):
+        return "-"
     try:
         return f"{int(per)}M"
     except ValueError:
         return per
 
 
-def _flag(val: bool) -> str:
-    return "X" if val else "-"
+def _flag(val) -> str:
+    # FIX v4.1 — aceita bool ou string
+    if isinstance(val, bool):
+        return "X" if val else "-"
+    return "X" if str(val).strip().upper() in ("X","TRUE","1","SIM") else "-"
 
 
 def _ghe_e_canteiro_misto(nome_ghe: str, riscos: list) -> bool:
-    """Detecta se GHE é canteiro no modo MISTO."""
     norm = normalizar_texto(nome_ghe)
     if any(p in norm for p in _PALAVRAS_CANTEIRO):
         return True
@@ -245,15 +250,16 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
 
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get("ghe", "Sem GHE")
-        nome_ghe     = _limpar_nome_ghe(nome_ghe_raw)   # Ajuste 2
-        nome_norm    = normalizar_texto(nome_ghe)
-        cargos       = ghe.get("cargos", [])[:15]
-        riscos       = ghe.get("riscos_mapeados", [])[:10]
+        nome_ghe     = _limpar_nome_ghe(str(nome_ghe_raw))
+        cargos       = ghe.get("cargos") or []        # FIX v4.1 — guard None
+        riscos       = ghe.get("riscos_mapeados") or [] # FIX v4.1 — guard None
+        cargos       = cargos[:15]
+        riscos       = riscos[:10]
 
         if not _ghe_valido(nome_ghe):
             continue
 
-        # Ajuste 1 — determinar contexto do GHE
+        # Determinar contexto do GHE
         if tipo_ambiente == "canteiro":
             e_canteiro = True
         elif tipo_ambiente == "escritorio":
@@ -275,9 +281,17 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
             cargo_upper = cargo_norm.upper()
 
             if e_canteiro:
-                # Pacote completo para todos no canteiro
+                # FIX v4.1 — montagem explícita do dict, sem depender do spread de "obs"
                 for ex in _PACOTE_CANTEIRO:
-                    adicionar_exame_dedup(exames, {**ex, "motivo": "Canteiro de Obras — padrao RICCO/HETRIN"})
+                    adicionar_exame_dedup(exames, {
+                        "exame":  ex["exame"],
+                        "adm":    ex["adm"],
+                        "per":    ex["per"],
+                        "mro":    ex["mro"],
+                        "rt":     ex["rt"],
+                        "dem":    ex["dem"],
+                        "motivo": f"Canteiro de Obras — {ex['obs']}" if ex.get("obs") else "Canteiro de Obras — padrao RICCO/HETRIN",
+                    })
             else:
                 # Escritorio: exames por funcao da matriz
                 for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
@@ -306,7 +320,7 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
                         })
 
             for ex_info in exames.values():
-                per_fmt = _fmt_per(ex_info.get("per","12 MESES"))
+                per_fmt = _fmt_per(ex_info.get("per", "12 MESES"))
                 linhas.append({
                     "GHE / Setor": nome_ghe,
                     "Cargo":       cargo,
@@ -433,7 +447,7 @@ def gerar_docx_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
     def txt(cell, text, bold=False, color=None, size=9, align=WD_ALIGN_PARAGRAPH.LEFT):
         cell.text = ""
         p = cell.paragraphs[0]; p.alignment = align
-        r = p.add_run(text); r.bold = bold; r.font.size = Pt(size)
+        r = p.add_run(str(text)); r.bold = bold; r.font.size = Pt(size)
         if color: r.font.color.rgb = color
 
     doc = Document()
