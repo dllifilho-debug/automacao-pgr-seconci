@@ -1,38 +1,30 @@
-"""
-modules/modulo_pcmso.py — v4.4
-Fixes aplicados:
-  [1] _ghe_valido() — normalizando texto ANTES das validações de regex
-  [2] _INVALIDOS_GHE_REGEX — barras duplas corrigidas (\\\\s → \s, etc.)
-  [3] _RE_GHE — barras duplas corrigidas
-  [4] Adicionados 4 novos padrões de rejeição GHE ("avaliacao quantitativa...", etc.)
-  [5] Correção do split/join de "\\\\n" literal para "\n" na extração de texto
-"""
-
-import io, re, unicodedata
+import io
+import re
+import unicodedata
 from datetime import datetime
 
 import pdfplumber
 import pandas as pd
 
-from data.matriz_exames    import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
-from utils.cargo_utils     import normalizar_cargo, normalizar_texto, MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO
-from utils.exame_utils     import adicionar_exame_dedup
+from data.matriz_exames import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
+from utils.cargo_utils import normalizar_cargo, normalizar_texto, MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO
+from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import tem_risco_biologico_real, CHAVES_BIOLOGICAS_MATRIZ
 
 # ── Constantes ────────────────────────────────────────────────────────────────
 
 _INVALIDOS_GHE = [
-    "QUANTIDADE","PREVISTOS","EXPOSTOS","TOTAL DE","NUMERO DE",
-    "FUNCIONARIOS","TRABALHADORES","MEDIDAS DE CONTROLE",
-    "FONTE GERADORA","TRAJETORIA","DESCRICAO",
-    "ATIVIDADES EXERCIDAS","INFORMACOES SOBRE",
-    "PAGINA DE REVISAO","IDENTIFICACAO DA EMPRESA",
-    "COMUNICAR","DESEMPENHA ATIVIDADES","UTILIZAM-SE",
-    "DIRETORES DA","DURANTE O DESENVOLVIMENTO",
-    "OCULOS DE","NIVEIS BAIXOS","IMPORTANCIA",
-    "PERMANENTE ELEVADISSIMA","INTERMITENTE",
-    "ATIVIDADES DE -","ATIVIDADES, UTILIZAM",
-    "ATIVIDADES PERMANENTE","DESENVOLV",
+    "QUANTIDADE", "PREVISTOS", "EXPOSTOS", "TOTAL DE", "NUMERO DE",
+    "FUNCIONARIOS", "TRABALHADORES", "MEDIDAS DE CONTROLE",
+    "FONTE GERADORA", "TRAJETORIA", "DESCRICAO",
+    "ATIVIDADES EXERCIDAS", "INFORMACOES SOBRE",
+    "PAGINA DE REVISAO", "IDENTIFICACAO DA EMPRESA",
+    "COMUNICAR", "DESEMPENHA ATIVIDADES", "UTILIZAM-SE",
+    "DIRETORES DA", "DURANTE O DESENVOLVIMENTO",
+    "OCULOS DE", "NIVEIS BAIXOS", "IMPORTANCIA",
+    "PERMANENTE ELEVADISSIMA", "INTERMITENTE",
+    "ATIVIDADES DE -", "ATIVIDADES, UTILIZAM",
+    "ATIVIDADES PERMANENTE", "DESENVOLV",
 ]
 
 _INVALIDOS_GHE_REGEX = [
@@ -62,14 +54,12 @@ _INVALIDOS_GHE_REGEX = [
     r"^\w\)\s+",
     r"departamento de seguranca",
     r"quantitativa",
-    r"verifica",
     r"para verifica",
     r"avalia.ao quantitativa",
     r"confirma.ao da categoria",
     r"monitoramento peri",
     r"medidas de controle",
     r"grau\s+\d",
-    # NOVOS PADRÕES ADICIONADOS
     r"avaliacao quantitativa do setor",
     r"iniciar processo",
     r"confirmacao da categoria",
@@ -77,30 +67,30 @@ _INVALIDOS_GHE_REGEX = [
 ]
 
 _PALAVRAS_CANTEIRO = [
-    "OBRA","CANTEIRO","CONSTRUCAO","REFORMA","HOSPITAL","RESIDENCIAL",
-    "EDIFICIO","BLOCO","TORRE","HETRIN","VIADUTO","PONTE","SHOPPING",
-    "CONDOMINIO","EMPREENDIMENTO","MONTAGEM","INSTALACAO","CAMPO",
+    "OBRA", "CANTEIRO", "CONSTRUCAO", "REFORMA", "HOSPITAL", "RESIDENCIAL",
+    "EDIFICIO", "BLOCO", "TORRE", "HETRIN", "VIADUTO", "PONTE", "SHOPPING",
+    "CONDOMINIO", "EMPREENDIMENTO", "MONTAGEM", "INSTALACAO", "CAMPO",
 ]
 
 _PALAVRAS_ESCRITORIO = [
-    "ESCRITORIO","SEDE","CORPORATIVO","ADMINISTRACAO","MARKETING",
-    "TECNOLOGIA DA INFORMACAO","RECURSOS HUMANOS","FINANCEIRO",
-    "CONTABILIDADE","JURIDICO","COMERCIAL",
+    "ESCRITORIO", "SEDE", "CORPORATIVO", "ADMINISTRACAO", "MARKETING",
+    "TECNOLOGIA DA INFORMACAO", "RECURSOS HUMANOS", "FINANCEIRO",
+    "CONTABILIDADE", "JURIDICO", "COMERCIAL",
 ]
 
 _RISCOS_CANTEIRO = [
-    "RUIDO","VIBRACAO","POEIRA","CIMENTO","SILICA","TINTA",
-    "SOLDA","ALTURA","CONFINADO","MAQUINA","INCENDIO",
+    "RUIDO", "VIBRACAO", "POEIRA", "CIMENTO", "SILICA", "TINTA",
+    "SOLDA", "ALTURA", "CONFINADO", "MAQUINA", "INCENDIO",
 ]
 
 _PACOTE_CANTEIRO = [
-    {"exame": "Audiometria Tonal (PTA)",                   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Canteiro de obras"},
-    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)",  "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Eletrocardiograma (ECG)",                    "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Glicemia de Jejum",                          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Hemograma Completo",                         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Espirometria",                               "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
-    {"exame": "Raio-X de Torax OIT",                        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Audiometria Tonal (PTA)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True, "obs": "Canteiro de obras"},
+    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Eletrocardiograma (ECG)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Glicemia de Jejum", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Hemograma Completo", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Espirometria", "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True, "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Raio-X de Torax OIT", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True, "obs": "Exposicao a poeiras/cimento"},
 ]
 
 _LIXO_GHE = [
@@ -113,22 +103,22 @@ _LIXO_GHE = [
 ]
 
 _MAPA_AGENTES = {
-    "TOLUENO":"Tolueno","XILENO":"Xileno","BENZENO":"Benzeno",
-    "ACETONA":"Acetona","THINNER":"Solventes (Thinner)",
-    "SOLVENTE":"Solventes Organicos","TINTA":"Tinta / Verniz",
-    "VERNIZ":"Tinta / Verniz","PRIMER":"Primer (Solventes)",
-    "GRAXA":"Graxas / Lubrificantes","DIESEL":"Diesel / Combustivel",
-    "QUEROSENE":"Querosene","ACIDO":"Acidos (geral)",
-    "CIMENTO":"Cimento Portland","SILICA":"Silica Cristalina",
-    "POEIRA":"Poeiras Minerais","AMIANTO":"Asbesto / Amianto",
-    "CHUMBO":"Chumbo","RUIDO":"Ruido",
-    "VIBRACAO":"Vibracao","CALOR":"Calor (IBUTG)",
-    "RADIOATIVO":"Radiacao Ionizante","RAIOS X IONIZANTE":"Radiacao Ionizante",
-    "ERGONO":"Fator Ergonomico","POSTURA":"Postura Inadequada",
-    "LEVANTAMENTO":"Levantamento de Carga","REPETITIVO":"Movimento Repetitivo",
-    "ELETRICO":"Risco Eletrico","ALTURA":"Queda de Altura",
-    "CONFINADO":"Espaco Confinado","MAQUINA":"Maquinas e Equipamentos",
-    "INCENDIO":"Incendio / Explosao",
+    "TOLUENO": "Tolueno", "XILENO": "Xileno", "BENZENO": "Benzeno",
+    "ACETONA": "Acetona", "THINNER": "Solventes (Thinner)",
+    "SOLVENTE": "Solventes Organicos", "TINTA": "Tinta / Verniz",
+    "VERNIZ": "Tinta / Verniz", "PRIMER": "Primer (Solventes)",
+    "GRAXA": "Graxas / Lubrificantes", "DIESEL": "Diesel / Combustivel",
+    "QUEROSENE": "Querosene", "ACIDO": "Acidos (geral)",
+    "CIMENTO": "Cimento Portland", "SILICA": "Silica Cristalina",
+    "POEIRA": "Poeiras Minerais", "AMIANTO": "Asbesto / Amianto",
+    "CHUMBO": "Chumbo", "RUIDO": "Ruido",
+    "VIBRACAO": "Vibracao", "CALOR": "Calor (IBUTG)",
+    "RADIOATIVO": "Radiacao Ionizante", "RAIOS X IONIZANTE": "Radiacao Ionizante",
+    "ERGONO": "Fator Ergonomico", "POSTURA": "Postura Inadequada",
+    "LEVANTAMENTO": "Levantamento de Carga", "REPETITIVO": "Movimento Repetitivo",
+    "ELETRICO": "Risco Eletrico", "ALTURA": "Queda de Altura",
+    "CONFINADO": "Espaco Confinado", "MAQUINA": "Maquinas e Equipamentos",
+    "INCENDIO": "Incendio / Explosao",
 }
 
 _RE_GHE = re.compile(
@@ -143,15 +133,14 @@ def _limpar_nome_ghe(nome: str) -> str:
         return nome[:100].strip() + "..."
     norm = normalizar_texto(nome)
     for lixo in _LIXO_GHE:
-        if re.search(lixo, norm, re.IGNORECASE):  # ← ADICIONADO re.IGNORECASE
+        if re.search(lixo, norm, re.IGNORECASE):
             return "GHE (revisar nome)"
     return nome.strip()
-
 
 def _is_linha_ghe(linha: str) -> bool:
     lu = normalizar_texto(linha.strip())
     for pat in _INVALIDOS_GHE_REGEX:
-        if re.search(pat, lu, re.IGNORECASE):     # ← ADICIONADO re.IGNORECASE
+        if re.search(pat, lu, re.IGNORECASE):
             return False
     if _RE_GHE.search(linha):
         return True
@@ -160,17 +149,15 @@ def _is_linha_ghe(linha: str) -> bool:
             return True
     return False
 
-
 def _ghe_valido(nome_ghe: str) -> bool:
     norm = normalizar_texto(nome_ghe)
     if len(nome_ghe.strip()) > 60:
         return False
     if len(norm.strip()) < 4:
         return False
-    if any(re.search(pat, norm, re.IGNORECASE) for pat in _INVALIDOS_GHE_REGEX): # ← ADICIONADO re.IGNORECASE
+    if any(re.search(pat, norm, re.IGNORECASE) for pat in _INVALIDOS_GHE_REGEX):
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
-
 
 def _fallback_necessario(ghes: list) -> bool:
     for g in ghes:
@@ -178,24 +165,21 @@ def _fallback_necessario(ghes: list) -> bool:
             return False
     return True
 
-
 def _fmt_per(per) -> str:
     if per is None or per is False:
         return "-"
     per = str(per).strip().upper().replace("MESES", "").strip()
-    if not per or per in ("TRUE","FALSE","NONE",""):
+    if not per or per in ("TRUE", "FALSE", "NONE", ""):
         return "-"
     try:
         return f"{int(per)}M"
     except ValueError:
         return per if per else "-"
 
-
 def _flag(val) -> str:
     if isinstance(val, bool):
         return "X" if val else "-"
-    return "X" if str(val).strip().upper() in ("X","TRUE","1","SIM") else "-"
-
+    return "X" if str(val).strip().upper() in ("X", "TRUE", "1", "SIM") else "-"
 
 def _ghe_e_canteiro_misto(nome_ghe: str, riscos: list) -> bool:
     norm = normalizar_texto(nome_ghe)
@@ -204,11 +188,10 @@ def _ghe_e_canteiro_misto(nome_ghe: str, riscos: list) -> bool:
     if any(p in norm for p in _PALAVRAS_ESCRITORIO):
         return False
     texto_r = " ".join(
-        normalizar_texto(r.get("nome_agente","") + " " + r.get("perigo_especifico",""))
+        normalizar_texto(r.get("nome_agente", "") + " " + r.get("perigo_especifico", ""))
         for r in riscos
     )
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
-
 
 # ── Extração ──────────────────────────────────────────────────────────────────
 
@@ -219,8 +202,7 @@ def extrair_texto_pdf(uploaded_file) -> str:
             t = p.extract_text()
             if t:
                 texto.append(t)
-    return "\n".join(texto)  # CORREÇÃO: \n em vez de \\n literal
-
+    return "\n".join(texto)
 
 def extrair_texto_pdf_path(caminho: str) -> str:
     texto = []
@@ -229,11 +211,10 @@ def extrair_texto_pdf_path(caminho: str) -> str:
             t = p.extract_text()
             if t:
                 texto.append(t)
-    return "\n".join(texto)  # CORREÇÃO: \n em vez de \\n literal
-
+    return "\n".join(texto)
 
 def extrair_pgr_local(texto: str) -> list:
-    linhas = texto.split("\n")  # CORREÇÃO: \n em vez de \\n literal
+    linhas = texto.split("\n")
     ghes, ghe_atual, agentes_set = [], None, set()
 
     for linha in linhas:
@@ -251,7 +232,7 @@ def extrair_pgr_local(texto: str) -> list:
         ):
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
-            ghe_atual   = {"ghe": lc, "cargos": [], "riscos_mapeados": []}
+            ghe_atual = {"ghe": lc, "cargos": [], "riscos_mapeados": []}
             agentes_set = set()
             continue
 
@@ -278,7 +259,6 @@ def extrair_pgr_local(texto: str) -> list:
     ghes = _deduplicar_ghes(ghes)
     return ghes
 
-
 def _deduplicar_ghes(ghes: list) -> list:
     vistos: dict = {}
     resultado = []
@@ -303,7 +283,6 @@ def _deduplicar_ghes(ghes: list) -> list:
 
     return resultado
 
-
 def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
     local = extrair_pgr_local(texto_pgr)
     if not _fallback_necessario(local):
@@ -317,7 +296,6 @@ def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
             print(f"[WARN] Falha IA: {e}")
     return (local or [], "parcial")
 
-
 # ── Processamento PCMSO ───────────────────────────────────────────────────────
 
 def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.DataFrame:
@@ -325,11 +303,11 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
 
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get("ghe", "Sem GHE")
-        nome_ghe     = _limpar_nome_ghe(str(nome_ghe_raw))
-        cargos       = ghe.get("cargos") or []
-        riscos       = ghe.get("riscos_mapeados") or []
-        cargos       = cargos[:15]
-        riscos       = riscos[:10]
+        nome_ghe = _limpar_nome_ghe(str(nome_ghe_raw))
+        cargos = ghe.get("cargos") or []
+        riscos = ghe.get("riscos_mapeados") or []
+        cargos = cargos[:15]
+        riscos = riscos[:10]
 
         if not _ghe_valido(nome_ghe):
             continue
@@ -350,18 +328,18 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
                 "motivo": "NR-07 Basico",
             })
 
-            cargo_norm  = normalizar_cargo(cargo)
+            cargo_norm = normalizar_cargo(cargo)
             cargo_upper = cargo_norm.upper()
 
             if e_canteiro:
                 for ex in _PACOTE_CANTEIRO:
                     adicionar_exame_dedup(exames, {
-                        "exame":  ex["exame"],
-                        "adm":    ex["adm"],
-                        "per":    ex["per"],
-                        "mro":    ex["mro"],
-                        "rt":     ex["rt"],
-                        "dem":    ex["dem"],
+                        "exame": ex["exame"],
+                        "adm": ex["adm"],
+                        "per": ex["per"],
+                        "mro": ex["mro"],
+                        "rt": ex["rt"],
+                        "dem": ex["dem"],
                         "motivo": f"Canteiro de Obras — {ex['obs']}" if ex.get("obs") else "Canteiro de Obras — padrao RICCO/HETRIN",
                     })
             else:
@@ -373,51 +351,50 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
             bio_real = tem_risco_biologico_real(riscos)
             for risco in riscos:
                 texto_r = normalizar_texto(
-                    risco.get("nome_agente","") + " " + risco.get("perigo_especifico","")
+                    risco.get("nome_agente", "") + " " + risco.get("perigo_especifico", "")
                 )
                 for chave_r, regra in MATRIZ_RISCO_EXAME.items():
                     if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
                         continue
                     if chave_r in texto_r:
                         adicionar_exame_dedup(exames, {
-                            "exame":  regra["exame"],
-                            "adm":    regra.get("adm", True),
-                            "per":    regra.get("periodico","12 MESES"),
-                            "mro":    regra.get("mro", True),
-                            "rt":     regra.get("rt", False),
-                            "dem":    regra.get("dem", False),
-                            "motivo": f"Exposicao: {chave_r.title()} — {regra.get('obs','')}",
+                            "exame": regra["exame"],
+                            "adm": regra.get("adm", True),
+                            "per": regra.get("periodico", "12 MESES"),
+                            "mro": regra.get("mro", True),
+                            "rt": regra.get("rt", False),
+                            "dem": regra.get("dem", False),
+                            "motivo": f"Exposicao: {chave_r.title()} — {regra.get('obs', '')}",
                         })
 
             for ex_info in exames.values():
                 per_fmt = _fmt_per(ex_info.get("per", "12 MESES"))
                 linhas.append({
                     "GHE / Setor": nome_ghe,
-                    "Cargo":       cargo,
-                    "Exame":       ex_info["exame"],
-                    "ADM":         _flag(ex_info.get("adm", True)),
-                    "PER":         per_fmt,
-                    "MRO":         _flag(ex_info.get("mro", True)),
-                    "RT":          _flag(ex_info.get("rt",  False)),
-                    "DEM":         _flag(ex_info.get("dem", False)),
-                    "Justificativa": ex_info.get("motivo",""),
+                    "Cargo": cargo,
+                    "Exame": ex_info["exame"],
+                    "ADM": _flag(ex_info.get("adm", True)),
+                    "PER": per_fmt,
+                    "MRO": _flag(ex_info.get("mro", True)),
+                    "RT": _flag(ex_info.get("rt", False)),
+                    "DEM": _flag(ex_info.get("dem", False)),
+                    "Justificativa": ex_info.get("motivo", ""),
                 })
 
     return pd.DataFrame(linhas)
-
 
 # ── Geração HTML ──────────────────────────────────────────────────────────────
 
 def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
     if not cabecalho:
         cabecalho = {}
-    razao  = cabecalho.get("razao_social","Empresa nao informada")
-    cnpj   = cabecalho.get("cnpj","---")
-    obra   = cabecalho.get("obra","---")
-    medico = cabecalho.get("medico_rt","Nao informado")
-    vig_i  = cabecalho.get("vig_ini","---")
-    vig_f  = cabecalho.get("vig_fim","---")
-    tec    = cabecalho.get("responsavel_tec","---")
+    razao = cabecalho.get("razao_social", "Empresa nao informada")
+    cnpj = cabecalho.get("cnpj", "---")
+    obra = cabecalho.get("obra", "---")
+    medico = cabecalho.get("medico_rt", "Nao informado")
+    vig_i = cabecalho.get("vig_ini", "---")
+    vig_f = cabecalho.get("vig_fim", "---")
+    tec = cabecalho.get("responsavel_tec", "---")
 
     ghe_grupos = {}
     for _, row in df.iterrows():
@@ -427,7 +404,7 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
 
     linhas_html = ""
     for ghe_nome, cargos_dict in ghe_grupos.items():
-        total_rows   = sum(len(v) for v in cargos_dict.values())
+        total_rows = sum(len(v) for v in cargos_dict.values())
         primeiro_ghe = True
         for cargo, rows in cargos_dict.items():
             primeiro_cargo = True
@@ -483,7 +460,6 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
   Gerado por Sistema Automação SST Seconci-GO | NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Dec.3.048/99.
 </p></body></html>"""
 
-
 # ── Geração DOCX ──────────────────────────────────────────────────────────────
 
 def gerar_docx_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
@@ -496,94 +472,112 @@ def gerar_docx_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
 
     if not cabecalho:
         cabecalho = {}
-    razao  = cabecalho.get("razao_social","Empresa nao informada")
-    cnpj   = cabecalho.get("cnpj","---")
-    obra   = cabecalho.get("obra","---")
-    medico = cabecalho.get("medico_rt","Nao informado")
-    vig_i  = cabecalho.get("vig_ini","---")
-    vig_f  = cabecalho.get("vig_fim","---")
-    tec    = cabecalho.get("responsavel_tec","---")
+    razao = cabecalho.get("razao_social", "Empresa nao informada")
+    cnpj = cabecalho.get("cnpj", "---")
+    obra = cabecalho.get("obra", "---")
+    medico = cabecalho.get("medico_rt", "Nao informado")
+    vig_i = cabecalho.get("vig_ini", "---")
+    vig_f = cabecalho.get("vig_fim", "---")
+    tec = cabecalho.get("responsavel_tec", "---")
 
-    BRANCO = RGBColor(0xFF,0xFF,0xFF)
+    BRANCO = RGBColor(0xFF, 0xFF, 0xFF)
 
     def shd(cell, hex_color):
-        tc = cell._tc; tcPr = tc.get_or_add_tcPr()
+        tc = cell._tc
+        tcPr = tc.get_or_add_tcPr()
         s = OxmlElement("w:shd")
-        s.set(qn("w:val"),"clear"); s.set(qn("w:color"),"auto")
-        s.set(qn("w:fill"), hex_color); tcPr.append(s)
+        s.set(qn("w:val"), "clear")
+        s.set(qn("w:color"), "auto")
+        s.set(qn("w:fill"), hex_color)
+        tcPr.append(s)
 
     def txt(cell, text, bold=False, color=None, size=9, align=WD_ALIGN_PARAGRAPH.LEFT):
         cell.text = ""
-        p = cell.paragraphs[0]; p.alignment = align
-        r = p.add_run(str(text)); r.bold = bold; r.font.size = Pt(size)
-        if color: r.font.color.rgb = color
+        p = cell.paragraphs[0]
+        p.alignment = align
+        r = p.add_run(str(text))
+        r.bold = bold
+        r.font.size = Pt(size)
+        if color:
+            r.font.color.rgb = color
 
     doc = Document()
     for sec in doc.sections:
-        sec.top_margin=sec.bottom_margin=Cm(1.5)
-        sec.left_margin=sec.right_margin=Cm(1.5)
+        sec.top_margin = sec.bottom_margin = Cm(1.5)
+        sec.left_margin = sec.right_margin = Cm(1.5)
 
     doc.add_paragraph()
-    cab = doc.add_table(rows=3, cols=5); cab.style="Table Grid"
+    cab = doc.add_table(rows=3, cols=5)
+    cab.style = "Table Grid"
     cab.rows[0].cells[0].merge(cab.rows[0].cells[4])
-    shd(cab.rows[0].cells[0],"084D22")
-    txt(cab.rows[0].cells[0],"PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL — PCMSO",
-        bold=True,color=BRANCO,size=11,align=WD_ALIGN_PARAGRAPH.CENTER)
-    for i,t in enumerate([f"Empresa: {razao}",f"CNPJ: {cnpj}",f"Obra: {obra}",
+    shd(cab.rows[0].cells[0], "084D22")
+    txt(cab.rows[0].cells[0], "PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL — PCMSO",
+        bold=True, color=BRANCO, size=11, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for i, t in enumerate([f"Empresa: {razao}", f"CNPJ: {cnpj}", f"Obra: {obra}",
                            f"Vigência: {vig_i} a {vig_f}",
                            f"Emissão: {datetime.now().strftime('%d/%m/%Y')}"]):
-        txt(cab.rows[1].cells[i],t,size=9)
+        txt(cab.rows[1].cells[i], t, size=9)
     cab.rows[2].cells[0].merge(cab.rows[2].cells[2])
     cab.rows[2].cells[3].merge(cab.rows[2].cells[4])
-    txt(cab.rows[2].cells[0],f"Médico(a): {medico}",size=9)
-    txt(cab.rows[2].cells[3],f"Técnico SST: {tec}",size=9)
+    txt(cab.rows[2].cells[0], f"Médico(a): {medico}", size=9)
+    txt(cab.rows[2].cells[3], f"Técnico SST: {tec}", size=9)
     doc.add_paragraph()
 
-    cols_n = ["GHE","Função","Exame Solicitado","ADM","PER","MRO","RT","DEM","Justificativa"]
-    cols_w = [Cm(2.5),Cm(3.0),Cm(6.0),Cm(1.0),Cm(1.2),Cm(1.0),Cm(0.9),Cm(1.0),Cm(3.9)]
-    tab = doc.add_table(rows=1,cols=len(cols_n)); tab.style="Table Grid"
-    for i,(cn,cw) in enumerate(zip(cols_n,cols_w)):
-        c=tab.rows[0].cells[i]; shd(c,"1AA04B"); c.width=cw
-        txt(c,cn,bold=True,color=BRANCO,size=9,
-            align=WD_ALIGN_PARAGRAPH.CENTER if i>=3 else WD_ALIGN_PARAGRAPH.LEFT)
+    cols_n = ["GHE", "Função", "Exame Solicitado", "ADM", "PER", "MRO", "RT", "DEM", "Justificativa"]
+    cols_w = [Cm(2.5), Cm(3.0), Cm(6.0), Cm(1.0), Cm(1.2), Cm(1.0), Cm(0.9), Cm(1.0), Cm(3.9)]
+    tab = doc.add_table(rows=1, cols=len(cols_n))
+    tab.style = "Table Grid"
+    for i, (cn, cw) in enumerate(zip(cols_n, cols_w)):
+        c = tab.rows[0].cells[i]
+        shd(c, "1AA04B")
+        c.width = cw
+        txt(c, cn, bold=True, color=BRANCO, size=9,
+            align=WD_ALIGN_PARAGRAPH.CENTER if i >= 3 else WD_ALIGN_PARAGRAPH.LEFT)
 
-    ghe_grupos={}
-    for _,row in df.iterrows():
-        ghe_grupos.setdefault(row["GHE / Setor"],{}).setdefault(row["Cargo"],[]).append(row)
+    ghe_grupos = {}
+    for _, row in df.iterrows():
+        ghe_grupos.setdefault(row["GHE / Setor"], {}).setdefault(row["Cargo"], []).append(row)
 
-    for ghe_nome,cargos_dict in ghe_grupos.items():
-        first_ghe=None
-        for cargo,rows in cargos_dict.items():
-            first_cargo=None
+    for ghe_nome, cargos_dict in ghe_grupos.items():
+        first_ghe = None
+        for cargo, rows in cargos_dict.items():
+            first_cargo = None
             for row in rows:
-                tr=tab.add_row()
-                for i,cw in enumerate(cols_w):
-                    tr.cells[i].width=cw
-                    tr.cells[i].vertical_alignment=WD_ALIGN_VERTICAL.CENTER
+                tr = tab.add_row()
+                for i, cw in enumerate(cols_w):
+                    tr.cells[i].width = cw
+                    tr.cells[i].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
                 if first_ghe is None:
-                    first_ghe=tr; shd(tr.cells[0],"084D22")
-                    txt(tr.cells[0],ghe_nome,bold=True,color=BRANCO,size=8,
+                    first_ghe = tr
+                    shd(tr.cells[0], "084D22")
+                    txt(tr.cells[0], ghe_nome, bold=True, color=BRANCO, size=8,
                         align=WD_ALIGN_PARAGRAPH.CENTER)
                 else:
-                    shd(tr.cells[0],"084D22"); tr.cells[0].text=""
+                    shd(tr.cells[0], "084D22")
+                    tr.cells[0].text = ""
                 if first_cargo is None:
-                    first_cargo=tr; txt(tr.cells[1],cargo,bold=True,size=9)
+                    first_cargo = tr
+                    txt(tr.cells[1], cargo, bold=True, size=9)
                 else:
-                    tr.cells[1].text=""
-                txt(tr.cells[2],str(row["Exame"]),size=9)
-                for idx,col in enumerate(["ADM","PER","MRO","RT","DEM"],start=3):
-                    val=str(row[col]); is_x=(val=="X")
-                    if is_x: shd(tr.cells[idx],"d4edda")
-                    txt(tr.cells[idx],val,bold=is_x,size=9,
+                    tr.cells[1].text = ""
+                txt(tr.cells[2], str(row["Exame"]), size=9)
+                for idx, col in enumerate(["ADM", "PER", "MRO", "RT", "DEM"], start=3):
+                    val = str(row[col])
+                    is_x = (val == "X")
+                    if is_x:
+                        shd(tr.cells[idx], "d4edda")
+                    txt(tr.cells[idx], val, bold=is_x, size=9,
                         align=WD_ALIGN_PARAGRAPH.CENTER)
-                txt(tr.cells[8],str(row["Justificativa"]),size=8)
+                txt(tr.cells[8], str(row["Justificativa"]), size=8)
 
     doc.add_paragraph()
-    rod=doc.add_paragraph(
+    rod = doc.add_paragraph(
         "Gerado por Sistema Automação SST Seconci-GO  |  "
         "NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Decreto 3.048/99.")
-    rod.runs[0].font.size=Pt(7)
-    rod.runs[0].font.color.rgb=RGBColor(0x55,0x55,0x55)
+    rod.runs[0].font.size = Pt(7)
+    rod.runs[0].font.color.rgb = RGBColor(0x55, 0x55, 0x55)
 
-    buf=io.BytesIO(); doc.save(buf); buf.seek(0)
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
     return buf.read()
