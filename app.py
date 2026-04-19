@@ -11,7 +11,8 @@ from datetime import date
 from config.db            import (get_supabase, salvar_historico,
                                    carregar_historico, carregar_html_historico)
 from modules.modulo_pcmso import (extrair_texto_pdf, extrair_pgr_com_fallback,
-                                   processar_pcmso, gerar_html_pcmso)
+                                   processar_pcmso, gerar_html_pcmso,
+                                   gerar_docx_pcmso)
 
 # ── Configuracao de pagina ────────────────────────────────────────
 st.set_page_config(
@@ -114,6 +115,7 @@ elif modulo == "Medicina: PGR - PCMSO":
             vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
             vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
             resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",       value=cab.get("responsavel_tec", ""))
+            obra     = st.text_input("Obra / Unidade (opcional)",                value=cab.get("obra", ""))
 
         st.session_state["pcmso_cabecalho"] = {
             "razao_social":    razao_social,
@@ -122,6 +124,7 @@ elif modulo == "Medicina: PGR - PCMSO":
             "vig_ini":         vig_ini.strftime("%d/%m/%Y"),
             "vig_fim":         vig_fim.strftime("%d/%m/%Y"),
             "responsavel_tec": resp_tec,
+            "obra":            obra,
         }
 
     pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
@@ -160,15 +163,43 @@ elif modulo == "Medicina: PGR - PCMSO":
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
         st.dataframe(df_pcmso, use_container_width=True)
 
-        html_pcmso = gerar_html_pcmso(df_pcmso)
+        # ── Gerar documentos ──────────────────────────────────────────────────
+        cabecalho_atual = st.session_state["pcmso_cabecalho"]
 
-        st.download_button(
-            "Baixar PCMSO em HTML",
-            data=html_pcmso.encode("utf-8"),
-            file_name=f"PCMSO_{razao_social.replace(' ', '_')[:30]}.html",
-            mime="text/html",
-        )
+        html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
 
+        with st.spinner("Gerando DOCX..."):
+            bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+
+        nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
+
+        # ── Botoes de download lado a lado ────────────────────────────────────
+        st.markdown("### ⬇️ Baixar PCMSO")
+        col_html, col_docx = st.columns(2)
+
+        with col_html:
+            st.download_button(
+                label="📄 Baixar PCMSO (.html)",
+                data=html_pcmso.encode("utf-8"),
+                file_name=f"PCMSO_{nome_arquivo}.html",
+                mime="text/html",
+                use_container_width=True,
+            )
+
+        with col_docx:
+            st.download_button(
+                label="📝 Baixar PCMSO (.docx)",
+                data=bytes_docx,
+                file_name=f"PCMSO_{nome_arquivo}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+
+        # ── Preview HTML inline ───────────────────────────────────────────────
+        with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
+            components.html(html_pcmso, height=600, scrolling=True)
+
+        # ── Salvar no historico ───────────────────────────────────────────────
         if razao_social and medico_rt:
             nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
             salvar_historico(nome_proj, html_pcmso)
