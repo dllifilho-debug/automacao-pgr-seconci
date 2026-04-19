@@ -1,8 +1,9 @@
 """
 Automacao SST - Seconci GO
-app.py v5.2 — warnings deprecation corrigidos (width, st.iframe)
+app.py v5.3 — st.iframe revertido para components.html (iframe não aceita HTML inline)
 """
 import streamlit as st
+import streamlit.components.v1 as components
 import traceback
 import os
 from datetime import date
@@ -68,8 +69,7 @@ else:
 # ── Roteador ─────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
-    # FIX v5.2 — st.components.v1.html → st.iframe
-    st.iframe(historico_html, height=700, scrolling=True)
+    components.html(historico_html, height=700, scrolling=True)
 
 elif modulo == "Dashboard":
     st.title("Dashboard - Sistema Integrado SST")
@@ -147,8 +147,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
     pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
-    # FIX v5.2 — use_container_width → width='stretch'
-    if st.button("Extrair Riscos e Gerar PCMSO", width='stretch'):
+    if st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True):
         if not pdf_file:
             st.error("Faca upload do PDF do PGR antes de continuar.")
             st.stop()
@@ -194,8 +193,7 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.stop()
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
-        # FIX v5.2 — use_container_width → width='stretch'
-        st.dataframe(df_pcmso, width='stretch')
+        st.dataframe(df_pcmso, use_container_width=True)
 
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
 
@@ -220,28 +218,25 @@ elif modulo == "Medicina: PGR - PCMSO":
         col_html, col_docx = st.columns(2)
 
         with col_html:
-            # FIX v5.2 — use_container_width → width='stretch'
             st.download_button(
                 label="📄 Baixar PCMSO (.html)",
                 data=html_pcmso.encode("utf-8"),
                 file_name=f"PCMSO_{nome_arquivo}.html",
                 mime="text/html",
-                width='stretch',
+                use_container_width=True,
             )
 
         with col_docx:
-            # FIX v5.2 — use_container_width → width='stretch'
             st.download_button(
                 label="📝 Baixar PCMSO (.docx)",
                 data=bytes_docx,
                 file_name=f"PCMSO_{nome_arquivo}.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                width='stretch',
+                use_container_width=True,
             )
 
         with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
-            # FIX v5.2 — st.components.v1.html → st.iframe
-            st.iframe(html_pcmso, height=600, scrolling=True)
+            components.html(html_pcmso, height=600, scrolling=True)
 
         if razao_social and medico_rt:
             nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
