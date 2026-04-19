@@ -336,10 +336,6 @@ def extrair_pgr_local(texto: str) -> list:
 
 
 def extrair_pgr_matriz_aiha(texto: str) -> list:
-    """
-    Extrai funcoes e riscos de PGRs no formato Matriz de Risco AIHA (Ricco/Hetrin).
-    Retorna lista no mesmo formato de extrair_pgr_local().
-    """
     linhas = texto.split("\n")
     ghes = []
     funcao_atual = None
@@ -420,11 +416,9 @@ def extrair_pgr_matriz_aiha(texto: str) -> list:
 
 
 def _detectar_formato_pgr(texto: str) -> str:
-    """Detecta o formato do PGR: ghe, aiha ou misto."""
-    amostra = texto[:8000]
-    norm = normalizar_texto(amostra)
+    norm = normalizar_texto(texto)
     tem_aiha = "MATRIZ DE RISCO AIHA" in norm
-    tem_ghe = bool(re.search(r"GHE\s*[\d:\-]", amostra, re.IGNORECASE))
+    tem_ghe = bool(re.search(r"GHE\s*[\d:\-]", texto, re.IGNORECASE))
     if tem_aiha and tem_ghe:
         return "misto"
     if tem_aiha:
