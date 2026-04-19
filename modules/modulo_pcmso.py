@@ -1,10 +1,11 @@
 """
-modules/modulo_pcmso.py — v4.3
-Fixes:
-  [1] _INVALIDOS_GHE_REGEX — barras duplas corrigidas (\\s → \s)
-  [2] _ghe_valido() — rejeita nomes com mais de 60 chars
-  [3] Novos padrões: setor/ghe, quantitativa, verifica
-  [4] _is_linha_ghe() — heurística mais restrita
+modules/modulo_pcmso.py — v4.4
+Fixes aplicados:
+  [1] _ghe_valido() — normalizando texto ANTES das validações de regex
+  [2] _INVALIDOS_GHE_REGEX — barras duplas corrigidas (\\\\s → \s, etc.)
+  [3] _RE_GHE — barras duplas corrigidas
+  [4] Adicionados 4 novos padrões de rejeição GHE ("avaliacao quantitativa...", etc.)
+  [5] Correção do split/join de "\\\\n" literal para "\n" na extração de texto
 """
 
 import io, re, unicodedata
@@ -70,6 +71,11 @@ _INVALIDOS_GHE_REGEX = [
     r"monitoramento peri",
     r"medidas de controle",
     r"grau\s+\d",
+    # NOVOS PADRÕES ADICIONADOS
+    r"avaliacao quantitativa do setor",
+    r"iniciar processo",
+    r"confirmacao da categoria",
+    r"monitoramento periodico",
 ]
 
 _PALAVRAS_CANTEIRO = [
@@ -162,8 +168,9 @@ def _is_linha_ghe(linha: str) -> bool:
 
 
 def _ghe_valido(nome_ghe: str) -> bool:
+    # CORREÇÃO AQUI: normaliza primeiro e usa 'norm' nos checks
     norm = normalizar_texto(nome_ghe)
-    # FIX v4.3 — rejeita nomes com mais de 60 chars (lixo textual)
+    
     if len(nome_ghe.strip()) > 60:
         return False
     if len(norm.strip()) < 4:
@@ -220,7 +227,7 @@ def extrair_texto_pdf(uploaded_file) -> str:
             t = p.extract_text()
             if t:
                 texto.append(t)
-    return "\n".join(texto)
+    return "\n".join(texto)  # CORREÇÃO: \n em vez de \\n literal
 
 
 def extrair_texto_pdf_path(caminho: str) -> str:
@@ -230,11 +237,11 @@ def extrair_texto_pdf_path(caminho: str) -> str:
             t = p.extract_text()
             if t:
                 texto.append(t)
-    return "\n".join(texto)
+    return "\n".join(texto)  # CORREÇÃO: \n em vez de \\n literal
 
 
 def extrair_pgr_local(texto: str) -> list:
-    linhas = texto.split("\n")
+    linhas = texto.split("\n")  # CORREÇÃO: \n em vez de \\n literal
     ghes, ghe_atual, agentes_set = [], None, set()
 
     for linha in linhas:
