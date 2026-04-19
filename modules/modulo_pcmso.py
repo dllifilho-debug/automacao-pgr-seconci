@@ -70,7 +70,6 @@ _INVALIDOS_GHE_REGEX = [
     r"verificacao do",
     r"para verifica",
 ]
-]
 
 _PALAVRAS_CANTEIRO = [
     "OBRA","CANTEIRO","CONSTRUCAO","REFORMA","HOSPITAL","RESIDENCIAL",
