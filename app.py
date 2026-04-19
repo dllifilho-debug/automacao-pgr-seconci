@@ -1,9 +1,10 @@
 """
 Automacao SST - Seconci GO
-app.py v5 — campo tipo_ambiente no formulario PCMSO
+app.py v5.1 — try/except para revelar erro real em processar_pcmso
 """
 import streamlit as st
 import streamlit.components.v1 as components
+import traceback
 import os
 from datetime import date
 
@@ -175,18 +176,43 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
             st.stop()
 
-        tipo_amb = st.session_state.get("tipo_ambiente","escritorio")
+        # ── DEBUG: inspecionar estrutura dos GHEs extraídos ──────
+        with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
+            for g in dados_ghe[:3]:
+                st.json(g)
+
+        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
         with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
-            df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
+            try:
+                df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
+            except Exception as e:
+                st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
+
+        if df_pcmso.empty:
+            st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado. Verifique os GHEs extraídos.")
+            st.stop()
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
         st.dataframe(df_pcmso, use_container_width=True)
 
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
-        html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+
+        try:
+            html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+        except Exception as e:
+            st.error(f"❌ Erro em gerar_html_pcmso(): {type(e).__name__}: {e}")
+            st.code(traceback.format_exc(), language="python")
+            st.stop()
 
         with st.spinner("Gerando DOCX..."):
-            bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+            try:
+                bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+            except Exception as e:
+                st.error(f"❌ Erro em gerar_docx_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
 
         nome_arquivo = razao_social.replace(" ","_")[:30] if razao_social else "PCMSO"
 
