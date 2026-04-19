@@ -145,37 +145,31 @@ def _limpar_nome_ghe(nome: str) -> str:
         return nome[:100].strip() + "..."
     norm = normalizar_texto(nome)
     for lixo in _LIXO_GHE:
-        if re.search(lixo, norm):
+        if re.search(lixo, norm, re.IGNORECASE):  # ← ADICIONADO re.IGNORECASE
             return "GHE (revisar nome)"
     return nome.strip()
 
 
 def _is_linha_ghe(linha: str) -> bool:
     lu = normalizar_texto(linha.strip())
-
     for pat in _INVALIDOS_GHE_REGEX:
-        if re.search(pat, lu):
+        if re.search(pat, lu, re.IGNORECASE):     # ← ADICIONADO re.IGNORECASE
             return False
-
     if _RE_GHE.search(linha):
         return True
-
     if len(linha.strip()) <= 50 and "/" not in linha and "," not in linha:
         if "DEPARTAMENTO" in lu:
             return True
-
     return False
 
 
 def _ghe_valido(nome_ghe: str) -> bool:
-    # CORREÇÃO AQUI: normaliza primeiro e usa 'norm' nos checks
     norm = normalizar_texto(nome_ghe)
-    
     if len(nome_ghe.strip()) > 60:
         return False
     if len(norm.strip()) < 4:
         return False
-    if any(re.search(pat, norm) for pat in _INVALIDOS_GHE_REGEX):
+    if any(re.search(pat, norm, re.IGNORECASE) for pat in _INVALIDOS_GHE_REGEX): # ← ADICIONADO re.IGNORECASE
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
 
