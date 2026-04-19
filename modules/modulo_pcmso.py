@@ -1,3 +1,15 @@
+"""
+modules/modulo_pcmso.py — v4.7
+Fixes:
+  [1] _ghe_valido() — normaliza texto ANTES das validações
+  [2] _INVALIDOS_GHE_REGEX — barras corrigidas, re.IGNORECASE em todas as buscas
+  [3] Novos padrões de rejeição GHE adicionados
+  [4] join/split usa \n real
+  [5] extrair_pgr_matriz_aiha() — suporte a PGRs no formato Matriz AIHA (Ricco/Hetrin)
+  [6] _detectar_formato_pgr() — detecção automática de formato (ghe / aiha / misto)
+  [7] extrair_pgr_com_fallback() — roteamento automático por formato
+"""
+
 import io
 import re
 import unicodedata
@@ -126,6 +138,39 @@ _RE_GHE = re.compile(
     re.IGNORECASE,
 )
 
+_RE_TIPO_RISCO = re.compile(r"^[FQBEA]$")
+
+_RE_CABECALHO_AIHA = re.compile(
+    r"matriz de risco aiha|tipo de risco|identificacao de perigo|codigo e.?social|"
+    r"avaliacao de risco|meio de propagacao|nivel de risco|"
+    r"pouca importancia|probabilidade|efeito",
+    re.IGNORECASE,
+)
+
+_RE_DESCRICAO_FUNCAO = re.compile(
+    r"supervisiona|elabora documentacao|controla recursos|cronograma da obra|"
+    r"executa atividades|responsavel por|realiza tarefas|desenvolve|presta servicos",
+    re.IGNORECASE,
+)
+
+_MAPA_TIPO_RISCO = {
+    "F": "Fisico",
+    "Q": "Quimico",
+    "B": "Biologico",
+    "E": "Ergonomico",
+    "A": "Acidente",
+}
+
+_PALAVRAS_CARGO_AIHA = [
+    "ENCARREGADO", "PEDREIRO", "ELETRICISTA", "CARPINTEIRO", "SOLDADOR",
+    "SERVENTE", "MOTORISTA", "ENGENHEIRO", "TECNICO", "MESTRE", "OPERADOR",
+    "ADMINISTRATIVO", "ASSISTENTE", "AUXILIAR", "COMPRADOR", "SUPERVISOR",
+    "PINTOR", "ARMADOR", "MONTADOR", "INSTALADOR", "ENCANADOR", "BOMBEIRO",
+    "SERRALHEIRO", "TOPOGRAFO", "ALMOXARIFE", "VIGIA", "PORTEIRO", "ZELADOR",
+    "MENOR", "APRENDIZ", "ESTAGIARIO", "COORDENADOR", "GERENTE", "DIRETOR",
+    "SERVICOS GERAIS", "FISCAL", "INSPETOR", "PROJETISTA", "DESENHISTA",
+]
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _limpar_nome_ghe(nome: str) -> str:
@@ -136,6 +181,7 @@ def _limpar_nome_ghe(nome: str) -> str:
         if re.search(lixo, norm, re.IGNORECASE):
             return "GHE (revisar nome)"
     return nome.strip()
+
 
 def _is_linha_ghe(linha: str) -> bool:
     lu = normalizar_texto(linha.strip())
@@ -149,6 +195,7 @@ def _is_linha_ghe(linha: str) -> bool:
             return True
     return False
 
+
 def _ghe_valido(nome_ghe: str) -> bool:
     norm = normalizar_texto(nome_ghe)
     if len(nome_ghe.strip()) > 60:
@@ -159,11 +206,13 @@ def _ghe_valido(nome_ghe: str) -> bool:
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
 
+
 def _fallback_necessario(ghes: list) -> bool:
     for g in ghes:
         if len(normalizar_texto(g["ghe"])) <= 60 and g["cargos"]:
             return False
     return True
+
 
 def _fmt_per(per) -> str:
     if per is None or per is False:
@@ -176,10 +225,12 @@ def _fmt_per(per) -> str:
     except ValueError:
         return per if per else "-"
 
+
 def _flag(val) -> str:
     if isinstance(val, bool):
         return "X" if val else "-"
     return "X" if str(val).strip().upper() in ("X", "TRUE", "1", "SIM") else "-"
+
 
 def _ghe_e_canteiro_misto(nome_ghe: str, riscos: list) -> bool:
     norm = normalizar_texto(nome_ghe)
@@ -193,6 +244,28 @@ def _ghe_e_canteiro_misto(nome_ghe: str, riscos: list) -> bool:
     )
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
 
+
+def _is_nome_funcao_aiha(linha: str) -> bool:
+    lstrip = linha.strip()
+    lu = normalizar_texto(lstrip)
+    if not lstrip or len(lstrip) > 60:
+        return False
+    if _RE_CABECALHO_AIHA.search(lu):
+        return False
+    if _RE_DESCRICAO_FUNCAO.search(lu):
+        return False
+    if _RE_TIPO_RISCO.match(lstrip):
+        return False
+    if lstrip.startswith("-"):
+        return False
+    if re.match(r"^\d{2}\.\d{2}\.\d{3}$", lstrip):
+        return False
+    palavras = lstrip.split()
+    if len(palavras) < 2:
+        return False
+    return any(p in lu for p in _PALAVRAS_CARGO_AIHA)
+
+
 # ── Extração ──────────────────────────────────────────────────────────────────
 
 def extrair_texto_pdf(uploaded_file) -> str:
@@ -204,6 +277,7 @@ def extrair_texto_pdf(uploaded_file) -> str:
                 texto.append(t)
     return "\n".join(texto)
 
+
 def extrair_texto_pdf_path(caminho: str) -> str:
     texto = []
     with pdfplumber.open(caminho) as pdf:
@@ -212,6 +286,7 @@ def extrair_texto_pdf_path(caminho: str) -> str:
             if t:
                 texto.append(t)
     return "\n".join(texto)
+
 
 def extrair_pgr_local(texto: str) -> list:
     linhas = texto.split("\n")
@@ -259,6 +334,104 @@ def extrair_pgr_local(texto: str) -> list:
     ghes = _deduplicar_ghes(ghes)
     return ghes
 
+
+def extrair_pgr_matriz_aiha(texto: str) -> list:
+    """
+    Extrai funcoes e riscos de PGRs no formato Matriz de Risco AIHA (Ricco/Hetrin).
+    Retorna lista no mesmo formato de extrair_pgr_local().
+    """
+    linhas = texto.split("\n")
+    ghes = []
+    funcao_atual = None
+    tipo_risco_atual = None
+    agentes_set = set()
+
+    i = 0
+    while i < len(linhas):
+        lc = linhas[i].strip()
+        lu = normalizar_texto(lc)
+
+        if not lc or _RE_CABECALHO_AIHA.search(lu):
+            i += 1
+            continue
+
+        if _RE_TIPO_RISCO.match(lc):
+            tipo_risco_atual = lc.strip()
+            i += 1
+            continue
+
+        if lc.startswith("-") and funcao_atual is not None and tipo_risco_atual:
+            agente_texto = lc.lstrip("- ").split("(")[0].split("\u2013")[0].split("–")[0].strip()
+            agente_texto = agente_texto[:120]
+            agente_norm = normalizar_texto(agente_texto)
+            agente_mapeado = None
+            for palavra, agente in _MAPA_AGENTES.items():
+                if palavra in agente_norm:
+                    agente_mapeado = agente
+                    break
+            if not agente_mapeado:
+                agente_mapeado = agente_texto[:80]
+
+            if agente_mapeado not in agentes_set:
+                agentes_set.add(agente_mapeado)
+                funcao_atual["riscos_mapeados"].append({
+                    "nome_agente": agente_mapeado,
+                    "perigo_especifico": lc[:200],
+                    "tipo_risco": _MAPA_TIPO_RISCO.get(tipo_risco_atual, tipo_risco_atual),
+                })
+            i += 1
+            continue
+
+        if _is_nome_funcao_aiha(lc):
+            nome_completo = lc
+            if i + 1 < len(linhas):
+                proxima = linhas[i + 1].strip()
+                if (
+                    proxima
+                    and len(proxima) <= 40
+                    and not _RE_CABECALHO_AIHA.search(normalizar_texto(proxima))
+                    and not _RE_TIPO_RISCO.match(proxima)
+                    and not proxima.startswith("-")
+                    and not re.match(r"^\d{2}\.\d{2}\.\d{3}$", proxima)
+                    and not _RE_DESCRICAO_FUNCAO.search(normalizar_texto(proxima))
+                ):
+                    nome_completo = f"{lc} {proxima}"
+                    i += 1
+
+            if funcao_atual and (funcao_atual["cargos"] or funcao_atual["riscos_mapeados"]):
+                ghes.append(funcao_atual)
+
+            funcao_atual = {
+                "ghe": nome_completo,
+                "cargos": [nome_completo],
+                "riscos_mapeados": [],
+            }
+            agentes_set = set()
+            tipo_risco_atual = None
+            i += 1
+            continue
+
+        i += 1
+
+    if funcao_atual and (funcao_atual["cargos"] or funcao_atual["riscos_mapeados"]):
+        ghes.append(funcao_atual)
+
+    return ghes
+
+
+def _detectar_formato_pgr(texto: str) -> str:
+    """Detecta o formato do PGR: ghe, aiha ou misto."""
+    amostra = texto[:8000]
+    norm = normalizar_texto(amostra)
+    tem_aiha = "MATRIZ DE RISCO AIHA" in norm
+    tem_ghe = bool(re.search(r"GHE\s*[\d:\-]", amostra, re.IGNORECASE))
+    if tem_aiha and tem_ghe:
+        return "misto"
+    if tem_aiha:
+        return "aiha"
+    return "ghe"
+
+
 def _deduplicar_ghes(ghes: list) -> list:
     vistos: dict = {}
     resultado = []
@@ -283,7 +456,21 @@ def _deduplicar_ghes(ghes: list) -> list:
 
     return resultado
 
+
 def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
+    formato = _detectar_formato_pgr(texto_pgr)
+
+    if formato == "aiha":
+        resultado = extrair_pgr_matriz_aiha(texto_pgr)
+        return (resultado, "aiha") if resultado else ([], "parcial")
+
+    if formato == "misto":
+        local = extrair_pgr_local(texto_pgr)
+        aiha = extrair_pgr_matriz_aiha(texto_pgr)
+        nomes_local = {x["ghe"] for x in local}
+        merged = local + [g for g in aiha if g["ghe"] not in nomes_local]
+        return (merged, "misto") if merged else ([], "parcial")
+
     local = extrair_pgr_local(texto_pgr)
     if not _fallback_necessario(local):
         return local, "local"
@@ -295,6 +482,7 @@ def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
         except Exception as e:
             print(f"[WARN] Falha IA: {e}")
     return (local or [], "parcial")
+
 
 # ── Processamento PCMSO ───────────────────────────────────────────────────────
 
@@ -383,6 +571,7 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
 
     return pd.DataFrame(linhas)
 
+
 # ── Geração HTML ──────────────────────────────────────────────────────────────
 
 def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
@@ -457,8 +646,9 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
   {linhas_html}
 </table>
 <p style="font-size:8pt;color:#555;margin-top:12px;">
-  Gerado por Sistema Automação SST Seconci-GO | NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Dec.3.048/99.
+  Gerado por Sistema Automacao SST Seconci-GO | NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Dec.3.048/99.
 </p></body></html>"""
+
 
 # ── Geração DOCX ──────────────────────────────────────────────────────────────
 
@@ -572,7 +762,7 @@ def gerar_docx_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
 
     doc.add_paragraph()
     rod = doc.add_paragraph(
-        "Gerado por Sistema Automação SST Seconci-GO  |  "
+        "Gerado por Sistema Automacao SST Seconci-GO  |  "
         "NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Decreto 3.048/99.")
     rod.runs[0].font.size = Pt(7)
     rod.runs[0].font.color.rgb = RGBColor(0x55, 0x55, 0x55)
