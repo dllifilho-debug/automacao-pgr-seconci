@@ -1,97 +1,330 @@
+"""
+data/matriz_exames.py
+Matriz Função x Exames e Risco x Exames — validada Dra. Patrícia Montalvo (06/2025)
 
+Estrutura de cada exame:
+  {
+    "exame":       str,   # nome completo do exame
+    "adm":         bool,  # realizado na admissão
+    "per":         str,   # periodicidade (ex: "12 MESES", "06 MESES", "24 MESES", "" = não realizado)
+    "mro":         bool,  # mudança de risco ocupacional
+    "rt":          bool,  # retorno ao trabalho
+    "dem":         bool,  # demissional
+    "obs":         str,   # observação (opcional)
+  }
+"""
+
+# ── MATRIZ FUNÇÃO → EXAMES ───────────────────────────────────────────────────
 MATRIZ_FUNCAO_EXAME = {
+
+    # ── Administrativos puros ─────────────────────────────────────────────
     "ADMINISTRATIVO": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
     "ASSISTENTE": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
     "AUXILIAR": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
-    "ENGENHEIRO": [
-        {"exame": "Audiometria Tonal (PTA)", "periodicidade": "12 MESES"},
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    "ANALISTA": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
-    "RECEPCIONISTA": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    "COORDENADOR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
-    "COMPRADOR": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
+    "GESTOR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
     "GERENTE": [
-        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "periodicidade": "24 MESES"},
-        {"exame": "Eletrocardiograma (ECG)", "periodicidade": "24 MESES"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                  "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
+    "DIRETOR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                  "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "RECEPCIONISTA": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "TELEFONISTA": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "COMPRADOR": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "ESTAGIARIO": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "JOVEM APRENDIZ": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": "Incluir no PCMSO somente se >= 18 anos"},
+    ],
+    "DESIGNER": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Engenharia / Técnicos ─────────────────────────────────────────────
+    "ENGENHEIRO": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Dem. obrigatorio se ultima > 120 dias"},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "TECNICO": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "SUPERVISOR": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "ENCARREGADO": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Trabalho em Altura / Espaço Confinado / Motorista ────────────────
     "TRABALHO EM ALTURA": [
-        {"exame": "Avaliacao Psicologica (NR-35)", "periodicidade": "12 MESES"},
-        {"exame": "Eletrocardiograma (ECG)", "periodicidade": "12 MESES"},
-        {"exame": "Glicemia de Jejum", "periodicidade": "12 MESES"},
-        {"exame": "Acuidade Visual (NR-35)", "periodicidade": "12 MESES"},
+        {"exame": "Avaliacao Psicossocial (NR-35)",            "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": "NR-35"},
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
+    "ESPACO CONFINADO": [
+        {"exame": "Avaliacao Psicossocial (NR-33)",            "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": "NR-33"},
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "MOTORISTA": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "OPERADOR DE MAQUINAS": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Porteiro / Eletricidade ───────────────────────────────────────────
+    "PORTEIRO": [
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+    "ELETRICISTA": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": "NR-10"},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Obra / Construção ─────────────────────────────────────────────────
+    "PEDREIRO": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Espirometria",                              "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Tolueno 2,6-diisocianato no PGR"},
+        {"exame": "Raio-X de Torax OIT",                       "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Tolueno 2,6-diisocianato no PGR"},
+    ],
+    "SERVENTE": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Espirometria",                              "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Raio-X de Torax OIT",                       "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+    ],
+    "CARPINTEIRO": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Raio-X de Torax OIT",                       "adm": True,  "per": "60 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Poeira de madeira"},
+    ],
+    "PINTOR": [
+        {"exame": "Exame Clinico (Anamnese / Exame Fisico)",   "adm": True,  "per": "06 MESES", "mro": True,  "rt": True,  "dem": True,  "obs": "Periodicidade semestral pelo risco quimico"},
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "06 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Tolueno — exposicao a solvente"},
+        {"exame": "Contagem de Reticulocitos",                 "adm": True,  "per": "06 MESES", "mro": True,  "rt": True,  "dem": True,  "obs": "Exposicao a combustiveis/benzeno"},
+        {"exame": "Acido Trans-Trans Muconico na Urina",       "adm": False, "per": "06 MESES", "mro": False, "rt": False, "dem": False, "obs": "IBE Benzeno — Anexo II NR-07"},
+        {"exame": "Espirometria",                              "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Tolueno trivial no PGR"},
+        {"exame": "Raio-X de Torax OIT",                       "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Tolueno trivial no PGR"},
+    ],
+    "SOLDADOR": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": True,  "dem": True,  "obs": "Solda — NR-07"},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "06 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Fumos metalicos"},
+        {"exame": "Carboxihemoglobina no Sangue",              "adm": False, "per": "06 MESES", "mro": False, "rt": False, "dem": False, "obs": "Policorte / solda — Anexo II NR-07"},
+        {"exame": "Raio-X de Torax OIT",                       "adm": True,  "per": "60 MESES", "mro": True,  "rt": False, "dem": True,  "obs": "Fumos metalicos / PNOS"},
+    ],
+    "ENCANADOR": [
+        {"exame": "Audiometria Tonal (PTA)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": True,  "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Eletrocardiograma (ECG)",                   "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Glicemia de Jejum",                         "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Limpeza / Serviços Gerais ─────────────────────────────────────────
     "SERVICOS GERAIS": [
-        {"exame": "Hemograma Completo", "periodicidade": "24 MESES"},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
     ],
     "LIMPEZA": [
-        {"exame": "Hemograma Completo", "periodicidade": "24 MESES"},
+        {"exame": "Hemograma Completo",                        "adm": True,  "per": "12 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+        {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True,  "per": "24 MESES", "mro": True,  "rt": False, "dem": False, "obs": ""},
+    ],
+
+    # ── Saúde / Alimentos ─────────────────────────────────────────────────
+    "MANIPULADOR": [
+        {"exame": "EAS (Urina Tipo I)",          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "EPF (Coproparasitologico)",   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "Coprocultura",                "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "Micologico de Unhas",         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo",          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    ],
+    "ENFERMEIRO": [
+        {"exame": "HBsAg",     "adm": True, "per": "",        "mro": True, "rt": False, "dem": False, "obs": "Trabalhadores da saude"},
+        {"exame": "Anti-HBs",  "adm": True, "per": "24 MESES","mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "Anti-HCV",  "adm": True, "per": "",        "mro": True, "rt": False, "dem": False, "obs": ""},
+        {"exame": "Hemograma Completo", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
     ],
 }
 
+
+# ── MATRIZ RISCO → EXAMES ────────────────────────────────────────────────────
 MATRIZ_RISCO_EXAME = {
     "RUIDO": {
         "exame": "Audiometria Tonal (PTA)",
-        "periodico": "12 MESES",
-    },
-    "RUIDO CONTINUO": {
-        "exame": "Audiometria Tonal (PTA)",
-        "periodico": "12 MESES",
-    },
-    "POEIRA": {
-        "exame": "Raio-X de Torax (OIT)",
-        "periodico": "60 MESES",
-    },
-    "CIMENTO": {
-        "exame": "Raio-X de Torax (OIT) e Espirometria",
-        "periodico": "24 MESES",
-    },
-    "SILICA": {
-        "exame": "Raio-X de Torax (OIT) e Espirometria",
-        "periodico": "12 MESES",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Dem. obrigatorio se ultima audiometria > 120 dias",
     },
     "VIBRACAO": {
-        "exame": "Avaliacao Neurológica e Vascular",
-        "periodico": "24 MESES",
+        "exame": "Raio-X Coluna Lombo-Sacra",
+        "adm": True, "periodico": "", "mro": True, "rt": False, "dem": False,
+        "obs": "Vibracao de corpo inteiro — somente ADM e MRO",
     },
     "CALOR": {
         "exame": "Hemograma Completo + Ureia + Creatinina",
-        "periodico": "12 MESES",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Exposicao ao calor — IBUTG",
     },
-    "BIOLOGICO": {
-        "exame": "Anti-HBs + HBsAg + Anti-HCV",
-        "periodico": "12 MESES",
+    "RADIACAO": {
+        "exame": "Hemograma Completo + Contagem de Reticulocitos",
+        "adm": True, "periodico": "06 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Radiacao ionizante — NR-16",
     },
-    "ESGOTO": {
-        "exame": "Coproparasitologico + Anti-HBs",
-        "periodico": "12 MESES",
+    "SILICA": {
+        "exame": "Raio-X de Torax OIT + Espirometria",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Silica cristalina / quartzo / asbesto",
     },
-    "SANGUE": {
-        "exame": "Anti-HBs + HBsAg + Anti-HCV + HIV (com consentimento)",
-        "periodico": "12 MESES",
+    "AMIANTO": {
+        "exame": "Raio-X de Torax OIT + Espirometria",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Asbesto — NR-15 Anexo 12",
     },
-    "BENZENO": {
-        "exame": "Hemograma Completo + Fenol Urinario",
-        "periodico": "06 MESES",
+    "POEIRA": {
+        "exame": "Raio-X de Torax OIT",
+        "adm": True, "periodico": "60 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "PNOS / gesso / madeira / fumos metalicos / fibras de vidro",
+    },
+    "CIMENTO": {
+        "exame": "Espirometria",
+        "adm": True, "periodico": "24 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Cimento sem silica / contato com produtos agressores pulmonares",
+    },
+    "TINTA": {
+        "exame": "Espirometria",
+        "adm": True, "periodico": "24 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Nevoas / tintas / colas / impermeabilizacao",
     },
     "TOLUENO": {
-        "exame": "Acido Hipurico Urinario",
-        "periodico": "06 MESES",
+        "exame": "Ortocresol na Urina",
+        "adm": False, "periodico": "06 MESES", "mro": False, "rt": False, "dem": False,
+        "obs": "IBE Tolueno — Anexo II NR-07",
+    },
+    "XILENO": {
+        "exame": "Acido Metil-Hipurico na Urina",
+        "adm": False, "periodico": "06 MESES", "mro": False, "rt": False, "dem": False,
+        "obs": "IBE Xileno — Anexo II NR-07",
+    },
+    "BENZENO": {
+        "exame": "Acido Trans-Trans Muconico na Urina",
+        "adm": False, "periodico": "06 MESES", "mro": False, "rt": False, "dem": False,
+        "obs": "IBE Benzeno — Anexo II NR-07 / Portaria MTE 776/2004",
+    },
+    "COMBUSTIVEL": {
+        "exame": "Hemograma Completo + Contagem de Reticulocitos",
+        "adm": True, "periodico": "06 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Expostos a combustiveis / benzeno",
+    },
+    "DIESEL": {
+        "exame": "Hemograma Completo + Contagem de Reticulocitos",
+        "adm": True, "periodico": "06 MESES", "mro": True, "rt": False, "dem": True,
+        "obs": "Combustivel — risco residual de benzeno",
     },
     "CHUMBO": {
-        "exame": "Chumbo no Sangue (ZPP)",
-        "periodico": "06 MESES",
+        "exame": "Chumbo no Sangue + ALA-U",
+        "adm": True, "periodico": "06 MESES", "mro": True, "rt": True, "dem": True,
+        "obs": "Reaproveitavel no demissional se realizado < 6 meses antes",
+    },
+    "MERCURIO": {
+        "exame": "Mercurio na Urina",
+        "adm": False, "periodico": "06 MESES", "mro": False, "rt": False, "dem": False,
+        "obs": "Anexo II NR-07",
+    },
+    "BIOLOGICO": {
+        "exame": "HBsAg + Anti-HBs + Anti-HCV",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Trabalhadores da saude / risco biologico",
+    },
+    "ESGOTO": {
+        "exame": "EPF (Coproparasitologico) + Anti-HBs",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Esgoto / aguas servidas",
+    },
+    "SANGUE": {
+        "exame": "HBsAg + Anti-HBs + Anti-HCV",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Material biologico — sangue / fluidos",
     },
     "ALTURA": {
-        "exame": "Avaliacao Psicologica (NR-35)",
-        "periodico": "12 MESES",
+        "exame": "Avaliacao Psicossocial (NR-35)",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Trabalho em altura — NR-35",
+    },
+    "CONFINADO": {
+        "exame": "Avaliacao Psicossocial (NR-33)",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Espaco confinado — NR-33",
+    },
+    "ELETRICO": {
+        "exame": "Avaliacao Oftalmologica (Acuidade Visual)",
+        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "obs": "Risco eletrico / NR-10",
     },
 }
