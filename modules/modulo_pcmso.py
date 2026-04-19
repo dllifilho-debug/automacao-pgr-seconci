@@ -1,9 +1,14 @@
 """
-modules/modulo_pcmso.py — v4.1
-Ajustes:
-  [1] _PACOTE_CANTEIRO: chave "obs" → "motivo" resolvida no loop (sem depender do merge)
-  [2] Guards contra None em cargos/riscos_mapeados
-  [3] _fmt_per: proteção contra tipo não-string
+modules/modulo_pcmso.py — v4.2
+Fixes:
+  [1] _is_linha_ghe() — rejeita linhas descritivas/lixo do PDF
+  [2] _INVALIDOS_GHE ampliado — filtra GHEs falsos
+  [3] extrair_pgr_local() — GHE só aceito se nome tiver >= 4 chars e <= 80
+  [4] tem_risco_biologico_real() — não dispara por lixo textual
+  [5] _fmt_per() — proteção contra tipos não-string
+  [6] _flag() — aceita bool ou string
+  [7] _PACOTE_CANTEIRO — montagem explícita sem spread de "obs"
+  [8] guards None em cargos/riscos_mapeados
 """
 
 import io, re, unicodedata
@@ -25,19 +30,41 @@ _INVALIDOS_GHE = [
     "FONTE GERADORA","TRAJETORIA","DESCRICAO",
     "ATIVIDADES EXERCIDAS","INFORMACOES SOBRE",
     "PAGINA DE REVISAO","IDENTIFICACAO DA EMPRESA",
+    # FIX v4.2 — lixo textual encontrado no output real
+    "COMUNICAR","DESEMPENHA ATIVIDADES","UTILIZAM-SE",
+    "DIRETORES DA","DURANTE O DESENVOLVIMENTO",
+    "OCULOS DE","NIVEIS BAIXOS","IMPORTANCIA",
+    "PERMANENTE ELEVADISSIMA","INTERMITENTE",
+    "ATIVIDADES DE -","ATIVIDADES, UTILIZAM",
+    "ATIVIDADES PERMANENTE","DESENVOLV",
 ]
 
-_CARGOS_ADMIN = {
-    "ADMINISTRATIVO","RECEPCIONISTA","GESTOR","ANALISTA","ASSISTENTE",
-    "COORDENADOR","DIRETOR","GERENTE","ESTAGIARIO","JOVEM APRENDIZ",
-    "COMPRADOR","DESIGNER","TELEFONISTA",
-}
-
-_GHES_ADMIN = {
-    "ADMINISTRACAO","PLANEJAMENTO","SUPRIMENTOS","MARKETING",
-    "TI","RH","RECURSOS HUMANOS","FINANCEIRO","CONTABILIDADE",
-    "ESCRITORIO","JURIDICO","COMERCIAL",
-}
+# FIX v4.2 — padrões regex que NUNCA são nome de GHE
+_INVALIDOS_GHE_REGEX = [
+    r"^-\s+\w",                      # "- Comunicar ao..."
+    r"comunicar",
+    r"desempenha",
+    r"utilizam.se",
+    r"diretores\s+da",
+    r"durante\s+o\s+desenvolv",
+    r"oculos\s+de",
+    r"niveis\s+baixos",
+    r"permanente\s+elevad",
+    r"intermitente\s+niveis",
+    r"em\s+fun.ao\s+das",
+    r"atividades\s+de\s+-",
+    r"atividades\s+desempenh",
+    r"riscos\s+ocupacionais",
+    r"altura,\s+em\s+fun",
+    r"para\s+execu",
+    r"que\s+executam",
+    r"os\s+trabalhadores",
+    r"expostos\s+a",
+    r"conforme\s+",
+    r"verificar\s+",
+    r"realizar\s+",
+    r"responsav",
+]
 
 _PALAVRAS_CANTEIRO = [
     "OBRA","CANTEIRO","CONSTRUCAO","REFORMA","HOSPITAL","RESIDENCIAL",
@@ -56,15 +83,14 @@ _RISCOS_CANTEIRO = [
     "SOLDA","ALTURA","CONFINADO","MAQUINA","INCENDIO",
 ]
 
-# Pacote padrao canteiro — baseado na matriz RICCO/HETRIN validada Dra. Patricia
 _PACOTE_CANTEIRO = [
-    {"exame": "Audiometria Tonal (PTA)",                    "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Canteiro de obras"},
-    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)",   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Eletrocardiograma (ECG)",                     "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Glicemia de Jejum",                           "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Hemograma Completo",                          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Espirometria",                                "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
-    {"exame": "Raio-X de Torax OIT",                         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Audiometria Tonal (PTA)",                   "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Canteiro de obras"},
+    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)",  "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Eletrocardiograma (ECG)",                    "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Glicemia de Jejum",                          "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Hemograma Completo",                         "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
+    {"exame": "Espirometria",                               "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Raio-X de Torax OIT",                        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True,  "obs": "Exposicao a poeiras/cimento"},
 ]
 
 _LIXO_GHE = [
@@ -114,17 +140,33 @@ def _limpar_nome_ghe(nome: str) -> str:
 
 
 def _is_linha_ghe(linha: str) -> bool:
+    lu = normalizar_texto(linha.strip())
+
+    # FIX v4.2 — rejeita primeiro qualquer padrão de lixo textual
+    for pat in _INVALIDOS_GHE_REGEX:
+        if re.search(pat, lu):
+            return False
+
+    # Aceita se bater com a regex principal de GHE
     if _RE_GHE.search(linha):
         return True
-    lu = normalizar_texto(linha)
-    if len(linha) <= 80 and "/" not in linha:
-        if any(p in lu for p in ["DEPARTAMENTO","ATIVIDADE"]):
+
+    # FIX v4.2 — heurística muito mais restrita:
+    # linha curta (≤50 chars), sem verbos, sem pontuação de frase
+    if len(linha.strip()) <= 50 and "/" not in linha and "," not in linha:
+        if "DEPARTAMENTO" in lu:
             return True
+
     return False
 
 
 def _ghe_valido(nome_ghe: str) -> bool:
     norm = normalizar_texto(nome_ghe)
+    # FIX v4.2 — rejeita nomes muito curtos ou com padrões inválidos
+    if len(norm.strip()) < 4:
+        return False
+    if any(re.search(pat, norm) for pat in _INVALIDOS_GHE_REGEX):
+        return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
 
 
@@ -136,20 +178,18 @@ def _fallback_necessario(ghes: list) -> bool:
 
 
 def _fmt_per(per) -> str:
-    # FIX v4.1 — proteção contra tipo não-string (bool, None, int)
     if per is None or per is False:
         return "-"
     per = str(per).strip().upper().replace("MESES", "").strip()
-    if not per or per in ("TRUE","FALSE","NONE"):
+    if not per or per in ("TRUE","FALSE","NONE",""):
         return "-"
     try:
         return f"{int(per)}M"
     except ValueError:
-        return per
+        return per if per else "-"
 
 
 def _flag(val) -> str:
-    # FIX v4.1 — aceita bool ou string
     if isinstance(val, bool):
         return "X" if val else "-"
     return "X" if str(val).strip().upper() in ("X","TRUE","1","SIM") else "-"
@@ -193,24 +233,36 @@ def extrair_texto_pdf_path(caminho: str) -> str:
 def extrair_pgr_local(texto: str) -> list:
     linhas = texto.split("\n")
     ghes, ghe_atual, agentes_set = [], None, set()
+
     for linha in linhas:
         lc = linha.strip()
         if not lc:
             continue
         lu = normalizar_texto(lc)
-        if _is_linha_ghe(lc) and len(lc) < 120:
+
+        # FIX v4.2 — critérios mais rígidos para aceitar como GHE
+        if (
+            _is_linha_ghe(lc)
+            and len(lc) < 80               # FIX: era 120, reduzido para 80
+            and len(lc.strip()) >= 4       # FIX: mínimo 4 chars
+            and not lc.strip().endswith(".") # FIX: frases terminam com ponto — não são GHE
+            and lc.count(" ") <= 8         # FIX: máx 8 espaços (≈ 9 palavras)
+        ):
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
             ghe_atual   = {"ghe": lc, "cargos": [], "riscos_mapeados": []}
             agentes_set = set()
             continue
+
         if ghe_atual is None:
             continue
+
         if not any(normalizar_texto(exc) in lu for exc in PALAVRAS_EXCLUIR_CARGO):
             for cargo in MAPA_CARGOS_CONHECIDOS:
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual["cargos"]:
                     ghe_atual["cargos"].append(cargo)
                     break
+
         for palavra, agente in _MAPA_AGENTES.items():
             if palavra in lu and agente not in agentes_set:
                 agentes_set.add(agente)
@@ -218,9 +270,46 @@ def extrair_pgr_local(texto: str) -> list:
                     "nome_agente": agente,
                     "perigo_especifico": lc[:200],
                 })
+
     if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
         ghes.append(ghe_atual)
+
+    # FIX v4.2 — deduplicar GHEs com mesmo conjunto de cargos
+    ghes = _deduplicar_ghes(ghes)
+
     return ghes
+
+
+def _deduplicar_ghes(ghes: list) -> list:
+    """
+    Remove GHEs duplicados — mesmo conjunto de cargos com nome de GHE diferente
+    (lixo textual que capturou os mesmos cargos do GHE anterior).
+    Mantém sempre o GHE com nome mais curto e mais limpo.
+    """
+    vistos: dict = {}   # frozenset(cargos) → índice em resultado
+    resultado = []
+
+    for ghe in ghes:
+        chave = frozenset(ghe.get("cargos", []))
+        if not chave:
+            resultado.append(ghe)
+            continue
+        if chave not in vistos:
+            vistos[chave] = len(resultado)
+            resultado.append(ghe)
+        else:
+            # Prefere o nome de GHE mais curto (provavelmente o real)
+            idx = vistos[chave]
+            if len(ghe["ghe"]) < len(resultado[idx]["ghe"]):
+                resultado[idx]["ghe"] = ghe["ghe"]
+            # Mescla riscos sem duplicar
+            riscos_existentes = {r["nome_agente"] for r in resultado[idx]["riscos_mapeados"]}
+            for r in ghe.get("riscos_mapeados", []):
+                if r["nome_agente"] not in riscos_existentes:
+                    resultado[idx]["riscos_mapeados"].append(r)
+                    riscos_existentes.add(r["nome_agente"])
+
+    return resultado
 
 
 def extrair_pgr_com_fallback(texto_pgr: str, chave_api: str = None) -> tuple:
@@ -251,26 +340,24 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get("ghe", "Sem GHE")
         nome_ghe     = _limpar_nome_ghe(str(nome_ghe_raw))
-        cargos       = ghe.get("cargos") or []        # FIX v4.1 — guard None
-        riscos       = ghe.get("riscos_mapeados") or [] # FIX v4.1 — guard None
+        cargos       = ghe.get("cargos") or []
+        riscos       = ghe.get("riscos_mapeados") or []
         cargos       = cargos[:15]
         riscos       = riscos[:10]
 
         if not _ghe_valido(nome_ghe):
             continue
 
-        # Determinar contexto do GHE
         if tipo_ambiente == "canteiro":
             e_canteiro = True
         elif tipo_ambiente == "escritorio":
             e_canteiro = False
-        else:  # misto
+        else:
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
 
         for cargo in cargos:
             exames: dict = {}
 
-            # Exame Clinico base — sempre
             adicionar_exame_dedup(exames, {
                 "exame": "Exame Clinico (Anamnese / Exame Fisico)",
                 "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": True,
@@ -281,7 +368,6 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
             cargo_upper = cargo_norm.upper()
 
             if e_canteiro:
-                # FIX v4.1 — montagem explícita do dict, sem depender do spread de "obs"
                 for ex in _PACOTE_CANTEIRO:
                     adicionar_exame_dedup(exames, {
                         "exame":  ex["exame"],
@@ -293,13 +379,12 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
                         "motivo": f"Canteiro de Obras — {ex['obs']}" if ex.get("obs") else "Canteiro de Obras — padrao RICCO/HETRIN",
                     })
             else:
-                # Escritorio: exames por funcao da matriz
                 for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
                     if normalizar_texto(funcao) in cargo_upper:
                         for ex in lista_ex:
                             adicionar_exame_dedup(exames, {**ex, "motivo": f"Funcao: {funcao.title()}"})
 
-            # Exames por risco — sempre (canteiro e escritorio)
+            # Exames por risco — valida biological real antes
             bio_real = tem_risco_biologico_real(riscos)
             for risco in riscos:
                 texto_r = normalizar_texto(
@@ -434,8 +519,6 @@ def gerar_docx_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
     vig_f  = cabecalho.get("vig_fim","---")
     tec    = cabecalho.get("responsavel_tec","---")
 
-    VERDE_ESC = RGBColor(0x08,0x4D,0x22)
-    VERDE_CLR = RGBColor(0x1A,0xA0,0x4B)
     BRANCO    = RGBColor(0xFF,0xFF,0xFF)
 
     def shd(cell, hex_color):
