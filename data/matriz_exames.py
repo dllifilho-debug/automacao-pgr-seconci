@@ -223,9 +223,9 @@ MATRIZ_RISCO_EXAME = {
         "obs": "Dem. obrigatorio se ultima audiometria > 120 dias",
     },
     "VIBRACAO": {
-        "exame": "Raio-X Coluna Lombo-Sacra",
-        "adm": True, "periodico": "", "mro": True, "rt": False, "dem": False,
-        "obs": "Vibracao de corpo inteiro — somente ADM e MRO",
+    "exame": "Raio-X Coluna Lombo-Sacra",
+    "adm": True, "periodico": "24 MESES", "mro": True, "rt": False, "dem": False,
+    "obs": "Vibracao de corpo inteiro — somente ADM e MRO",
     },
     "CALOR": {
         "exame": "Hemograma Completo + Ureia + Creatinina",
