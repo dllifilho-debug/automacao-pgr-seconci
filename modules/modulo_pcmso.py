@@ -113,7 +113,7 @@ _MAPA_AGENTES = {
     "POEIRA":"Poeiras Minerais","AMIANTO":"Asbesto / Amianto",
     "CHUMBO":"Chumbo","RUIDO":"Ruido",
     "VIBRACAO":"Vibracao","CALOR":"Calor (IBUTG)",
-    "RADIACAO":"Radiacao Ionizante","BIOLOGICO":"Agentes Biologicos",
+    "RADIOATIVO": "Radiacao Ionizante","RAIOS X IONIZANTE": "Radiacao Ionizante","BIOLOGICO":"Agentes Biologicos",
     "ESGOTO":"Esgoto / Aguas Servidas","SANGUE":"Material Biologico",
     "ERGONO":"Fator Ergonomico","POSTURA":"Postura Inadequada",
     "LEVANTAMENTO":"Levantamento de Carga","REPETITIVO":"Movimento Repetitivo",
