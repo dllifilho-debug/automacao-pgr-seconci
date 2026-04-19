@@ -3,7 +3,6 @@ import streamlit.components.v1 as components  # mantido para compatibilidade
 import pdfplumber
 import re
 import pandas as pd
-import sqlite3
 import io
 from datetime import datetime
 import os
@@ -58,34 +57,23 @@ st.markdown(css_personalizado, unsafe_allow_html=True)
 CHAVE_API_GOOGLE = str(st.secrets["CHAVE_API_GOOGLE"]).strip().replace('"', '').replace("'", "")
 
 # ==========================================
+# CONFIGURAÇÃO SUPABASE (BANCO PERSISTENTE)
+# ==========================================
+from supabase import create_client, Client
+
+@st.cache_resource
+def get_supabase() -> Client:
+    return create_client(
+        str(st.secrets["SUPABASE_URL"]).strip(),
+        str(st.secrets["SUPABASE_KEY"]).strip(),
+    )
+
+# ==========================================
 # INICIALIZAÇÃO DO BANCO DE DADOS (SQLITE)
 # ==========================================
 def init_db():
-    conn = sqlite3.connect('seconci_banco_dados.db')
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS historico_laudos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome_projeto TEXT,
-            data_salvamento TEXT,
-            html_relatorio TEXT
-        )
-    ''')
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS dicionario_dinamico (
-            cas TEXT PRIMARY KEY,
-            agente TEXT,
-            nr15_lt TEXT,
-            nr09_acao TEXT,
-            nr07_ibe TEXT,
-            dec_3048 TEXT,
-            esocial_24 TEXT,
-            data_aprendizado TEXT,
-            fonte TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    """Supabase: tabelas criadas via Dashboard SQL — esta função não faz nada no deploy."""
+    pass
 
 init_db()
 
@@ -112,12 +100,9 @@ modulo_selecionado = st.sidebar.radio("Selecione a funcionalidade:", [
 
 st.sidebar.markdown("---")
 st.sidebar.title("📂 Histórico de Laudos")
-conn = sqlite3.connect('seconci_banco_dados.db')
-df_historico = pd.read_sql_query(
-    "SELECT id, nome_projeto, data_salvamento FROM historico_laudos ORDER BY id DESC",
-    conn
-)
-conn.close()
+_sb = get_supabase()
+_resp = _sb.table("historico_laudos").select("id, nome_projeto, data_salvamento").order("id", desc=True).execute()
+df_historico = pd.DataFrame(_resp.data) if _resp.data else pd.DataFrame(columns=["id","nome_projeto","data_salvamento"])
 
 historico_selecionado = None
 if not df_historico.empty:
@@ -128,14 +113,10 @@ if not df_historico.empty:
     selecao = st.sidebar.selectbox("Carregar projeto antigo:", opcoes_historico)
     if selecao != "Selecione um projeto salvo...":
         id_selecionado = int(selecao.split(" - ")[0])
-        conn = sqlite3.connect('seconci_banco_dados.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT html_relatorio FROM historico_laudos WHERE id = ?",
-            (id_selecionado,)
-        )
-        historico_selecionado = cursor.fetchone()[0]
-        conn.close()
+        _sb2 = get_supabase()
+        _r2  = _sb2.table("historico_laudos").select("html_relatorio").eq("id", id_selecionado).execute()
+        historico_selecionado = _r2.data[0]["html_relatorio"] if _r2.data else ""
+
         st.sidebar.success("✅ Projeto carregado.")
 else:
     st.sidebar.write("Nenhum projeto salvo ainda.")
@@ -1069,15 +1050,9 @@ def aplicar_override_carcinogenico(codigo_h: str, nivel_risco: str, cas: str = "
 # PATCH #2: Consultar e salvar no dicionário dinâmico (SQLite)
 # ==========================================
 def consultar_dicionario_dinamico(cas):
-    conn = sqlite3.connect('seconci_banco_dados.db')
-    c    = conn.cursor()
-    c.execute(
-        "SELECT agente, nr15_lt, nr09_acao, nr07_ibe, dec_3048, esocial_24 "
-        "FROM dicionario_dinamico WHERE cas = ?",
-        (cas,)
-    )
-    row = c.fetchone()
-    conn.close()
+    _sb3 = get_supabase()
+    _r3  = _sb3.table("dicionario_dinamico").select("agente, nr15_lt, nr09_acao, nr07_ibe, dec_3048, esocial_24").eq("cas", cas).execute()
+    row  = list(_r3.data[0].values()) if _r3.data else None
     if row:
         return {
             "agente":     row[0], "nr15_lt":    row[1],
@@ -1088,26 +1063,18 @@ def consultar_dicionario_dinamico(cas):
 
 
 def salvar_dicionario_dinamico(cas, dados):
-    conn = sqlite3.connect('seconci_banco_dados.db')
-    c    = conn.cursor()
-    c.execute("""
-        INSERT OR REPLACE INTO dicionario_dinamico
-        (cas, agente, nr15_lt, nr09_acao, nr07_ibe, dec_3048, esocial_24,
-         data_aprendizado, fonte)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        cas,
-        dados.get("agente",     "Não identificado"),
-        dados.get("nr15_lt",    "Avaliar NR-15"),
-        dados.get("nr09_acao",  "Avaliar NR-09"),
-        dados.get("nr07_ibe",   "Avaliar NR-07"),
-        dados.get("dec_3048",   "Avaliar Anexo IV"),
-        dados.get("esocial_24", "Avaliar Tabela 24"),
-        datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "IA Gemini (automático)",
-    ))
-    conn.commit()
-    conn.close()
+    _sb4 = get_supabase()
+    _sb4.table("dicionario_dinamico").upsert({
+        "cas":             cas,
+        "agente":          dados.get("agente",     "Não identificado"),
+        "nr15_lt":         dados.get("nr15_lt",    "Avaliar NR-15"),
+        "nr09_acao":       dados.get("nr09_acao",  "Avaliar NR-09"),
+        "nr07_ibe":        dados.get("nr07_ibe",   "Avaliar NR-07"),
+        "dec_3048":        dados.get("dec_3048",   "Avaliar Anexo IV"),
+        "esocial_24":      dados.get("esocial_24", "Avaliar Tabela 24"),
+        "data_aprendizado": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "fonte":           "IA Gemini (automático)",
+    }, on_conflict="cas").execute()
 
 
 # ==========================================
@@ -2184,14 +2151,12 @@ def gerar_html_pcmso(df_pcmso, cabecalho: dict = None):
 # HELPER: SALVAR NO BANCO DE LAUDOS
 # ==========================================
 def salvar_historico(nome_projeto, html_relatorio):
-    conn = sqlite3.connect('seconci_banco_dados.db')
-    c    = conn.cursor()
-    c.execute(
-        "INSERT INTO historico_laudos (nome_projeto, data_salvamento, html_relatorio) VALUES (?, ?, ?)",
-        (nome_projeto, datetime.now().strftime("%d/%m/%Y %H:%M"), html_relatorio)
-    )
-    conn.commit()
-    conn.close()
+    _sb5 = get_supabase()
+    _sb5.table("historico_laudos").insert({
+        "nome_projeto":      nome_projeto,
+        "data_salvamento":   datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "html_relatorio":    html_relatorio,
+    }).execute()
 
 
 # ==========================================
@@ -2216,10 +2181,11 @@ if historico_selecionado:
 # ── DASHBOARD ─────────────────────────────────────────────────────────────────
 elif "🏠" in modulo_selecionado:
     st.header("🏠 Dashboard — Visão Geral")
-    conn    = sqlite3.connect('seconci_banco_dados.db')
-    df_dash = pd.read_sql_query("SELECT * FROM historico_laudos ORDER BY id DESC", conn)
-    df_din  = pd.read_sql_query("SELECT cas, agente, data_aprendizado FROM dicionario_dinamico ORDER BY rowid DESC", conn)
-    conn.close()
+    _sb6    = get_supabase()
+    _r_dash = _sb6.table("historico_laudos").select("*").order("id", desc=True).execute()
+    _r_din  = _sb6.table("dicionario_dinamico").select("cas, agente, data_aprendizado").execute()
+    df_dash = pd.DataFrame(_r_dash.data) if _r_dash.data else pd.DataFrame(columns=["id","nome_projeto","data_salvamento","html_relatorio"])
+    df_din  = pd.DataFrame(_r_din.data)  if _r_din.data  else pd.DataFrame(columns=["cas","agente","data_aprendizado"])
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("📁 Total de Laudos", len(df_dash))
