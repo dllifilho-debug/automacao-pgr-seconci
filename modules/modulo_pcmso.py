@@ -64,8 +64,6 @@ _INVALIDOS_GHE_REGEX = [
     r"quantitativa",
     r"verifica",
     r"para verifica",
-    r"setor/ghe",
-    r"setor\s*/\s*ghe",
     r"avalia.ao quantitativa",
     r"confirma.ao da categoria",
     r"monitoramento peri",
