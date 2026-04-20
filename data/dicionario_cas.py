@@ -1,4 +1,16 @@
-"""Banco local de CAS — construcao civil. Camada 1 do Motor Cascata."""
+"""
+Banco local de CAS — construcao civil.
+Camada 1 do Motor Cascata:
+  1. Dicionario local (instantaneo)
+  2. Cache Supabase  (aprendizado persistente)
+  3. Google Gemini   (auto-discovery)
+  4. Fallback        (sinaliza revisao manual)
+"""
+import re
+import json
+import requests
+
+# ── Dicionario local ─────────────────────────────────────────────
 
 DICIONARIO_CAS: dict = {
     "108-88-3":   {"agente":"Tolueno","nr15_lt":"78 ppm","nr09_acao":"39 ppm","nr07_ibe":"o-Cresol na Urina","dec_3048":"25 anos (1.0.19)","esocial_24":"01.19.036"},
@@ -31,3 +43,130 @@ DICIONARIO_CAS: dict = {
     "141-78-6":   {"agente":"Acetato de Etila","nr15_lt":"400 ppm","nr09_acao":"200 ppm","nr07_ibe":"Avaliacao Clinica","dec_3048":"Nao Enquadrado","esocial_24":"09.01.001"},
     "95-63-6":    {"agente":"1,2,4-Trimetilbenzeno","nr15_lt":"25 ppm","nr09_acao":"12,5 ppm","nr07_ibe":"3,4-Dimetilhipurico na Urina","dec_3048":"25 anos (1.0.19)","esocial_24":"01.19.036"},
 }
+
+# ── Fallback padrao ───────────────────────────────────────────────
+
+_FALLBACK = {
+    "agente":     "AGENTE NAO MAPEADO",
+    "nr15_lt":    "REVISAO DA ENGENHARIA",
+    "nr09_acao":  "REVISAO DA ENGENHARIA",
+    "nr07_ibe":   "REVISAO DA ENGENHARIA",
+    "dec_3048":   "REVISAO DA ENGENHARIA",
+    "esocial_24": "REVISAO DA ENGENHARIA",
+}
+
+# ── Motor Cascata principal ───────────────────────────────────────
+
+def buscar_ou_descobrir_cas(cas: str, contexto_pdf: str, chave_api: str | None) -> dict:
+    """
+    Cascata de resolucao:
+    1. Dicionario local  → sem custo, instantaneo
+    2. Supabase cache    → ja foi pesquisado antes
+    3. Gemini            → descobre e persiste no cache
+    4. Fallback          → sinaliza revisao manual
+    """
+
+    # 1. Dicionario local
+    if cas in DICIONARIO_CAS:
+        return DICIONARIO_CAS[cas]
+
+    # 2. Cache Supabase
+    try:
+        from config.db import consultar_dicionario_dinamico
+        cached = consultar_dicionario_dinamico(cas)
+        if cached:
+            return cached
+    except Exception:
+        pass
+
+    # 3. Gemini Auto-Discovery
+    if chave_api:
+        resultado = _consultar_gemini(cas, contexto_pdf, chave_api)
+        if resultado:
+            try:
+                from config.db import salvar_dicionario_dinamico
+                salvar_dicionario_dinamico(cas, resultado)
+            except Exception:
+                pass  # Cache e bonus, nao pode travar o fluxo
+            return resultado
+
+    # 4. Fallback
+    return _FALLBACK.copy()
+
+
+# ── Integracao Gemini ─────────────────────────────────────────────
+
+_PROMPT_TEMPLATE = """Voce e um especialista em Higiene Ocupacional e Seguranca do Trabalho brasileiro.
+
+Com base no numero CAS {cas} e no trecho da FISPQ abaixo, retorne EXCLUSIVAMENTE um JSON valido,
+sem texto adicional, sem markdown, sem blocos de codigo, com exatamente estas 6 chaves:
+
+- "agente": nome tecnico da substancia em portugues
+- "nr15_lt": limite de tolerancia da NR-15 (se ausente, referencie ACGIH com sufixo "Ref. ACGIH")
+- "nr09_acao": nivel de acao da NR-09 (geralmente 50 porcento do LT)
+- "nr07_ibe": indice biologico de exposicao conforme NR-07 (ou "Avaliacao Clinica" se nao houver)
+- "dec_3048": enquadramento no Decreto 3.048/99 (ex: "25 anos (1.0.19)" ou "Nao Enquadrado")
+- "esocial_24": codigo da Tabela 24 do eSocial (ex: "01.19.036" ou "09.01.001")
+
+Trecho da FISPQ (contexto):
+{trecho}
+
+RESPONDA APENAS COM O JSON. Nenhuma palavra antes ou depois."""
+
+
+def _consultar_gemini(cas: str, contexto_pdf: str, chave_api: str) -> dict | None:
+    """Chama a API do Gemini e retorna o dicionario do agente ou None se falhar."""
+    try:
+        # Auto-discovery do melhor modelo disponivel
+        resp_modelos = requests.get(
+            f"https://generativelanguage.googleapis.com/v1beta/models?key={chave_api}",
+            timeout=10,
+        )
+        if resp_modelos.status_code != 200:
+            return None
+
+        modelos_disponiveis = [
+            m["name"] for m in resp_modelos.json().get("models", [])
+            if "generateContent" in m.get("supportedGenerationMethods", [])
+        ]
+
+        modelo = None
+        for pref in ["models/gemini-1.5-flash", "models/gemini-1.5-pro", "models/gemini-pro"]:
+            if pref in modelos_disponiveis:
+                modelo = pref
+                break
+        if not modelo:
+            modelo = modelos_disponiveis[0] if modelos_disponiveis else None
+        if not modelo:
+            return None
+
+        prompt = _PROMPT_TEMPLATE.format(cas=cas, trecho=contexto_pdf[:3000])
+
+        resp_gen = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/{modelo}:generateContent?key={chave_api}",
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.0},
+            },
+            timeout=25,
+        )
+        if resp_gen.status_code != 200:
+            return None
+
+        texto = resp_gen.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+        # Extrai o JSON mesmo que venha com lixo em volta
+        match = re.search(r'\{.*?\}', texto, re.DOTALL)
+        if not match:
+            return None
+
+        dados = json.loads(match.group())
+
+        # Valida se todas as chaves necessarias estao presentes
+        if all(k in dados for k in _FALLBACK.keys()):
+            return dados
+
+    except Exception:
+        pass
+
+    return None
