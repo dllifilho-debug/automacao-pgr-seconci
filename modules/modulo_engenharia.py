@@ -261,18 +261,22 @@ def render_engenharia():
                     if nome_arq in textos_pdfs:
                         texto = textos_pdfs[nome_arq]
 
-                        for cas in set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto)):
-                            d = DICIONARIO_CAS.get(cas, {
-                                "agente": "AGENTE NAO MAPEADO", "nr15_lt": "REVISAO DA ENGENHARIA",
-                                "nr09_acao": "REVISAO DA ENGENHARIA", "nr07_ibe": "REVISAO DA ENGENHARIA",
-                                "dec_3048": "REVISAO DA ENGENHARIA", "esocial_24": "REVISAO DA ENGENHARIA",
-                            })
-                            resultados_medicos.append({
-                                "GHE": nome_ghe, "Arquivo Origem": nome_arq, "N CAS": cas,
-                                "Agente Quimico": d["agente"], "Lim. Tolerancia (NR-15)": d["nr15_lt"],
-                                "Nivel de Acao (NR-09)": d["nr09_acao"], "IBE (NR-07)": d.get("nr07_ibe", "N/A"),
-                                "Dec 3048": d.get("dec_3048", "Nao Enquadrado"), "eSocial": d.get("esocial_24", "09.01.001"),
-                            })
+                       # ── COLOQUE este bloco no lugar ────────────────────────────────────
+from data.dicionario_cas import buscar_ou_descobrir_cas
+
+for cas in set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto)):
+    d = buscar_ou_descobrir_cas(cas, texto, CHAVE_API)
+    resultados_medicos.append({
+        "GHE":                      nome_ghe,
+        "Arquivo Origem":           nome_arq,
+        "N CAS":                    cas,
+        "Agente Quimico":           d["agente"],
+        "Lim. Tolerancia (NR-15)":  d["nr15_lt"],
+        "Nivel de Acao (NR-09)":    d["nr09_acao"],
+        "IBE (NR-07)":              d["nr07_ibe"],
+        "Dec 3048":                 d["dec_3048"],
+        "eSocial":                  d["esocial_24"],
+    })
 
                         for cod in set(re.findall(r'H\d{3}', texto)):
                             if cod in DICIONARIO_H:
