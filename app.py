@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.3 — st.iframe revertido para components.html (iframe não aceita HTML inline)
+app.py v5.4 — Login/Logout integrado
 """
 import streamlit as st
 import streamlit.components.v1 as components
@@ -30,10 +30,57 @@ st.markdown("""<style>
   .stAlert{border-radius:8px;border-left:5px solid #084D22;}
 </style>""", unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────
-for logo in ("logo.png","logo.jpg"):
+# ── Sistema de Login ──────────────────────────────────────────────
+def check_password():
+    def validar_login():
+        usr_digitado = st.session_state["username_input"]
+        pwd_digitada = st.session_state["password_input"]
+        usr_correto  = st.secrets.get("USUARIO_SISTEMA", "diovanni")
+        pwd_correta  = st.secrets.get("SENHA_SISTEMA",   "seconci123")
+        if usr_digitado == usr_correto and pwd_digitada == pwd_correta:
+            st.session_state["autenticado"] = True
+            del st.session_state["password_input"]
+            del st.session_state["username_input"]
+        else:
+            st.session_state["autenticado"] = False
+
+    if st.session_state.get("autenticado", False):
+        return True
+
+    st.markdown("""
+        <h2 style='text-align:center;color:#084D22;margin-top:80px;'>
+            🔒 Acesso Restrito — Seconci GO
+        </h2>
+        <p style='text-align:center;color:#6C757D;margin-bottom:30px;'>
+            Sistema de Automação SST
+        </p>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.markdown("""
+            <div style='border:1px solid #1AA04B;padding:30px;
+                        border-radius:10px;background-color:#F8F9FA;
+                        box-shadow:0 4px 12px rgba(8,77,34,.1);'>
+        """, unsafe_allow_html=True)
+        st.text_input("Usuário", key="username_input")
+        st.text_input("Senha", type="password", key="password_input")
+        st.button("Entrar no Sistema", on_click=validar_login, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if "autenticado" in st.session_state and not st.session_state["autenticado"]:
+            st.error("Usuário ou senha incorretos.")
+
+    return False
+
+if not check_password():
+    st.stop()
+
+# ── Sidebar (só renderiza após login) ────────────────────────────
+for logo in ("logo.png", "logo.jpg"):
     if os.path.exists(logo):
-        st.sidebar.image(logo, width=220); break
+        st.sidebar.image(logo, width=220)
+        break
 else:
     st.sidebar.markdown(
         "<h2 style='text-align:center;color:#084D22;'>SECONCI-GO</h2>",
@@ -46,6 +93,11 @@ modulo = st.sidebar.radio("Selecione a funcionalidade:", [
     "Engenharia: FISPQ / FDS - PGR",
     "Medicina: PGR - PCMSO",
 ])
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
+    st.session_state["autenticado"] = False
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.title("Historico de Laudos")
@@ -212,7 +264,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.code(traceback.format_exc(), language="python")
                 st.stop()
 
-        nome_arquivo = razao_social.replace(" ","_")[:30] if razao_social else "PCMSO"
+        nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
 
         st.markdown("### ⬇️ Baixar PCMSO")
         col_html, col_docx = st.columns(2)
