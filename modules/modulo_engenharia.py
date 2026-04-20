@@ -188,7 +188,7 @@ def gerar_html_anexo(resultados_pgr, resultados_medicos):
 
 def render_engenharia():
     try:
-        CHAVE_API = st.secrets["CHAVE_GOOGLE"]
+        CHAVE_API = st.secrets["CHAVE_API_GOOGLE"]
     except Exception:
         CHAVE_API = None
 
