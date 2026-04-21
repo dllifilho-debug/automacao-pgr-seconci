@@ -52,12 +52,21 @@ def normalizar_exame(nome):
 def normalizar_cargo(nome):
     s = norm(nome)
     aliases = {
+        # Já existentes
         'SERVENTE DE ARMADOR': 'Servente',
         'SERVENTE DE CARPINTEIRO': 'Servente',
         'MEIO OFICIAL DE PEDREIRO': 'Meio Oficial de Pedreiro',
         'OPERADOR DE BETONEIRA': 'Operador de Betoneira',
         'OPERADOR DE GRUA': 'Operador de Grua',
         'OPERADOR DE CREMALHEIRA': 'Operador de Cremalheira',
+        # ✅ Novos — casos identificados na matriz RQ.61
+        'MESTRE DE OBRA': 'Mestre de Obra',
+        'MESTRE DE OBRAS': 'Mestre de Obra',
+        'ELETRICISTA INDUSTRIAL': 'Eletricista',  # GHE 06 unifica
+        'SERRALHEIRO': 'Serralheiro',
+        'PINTOR': 'Pintor',
+        'SERVENTE': 'Servente',
+        'ARMADOR': 'Armador',
     }
     return aliases.get(s, nome.strip().title())
 
