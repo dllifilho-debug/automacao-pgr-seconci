@@ -258,7 +258,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         with st.spinner("Gerando DOCX..."):
             try:
-                bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+                bytes_docx = gerar_docx_rq61(df_pcmso, cabecalho=cabecalho_atual)
             except Exception as e:
                 st.error(f"❌ Erro em gerar_docx_pcmso(): {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
