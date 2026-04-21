@@ -191,11 +191,12 @@ def _is_linha_ghe(linha: str) -> bool:
     for pat in _INVALIDOS_GHE_REGEX:
         if re.search(pat, lu, re.IGNORECASE):
             return False
+    if re.match(r"^GHE\s+\d+", linha.strip(), re.IGNORECASE):
+        return True
     if _RE_GHE.search(linha):
         return True
     if len(linha.strip()) <= 50 and "/" not in linha and "," not in linha:
         if "DEPARTAMENTO" in lu:
-          if re.match(r"^GHE\s+\d+\s*[\-–]", lc, re.IGNORECASE):
             return True
     return False
 
