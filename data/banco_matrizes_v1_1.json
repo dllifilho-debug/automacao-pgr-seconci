@@ -1,0 +1,984 @@
+{
+  "metadata": {
+    "versao": "1.1",
+    "gerado_em": "2026-04-21",
+    "fontes": [
+      "MATRIZ-DE-EXAMES-ATUALIZACAO-CMO-RESIDENCIAL-VISTAMERICA-08.12.25.pdf",
+      "MATRIZ-DE-EXAMES-ADENDO-CMO-CONSTRUTORA-ADM-03.12.25.pdf",
+      "MATRIZ DE EXAMES(ATUALIZAÇÃO)CMO VIVERDE AREIAO 06.03.2025.pdf",
+      "Matriz-funcao-risco-exames-validado-Dra.-Patricia-06.2025-1.xlsx"
+    ]
+  },
+  "regras_base": {
+    "administrativo_puro": [
+      {
+        "nome": "Exame Clinico",
+        "adm": true,
+        "per": "12",
+        "mro": true,
+        "ret": true,
+        "dem": true
+      }
+    ],
+    "ruido_padrao": [
+      {
+        "nome": "Audiometria",
+        "adm": true,
+        "per": "12",
+        "mro": true,
+        "ret": false,
+        "dem": true
+      }
+    ]
+  },
+  "obras_referencia": {
+    "cmo_construtora_adm_2025": {
+      "GHE 01": {
+        "nome": "Relacionamento com o Cliente",
+        "cargos": {
+          "Supervisor de Relacionamento com Cliente": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ],
+          "Analista de Contratos": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ],
+          "Assistente Administrativo": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ],
+          "Estagiário": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 12": {
+        "nome": "Recepção",
+        "cargos": {
+          "Recepcionista": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ],
+          "Analista recepcionista administrativo": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ],
+          "Recepcionista e assistente administrativo": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 13": {
+        "nome": "Jurídico",
+        "cargos": {
+          "Advogado": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            }
+          ]
+        }
+      }
+    },
+    "vistamerica_2025": {
+      "GHE 01": {
+        "nome": "Betoneira",
+        "cargos": {
+          "Operador de Betoneira": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ],
+          "Servente": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 02": {
+        "nome": "Armação",
+        "cargos": {
+          "Armador": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 05": {
+        "nome": "Limpeza",
+        "cargos": {
+          "Servente": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 06": {
+        "nome": "Elétrica - Energizado",
+        "cargos": {
+          "Eletricista": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Ácido tricloroacético na urina",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 07": {
+        "nome": "Cremalheira",
+        "cargos": {
+          "Operador de Cremalheira": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 16": {
+        "nome": "Engenharia / Mestre de Obra",
+        "cargos": {
+          "Mestre de Obra": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "EPF (Coproparasitológico) + Anti-HBs",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ]
+        }
+      },
+      "GHE 17": {
+        "nome": "Grua",
+        "cargos": {
+          "Operador de Grua": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": null,
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ]
+        }
+      },
+      "GHE 18": {
+        "nome": "Serralheria",
+        "cargos": {
+          "Serralheiro": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Manganês sanguíneo",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Carboxiemoglobina",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "60",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 23": {
+        "nome": "Pintura",
+        "cargos": {
+          "Pintor": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Contagem de Reticulócitos",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Ácido trans-trans mucônico",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      },
+      "GHE 24": {
+        "nome": "Portaria",
+        "cargos": {
+          "Servente": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ]
+        }
+      },
+      "GHE 25": {
+        "nome": "Pintura 2",
+        "cargos": {
+          "Pintor": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Contagem de Reticulócitos",
+              "adm": true,
+              "per": "6",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "Ácido trans-trans mucônico",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Ortocresol na urina",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Metil-Etil-Cetona",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Ác. Metil-hipúrico na urina",
+              "adm": false,
+              "per": "6",
+              "mro": false,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Espirometria",
+              "adm": true,
+              "per": "24",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            },
+            {
+              "nome": "RX de Tórax OIT",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": true
+            }
+          ]
+        }
+      }
+    },
+    "viverde_areiao_2025": {
+      "GHE 14": {
+        "nome": "Estrutura - Portaria",
+        "cargos": {
+          "Porteiro": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ],
+          "Vigia": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ]
+        }
+      },
+      "GHE 15": {
+        "nome": "Estrutura - Operação Grua",
+        "cargos": {
+          "Operador de Grua": [
+            {
+              "nome": "Exame Clinico",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": true,
+              "dem": true
+            },
+            {
+              "nome": "Acuidade Visual",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Hemograma",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Glicemia em Jejum",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "ECG",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            },
+            {
+              "nome": "Audiometria",
+              "adm": true,
+              "per": "12",
+              "mro": true,
+              "ret": false,
+              "dem": false
+            }
+          ]
+        }
+      }
+    }
+  }
+}
