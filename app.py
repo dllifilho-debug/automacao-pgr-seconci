@@ -166,6 +166,15 @@ elif modulo == "Medicina: PGR - PCMSO":
             vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
             resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",  value=cab.get("responsavel_tec",""))
             obra     = st.text_input("Obra / Unidade (opcional)",           value=cab.get("obra",""))
+              
+        st.markdown("**Base de Auditoria** *(opcional — compara o PCMSO gerado com uma matriz validada)*")
+        import json, os as _os
+        _bases = ["Não auditar agora"]
+        if _os.path.exists("banco_matrizes_v1_1.json"):
+            with open("banco_matrizes_v1_1.json", "r", encoding="utf-8") as _f:
+                _bases += list(json.load(_f).keys())
+        base_auditoria = st.selectbox("Selecione a base:", _bases)
+        st.session_state["base_auditoria"] = None if base_auditoria == "Não auditar agora" else base_auditoria
 
         st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
         _opcoes_amb = {
@@ -246,6 +255,14 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
         st.dataframe(df_pcmso, use_container_width=True)
+
+              base_sel = st.session_state.get("base_auditoria")
+        if base_sel:
+            from modules.modulo_auditor_v1_1 import auditar_pcmso
+            with st.spinner("Auditando PCMSO..."):
+                relatorio_auditoria = auditar_pcmso(df_pcmso, base_sel)
+            with st.expander("📋 Relatório da Auditoria", expanded=True):
+                components.html(relatorio_auditoria, height=500, scrolling=True)
 
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
 
