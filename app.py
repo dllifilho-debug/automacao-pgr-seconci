@@ -1,131 +1,23 @@
 """
 Automacao SST - Seconci GO
-app.py v5.2 — campo tipo_ambiente no formulario PCMSO
-+ auditoria automatica por matriz validada
-+ pos-processamento corretivo v5.2
+app.py v5.4 — Login/Logout integrado
 """
-import os
-from pathlib import Path
-from datetime import date
-
-import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+import traceback
+import os
+from datetime import date
 
-from config.db import (
-    get_supabase,
-    salvar_historico,
-    carregar_historico,
-    carregar_html_historico,
-)
+from config.db            import (get_supabase, salvar_historico,
+                                   carregar_historico, carregar_html_historico)
+from modules.modulo_pcmso import (extrair_texto_pdf, extrair_pgr_com_fallback,
+                                   processar_pcmso, gerar_html_pcmso,
+                                   gerar_docx_rq61)
 
-from modules.modulo_pcmso import (
-    extrair_texto_pdf,
-    extrair_pgr_com_fallback,
-    processar_pcmso,
-    gerar_html_pcmso,
-    gerar_docx_pcmso,
-)
+st.set_page_config(page_title="Automacao SST - Seconci GO",
+                   layout="wide", page_icon=":shield:")
 
-from modules.modulo_pcmso_v5_2 import aplicar_posprocessamento_v52
-from modules.modulo_auditor_v1_1 import (
-    carregar_banco_matrizes,
-    auditar_pcmso,
-    formatar_relatorio_auditoria,
-)
-
-
-st.set_page_config(
-    page_title="Automacao SST - Seconci GO",
-    layout="wide",
-    page_icon=":shield:"
-)
-
-BANCO_MATRIZES = carregar_banco_matrizes(
-    Path("data/banco_matrizes_v1_1.json")
-)
-
-MAPA_AUDITORIA = {
-    "Não auditar agora": None,
-    "Vistamérica 2025": "vistamerica_2025",
-    "CMO Construtora ADM 2025": "cmo_construtora_adm_2025",
-    "Viverde Areião 2025": "viverde_areiao_2025",
-}
-
-
-def df_pcmso_para_dict(df):
-    dados = {}
-
-    for _, row in df.iterrows():
-        ghe = str(row.get("GHE / Setor", "")).strip()
-        cargo = str(row.get("Cargo", "")).strip()
-        exame = str(row.get("Exame", "")).strip()
-
-        per = str(row.get("PER", "-")).strip()
-        if per in ("-", "", "None"):
-            per = None
-        else:
-            per = (
-                per.replace("MESES", "")
-                .replace("M", "")
-                .strip()
-            )
-
-        item = {
-            "nome": exame,
-            "adm": str(row.get("ADM", "-")).strip().upper() == "X",
-            "per": per,
-            "mro": str(row.get("MRO", "-")).strip().upper() == "X",
-            "ret": str(row.get("RT", "-")).strip().upper() == "X",
-            "dem": str(row.get("DEM", "-")).strip().upper() == "X",
-            "motivo": str(row.get("Justificativa", "")).strip(),
-        }
-
-        dados.setdefault(ghe, {}).setdefault(cargo, []).append(item)
-
-    return dados
-
-
-def dict_pcmso_para_df(dados):
-    linhas = []
-
-    for ghe, cargos in dados.items():
-        for cargo, exames in cargos.items():
-            for ex in exames:
-                per = ex.get("per")
-                if per in (None, "", "-", False):
-                    per_fmt = "-"
-                else:
-                    per_str = str(per).strip()
-                    per_fmt = f"{per_str}M" if per_str.isdigit() else per_str
-
-                linhas.append({
-                    "GHE / Setor": ghe,
-                    "Cargo": cargo,
-                    "Exame": ex.get("nome", ""),
-                    "ADM": "X" if ex.get("adm") else "-",
-                    "PER": per_fmt,
-                    "MRO": "X" if ex.get("mro") else "-",
-                    "RT": "X" if ex.get("ret") else "-",
-                    "DEM": "X" if ex.get("dem") else "-",
-                    "Justificativa": ex.get("motivo", ""),
-                })
-
-    df = pd.DataFrame(linhas)
-
-    if not df.empty:
-        colunas = [
-            "GHE / Setor", "Cargo", "Exame",
-            "ADM", "PER", "MRO", "RT", "DEM",
-            "Justificativa"
-        ]
-        df = df[colunas]
-
-    return df
-
-
-st.markdown("""
-<style>
+st.markdown("""<style>
   .block-container{padding-top:2rem;padding-bottom:2rem;}
   .stButton>button{background-color:#084D22;color:white;border-radius:8px;
     border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;
@@ -136,11 +28,55 @@ st.markdown("""
   [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;
     border-radius:12px;background:#FAFFFA;}
   .stAlert{border-radius:8px;border-left:5px solid #084D22;}
-</style>
-""", unsafe_allow_html=True)
+</style>""", unsafe_allow_html=True)
 
+# ── Sistema de Login ──────────────────────────────────────────────
+def check_password():
+    def validar_login():
+        usr_digitado = st.session_state["username_input"]
+        pwd_digitada = st.session_state["password_input"]
+        usr_correto  = st.secrets.get("USUARIO_SISTEMA", "diovanni")
+        pwd_correta  = st.secrets.get("SENHA_SISTEMA",   "seconci123")
+        if usr_digitado == usr_correto and pwd_digitada == pwd_correta:
+            st.session_state["autenticado"] = True
+            del st.session_state["password_input"]
+            del st.session_state["username_input"]
+        else:
+            st.session_state["autenticado"] = False
 
-# ── Sidebar ───────────────────────────────────────────────────────
+    if st.session_state.get("autenticado", False):
+        return True
+
+    st.markdown("""
+        <h2 style='text-align:center;color:#084D22;margin-top:80px;'>
+            🔒 Acesso Restrito — Seconci GO
+        </h2>
+        <p style='text-align:center;color:#6C757D;margin-bottom:30px;'>
+            Sistema de Automação SST
+        </p>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.markdown("""
+            <div style='border:1px solid #1AA04B;padding:30px;
+                        border-radius:10px;background-color:#F8F9FA;
+                        box-shadow:0 4px 12px rgba(8,77,34,.1);'>
+        """, unsafe_allow_html=True)
+        st.text_input("Usuário", key="username_input")
+        st.text_input("Senha", type="password", key="password_input")
+        st.button("Entrar no Sistema", on_click=validar_login, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if "autenticado" in st.session_state and not st.session_state["autenticado"]:
+            st.error("Usuário ou senha incorretos.")
+
+    return False
+
+if not check_password():
+    st.stop()
+
+# ── Sidebar (só renderiza após login) ────────────────────────────
 for logo in ("logo.png", "logo.jpg"):
     if os.path.exists(logo):
         st.sidebar.image(logo, width=220)
@@ -148,19 +84,20 @@ for logo in ("logo.png", "logo.jpg"):
 else:
     st.sidebar.markdown(
         "<h2 style='text-align:center;color:#084D22;'>SECONCI-GO</h2>",
-        unsafe_allow_html=True
-    )
+        unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.title("Modulos do Sistema")
-modulo = st.sidebar.radio(
-    "Selecione a funcionalidade:",
-    [
-        "Dashboard",
-        "Engenharia: FISPQ / FDS - PGR",
-        "Medicina: PGR - PCMSO",
-    ]
-)
+modulo = st.sidebar.radio("Selecione a funcionalidade:", [
+    "Dashboard",
+    "Engenharia: FISPQ / FDS - PGR",
+    "Medicina: PGR - PCMSO",
+])
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
+    st.session_state["autenticado"] = False
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.title("Historico de Laudos")
@@ -181,7 +118,6 @@ if historico:
 else:
     st.sidebar.write("Nenhum projeto salvo ainda.")
 
-
 # ── Roteador ─────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
@@ -190,16 +126,15 @@ if historico_html:
 elif modulo == "Dashboard":
     st.title("Dashboard - Sistema Integrado SST")
     try:
-        sb = get_supabase()
-        total = sb.table("historico_laudos").select("id", count="exact").execute().count or 0
+        sb        = get_supabase()
+        total     = sb.table("historico_laudos").select("id", count="exact").execute().count or 0
         total_cas = sb.table("dicionario_dinamico").select("cas", count="exact").execute().count or 0
     except Exception:
         total, total_cas = 0, 0
-
     c1, c2, c3 = st.columns(3)
-    c1.metric("Laudos Gerados", total)
+    c1.metric("Laudos Gerados",        total)
     c2.metric("CAS no Banco Dinamico", total_cas)
-    c3.metric("Modulos Ativos", 2)
+    c3.metric("Modulos Ativos",        2)
     st.info("Use o menu lateral para acessar os modulos.")
 
 elif modulo == "Engenharia: FISPQ / FDS - PGR":
@@ -222,35 +157,20 @@ elif modulo == "Medicina: PGR - PCMSO":
         cab = st.session_state.get("pcmso_cabecalho", {})
 
         with col1:
-            razao_social = st.text_input(
-                "Razao Social da Empresa *",
-                value=cab.get("razao_social", "")
-            )
-            cnpj = st.text_input(
-                "CNPJ *",
-                value=cab.get("cnpj", "")
-            )
-            medico_rt = st.text_input(
-                "Medico Responsavel RT (Nome + CRM) *",
-                value=cab.get("medico_rt", "")
-            )
+            razao_social = st.text_input("Razao Social da Empresa *",           value=cab.get("razao_social",""))
+            cnpj         = st.text_input("CNPJ *",                               value=cab.get("cnpj",""))
+            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt",""))
 
         with col2:
-            vig_ini = st.date_input("Vigencia - Inicio", value=date.today())
-            vig_fim = st.date_input("Vigencia - Fim", value=date.today())
-            resp_tec = st.text_input(
-                "Tecnico SST Responsavel (opcional)",
-                value=cab.get("responsavel_tec", "")
-            )
-            obra = st.text_input(
-                "Obra / Unidade (opcional)",
-                value=cab.get("obra", "")
-            )
+            vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
+            vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
+            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)",  value=cab.get("responsavel_tec",""))
+            obra     = st.text_input("Obra / Unidade (opcional)",           value=cab.get("obra",""))
 
         st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
         _opcoes_amb = {
             "🏗️ Canteiro de Obras / Obra": "canteiro",
-            "🏢 Escritório Corporativo": "escritorio",
+            "🏢 Escritório Corporativo":   "escritorio",
             "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
         }
         _label_amb = st.radio(
@@ -266,26 +186,16 @@ elif modulo == "Medicina: PGR - PCMSO":
         )
         tipo_ambiente = _opcoes_amb[_label_amb]
 
-        st.markdown("**Base de Auditoria (opcional)**")
-        auditoria_label = st.selectbox(
-            "Selecione a matriz validada para comparar:",
-            list(MAPA_AUDITORIA.keys()),
-            index=0,
-            help="Use apenas quando esta obra corresponder a uma matriz já validada."
-        )
-        obra_id_auditoria = MAPA_AUDITORIA[auditoria_label]
-
         st.session_state["pcmso_cabecalho"] = {
-            "razao_social": razao_social,
-            "cnpj": cnpj,
-            "medico_rt": medico_rt,
-            "vig_ini": vig_ini.strftime("%d/%m/%Y"),
-            "vig_fim": vig_fim.strftime("%d/%m/%Y"),
+            "razao_social":    razao_social,
+            "cnpj":            cnpj,
+            "medico_rt":       medico_rt,
+            "vig_ini":         vig_ini.strftime("%d/%m/%Y"),
+            "vig_fim":         vig_fim.strftime("%d/%m/%Y"),
             "responsavel_tec": resp_tec,
-            "obra": obra,
+            "obra":            obra,
         }
         st.session_state["tipo_ambiente"] = tipo_ambiente
-        st.session_state["obra_id_auditoria"] = obra_id_auditoria
 
     pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
 
@@ -317,41 +227,42 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
             st.stop()
 
-        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
-        obra_id_auditoria = st.session_state.get("obra_id_auditoria")
+        with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
+            for g in dados_ghe[:3]:
+                st.json(g)
 
+        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
         with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
-            df_pcmso_bruto = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
-            dados_pcmso = df_pcmso_para_dict(df_pcmso_bruto)
-            dados_pcmso_corrigidos = aplicar_posprocessamento_v52(dados_pcmso)
-            df_pcmso = dict_pcmso_para_df(dados_pcmso_corrigidos)
+            try:
+                df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
+            except Exception as e:
+                st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
+
+        if df_pcmso.empty:
+            st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado. Verifique os GHEs extraídos.")
+            st.stop()
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
         st.dataframe(df_pcmso, use_container_width=True)
 
-        resultado_auditoria = None
-        if obra_id_auditoria:
-            resultado_auditoria = auditar_pcmso(
-                dados_pcmso_corrigidos,
-                BANCO_MATRIZES,
-                obra_id=obra_id_auditoria
-            )
-
-            if resultado_auditoria["total_divergencias"] > 0:
-                st.warning(
-                    f"Auditoria encontrou {resultado_auditoria['total_divergencias']} divergencias."
-                )
-            else:
-                st.success("Auditoria concluida: nenhuma divergencia encontrada.")
-
-            with st.expander("📋 Relatorio da Auditoria", expanded=False):
-                st.code(formatar_relatorio_auditoria(resultado_auditoria))
-
         cabecalho_atual = st.session_state["pcmso_cabecalho"]
-        html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+
+        try:
+            html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+        except Exception as e:
+            st.error(f"❌ Erro em gerar_html_pcmso(): {type(e).__name__}: {e}")
+            st.code(traceback.format_exc(), language="python")
+            st.stop()
 
         with st.spinner("Gerando DOCX..."):
-            bytes_docx = gerar_docx_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+            try:
+                bytes_docx = gerar_docx_rq61(df_pcmso, cabecalho=cabecalho_atual)
+            except Exception as e:
+                st.error(f"❌ Erro em gerar_docx_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
 
         nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
 
