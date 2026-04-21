@@ -40,6 +40,9 @@ _INVALIDOS_GHE = [
 ]
 
 _INVALIDOS_GHE_REGEX = [
+    r"neste\s+ghe",
+    r"expostos\s+neste",
+    r"quantidade\s+de\s+func",
     r"^-\s+\w",
     r"comunicar",
     r"desempenha",
