@@ -134,7 +134,7 @@ _MAPA_AGENTES = {
 }
 
 _RE_GHE = re.compile(
-    r"(?:GHE[\s:\.\-]+\w|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)",
+    r"(?:GHE[\s:\.\-]+\d|GHE\s+\d+\s*[\-–]|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)",
     re.IGNORECASE,
 )
 
