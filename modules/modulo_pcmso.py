@@ -26,17 +26,19 @@ _INVALIDOS_GHE = [
 ]
 
 _INVALIDOS_GHE_REGEX = [
-    r'^-\\s+\\w', r'comunicar', r'desempenha', r'utilizam.se', r'diretores\\s+da',
-    r'durante\\s+o\\s+desenvolv', r'oculos\\s+de', r'niveis\\s+baixos',
-    r'permanente\\s+elevad', r'intermitente\\s+niveis', r'em\\s+fun.ao\\s+das',
-    r'atividades\\s+de\\s+-', r'atividades\\s+desempenh', r'riscos\\s+ocupacionais',
-    r'altura,\\s+em\\s+fun', r'para\\s+execu', r'que\\s+executam', r'os\\s+trabalhadores',
-    r'expostos\\s+a', r'conforme\\s+', r'verificar\\s+', r'realizar\\s+', r'responsav',
-    r'^\\w\\)\\s+', r'departamento de seguranca', r'quantitativa', r'para verifica',
-    r'avalia.ao quantitativa', r'confirma.ao da categoria', r'monitoramento peri',
-    r'medidas de controle', r'grau\\s+\\d', r'avaliacao quantitativa do setor',
-    r'iniciar processo', r'confirmacao da categoria', r'monitoramento periodico',
-    r'neste\\s+ghe', r'expostos\\s+neste', r'quantidade\\s+de\\s+func',
+    r'^-\s+\w', r'comunicar', r'desempenha', r'utilizam.se',
+    r'diretores\s+da', r'durante\s+o\s+desenvolv', r'oculos\s+de',
+    r'niveis\s+baixos', r'permanente\s+elevad', r'intermitente\s+niveis',
+    r'em\s+fun.ao\s+das', r'atividades\s+de\s+-', r'atividades\s+desempenh',
+    r'riscos\s+ocupacionais', r'altura,\s+em\s+fun', r'para\s+execu',
+    r'que\s+executam', r'os\s+trabalhadores', r'expostos\s+a',
+    r'conforme\s+', r'verificar\s+', r'realizar\s+', r'responsav',
+    r'^\w\)\s+', r'departamento de seguranca', r'quantitativa',
+    r'para verifica', r'avalia.ao quantitativa', r'confirma.ao da categoria',
+    r'monitoramento peri', r'medidas de controle', r'grau\s+\d',
+    r'avaliacao quantitativa do setor', r'iniciar processo',
+    r'confirmacao da categoria', r'monitoramento periodico',
+    r'neste\s+ghe', r'expostos\s+neste', r'quantidade\s+de\s+func',
 ]
 
 _PALAVRAS_CANTEIRO = [
@@ -84,7 +86,10 @@ _MAPA_AGENTES = {
     'ESGOTO': 'ESGOTO', 'EFLUENTE': 'ESGOTO', 'MOTORISTA': 'MOTORISTA',
 }
 
-_RE_GHE = re.compile(r'(?:GHE[\\s:\\.\\-]+\\d|GHE\\s+\\d+\\s*[\\-–]|GRUPO\\s+HOMOGENEO|LOCAL\\s+DE\\s+TRABALHO\\s*:\\s*\\w|SETOR\\s*:\\s*\\w)', re.IGNORECASE)
+_RE_GHE = re.compile(
+    r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)',
+    re.IGNORECASE,
+)
 _RE_TIPO_RISCO = re.compile(r'^[FQBEA]$')
 _RE_CABECALHO_AIHA = re.compile(r'matriz de risco aiha|tipo de risco|identificacao de perigo|codigo e.?social|avaliacao de risco|meio de propagacao|nivel de risco|pouca importancia|probabilidade|efeito', re.IGNORECASE)
 _RE_DESCRICAO_FUNCAO = re.compile(r'supervisiona|elabora documentacao|controla recursos|cronograma da obra|executa atividades|responsavel por|realiza tarefas|desenvolve|presta servicos', re.IGNORECASE)
