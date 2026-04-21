@@ -299,11 +299,10 @@ def extrair_pgr_local(texto: str) -> list:
         lu = normalizar_texto(lc)
 
         if (
-            _is_linha_ghe(lc)
-            and len(lc) < 80
-            and len(lc.strip()) >= 4
-            and not lc.strip().endswith(".")
-            and lc.count(" ") <= 8
+           _is_linha_ghe(lc)
+    and len(lc) < 120          # era 80, aumentar para pegar "GHE 01 - BETONEIRA CMO - RESIDENCIAL..."
+    and len(lc.strip()) >= 4
+    and not lc.strip().endswith(".")
         ):
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
