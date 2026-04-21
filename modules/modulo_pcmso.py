@@ -203,7 +203,7 @@ def _is_linha_ghe(linha: str) -> bool:
 
 def _ghe_valido(nome_ghe: str) -> bool:
     norm = normalizar_texto(nome_ghe)
-    if len(nome_ghe.strip()) > 60:
+    if len(nome_ghe.strip()) > 90:
         return False
     if len(norm.strip()) < 4:
         return False
@@ -311,7 +311,8 @@ def extrair_pgr_local(texto: str) -> list:
         ):
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
-            ghe_atual = {"ghe": lc, "cargos": [], "riscos_mapeados": []}
+            nome_ghe_limpo = re.split(r"\s+CMO\b|\s+[–-]\s+CMO", lc, flags=re.IGNORECASE)[0].strip()
+            ghe_atual = {"ghe": nome_ghe_limpo, "cargos": [], "riscos_mapeados": []}
             agentes_set = set()
             continue
 
