@@ -134,7 +134,7 @@ else:
 
 
 # ── Carrega banco de matrizes uma vez na inicialização ────────────────────────
-banco_path = "banco_matrizes_v1_1.json"
+banco_path = os.path.join("data", "banco_matrizes_v1_1.json")
 banco_matrizes = {}
 bases_disponiveis = []
 
