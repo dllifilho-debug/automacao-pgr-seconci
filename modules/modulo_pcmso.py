@@ -1,13 +1,13 @@
 """
-modules/modulo_pcmso.py — v4.7
-Fixes:
-  [1] _ghe_valido() — normaliza texto ANTES das validações
-  [2] _INVALIDOS_GHE_REGEX — barras corrigidas, re.IGNORECASE em todas as buscas
-  [3] Novos padrões de rejeição GHE adicionados
-  [4] join/split usa \n real
-  [5] extrair_pgr_matriz_aiha() — suporte a PGRs no formato Matriz AIHA (Ricco/Hetrin)
-  [6] _detectar_formato_pgr() — detecção automática de formato (ghe / aiha / misto)
-  [7] extrair_pgr_com_fallback() — roteamento automático por formato
+modules/modulo_pcmso.py — v4.8
+Fixes v4.8:
+  [1] _MAPA_AGENTES alinhado com chaves do MATRIZ_RISCO_EXAME (planilha Dra. Patrícia 06/2025)
+  [2] _PACOTE_CANTEIRO revisado — removido RX Coluna Lombo-Sacra do pacote base
+  [3] _is_linha_ghe() — corrigido bug de variável + regex GHE \d+ explícita
+  [4] _ghe_valido() — limite aumentado de 60 para 90 chars
+  [5] _INVALIDOS_GHE_REGEX — adicionados padrões "neste ghe", "expostos neste", "quantidade de func"
+  [6] extrair_pgr_local() — nome do GHE limpo (remove sufixo CMO / razão social)
+  [7] processar_pcmso() — loop de riscos usa chave normalizada do _MAPA_AGENTES
 """
 
 import io
@@ -40,9 +40,6 @@ _INVALIDOS_GHE = [
 ]
 
 _INVALIDOS_GHE_REGEX = [
-    r"neste\s+ghe",
-    r"expostos\s+neste",
-    r"quantidade\s+de\s+func",
     r"^-\s+\w",
     r"comunicar",
     r"desempenha",
@@ -79,6 +76,10 @@ _INVALIDOS_GHE_REGEX = [
     r"iniciar processo",
     r"confirmacao da categoria",
     r"monitoramento periodico",
+    # v4.8 — novos padrões para Vistamérica
+    r"neste\s+ghe",
+    r"expostos\s+neste",
+    r"quantidade\s+de\s+func",
 ]
 
 _PALAVRAS_CANTEIRO = [
@@ -98,14 +99,17 @@ _RISCOS_CANTEIRO = [
     "SOLDA", "ALTURA", "CONFINADO", "MAQUINA", "INCENDIO",
 ]
 
+# v4.8 — _PACOTE_CANTEIRO revisado (sem RX Coluna Lombo-Sacra no base)
+# RX Coluna só é adicionado quando o PGR documenta "VIBRACAO CORPO INTEIRO"
 _PACOTE_CANTEIRO = [
-    {"exame": "Audiometria Tonal (PTA)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True, "obs": "Canteiro de obras"},
-    {"exame": "Avaliacao Oftalmologica (Acuidade Visual)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Eletrocardiograma (ECG)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Glicemia de Jejum", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Hemograma Completo", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": ""},
-    {"exame": "Espirometria", "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": True, "obs": "Exposicao a poeiras/cimento"},
-    {"exame": "Raio-X de Torax OIT", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": True, "obs": "Exposicao a poeiras/cimento"},
+    {"exame": "Audiometria Tonal (PTA)",                 "adm": True, "per": "12 MESES", "mro": True, "rt": True,  "dem": True,  "obs": "Canteiro — ruído"},
+    {"exame": "Acuidade Visual (Avaliação Oftalmológica)","adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Canteiro — visão"},
+    {"exame": "Eletrocardiograma (ECG)",                 "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Canteiro — cardiovascular"},
+    {"exame": "Glicemia de Jejum",                       "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Canteiro — metabólico"},
+    {"exame": "Hemograma Completo",                      "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Canteiro — hematológico"},
+    {"exame": "Hemograma Completo + Ureia + Creatinina", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Canteiro — renal/hematológico"},
+    {"exame": "Espirometria",                            "adm": True, "per": "24 MESES", "mro": True, "rt": True,  "dem": True,  "obs": "Canteiro — poeiras/cimento"},
+    {"exame": "Raio-X de Tórax OIT",                    "adm": True, "per": "12 MESES", "mro": True, "rt": True,  "dem": True,  "obs": "Canteiro — poeiras minerais/cimento"},
 ]
 
 _LIXO_GHE = [
@@ -117,23 +121,81 @@ _LIXO_GHE = [
     r"digitacao de textos",
 ]
 
+# v4.8 — _MAPA_AGENTES alinhado com chaves do MATRIZ_RISCO_EXAME
+# Palavra encontrada no texto do PGR → chave do MATRIZ_RISCO_EXAME
 _MAPA_AGENTES = {
-    "TOLUENO": "Tolueno", "XILENO": "Xileno", "BENZENO": "Benzeno",
-    "ACETONA": "Acetona", "THINNER": "Solventes (Thinner)",
-    "SOLVENTE": "Solventes Organicos", "TINTA": "Tinta / Verniz",
-    "VERNIZ": "Tinta / Verniz", "PRIMER": "Primer (Solventes)",
-    "GRAXA": "Graxas / Lubrificantes", "DIESEL": "Diesel / Combustivel",
-    "QUEROSENE": "Querosene", "ACIDO": "Acidos (geral)",
-    "CIMENTO": "Cimento Portland", "SILICA": "Silica Cristalina",
-    "POEIRA": "Poeiras Minerais", "AMIANTO": "Asbesto / Amianto",
-    "CHUMBO": "Chumbo", "RUIDO": "Ruido",
-    "VIBRACAO": "Vibracao", "CALOR": "Calor (IBUTG)",
-    "RADIOATIVO": "Radiacao Ionizante", "RAIOS X IONIZANTE": "Radiacao Ionizante",
-    "ERGONO": "Fator Ergonomico", "POSTURA": "Postura Inadequada",
-    "LEVANTAMENTO": "Levantamento de Carga", "REPETITIVO": "Movimento Repetitivo",
-    "ELETRICO": "Risco Eletrico", "ALTURA": "Queda de Altura",
-    "CONFINADO": "Espaco Confinado", "MAQUINA": "Maquinas e Equipamentos",
-    "INCENDIO": "Incendio / Explosao",
+    # Físicos
+    "RUIDO":                "RUIDO",
+    "RUÍDO":                "RUIDO",
+    "VIBRAÇÃO CORPO":       "VIBRACAO CORPO INTEIRO",
+    "VIBRACAO CORPO":       "VIBRACAO CORPO INTEIRO",
+    "VIBRAÇÃO":             "VIBRACAO",
+    "VIBRACAO":             "VIBRACAO",
+    # Químicos — solventes orgânicos
+    "BENZENO":              "BENZENO",
+    "TOLUENO":              "TOLUENO",
+    "XILENO":               "XILENO",
+    "ACETONA":              "ACETONA",
+    "METIL-ETIL":           "METIL-ETIL-CETONA",
+    "TETRAHIDRO":           "TETRAHIDROFURANO",
+    "CICLOHEXAN":           "CICLOHEXANONA",
+    "DICLOROMETANO":        "DICLOROMETANO",
+    "TRICLOROETILENO":      "TRICLOROETILENO",
+    "ESTIRENO":             "ESTIRENO",
+    "HEXANO":               "N-HEXANO",
+    "FENOL":                "FENOL",
+    "MERCURIO":             "MERCURIO",
+    "MERCÚRIO":             "MERCURIO",
+    "METANOL":              "METANOL",
+    # Químicos — metais pesados
+    "CHUMBO":               "CHUMBO",
+    "MANGANES":             "MANGANES",
+    "MANGANÊS":             "MANGANES",
+    "CROMO":                "CROMO",
+    "CADMIO":               "CADMIO",
+    "CÁDMIO":               "CADMIO",
+    "ARSENICO":             "ARSENICO",
+    "ARSÊNIO":              "ARSENICO",
+    "COBALTO":              "COBALTO",
+    "FLUOR":                "FLUOR",
+    "FLÚOR":                "FLUOR",
+    # Físico-químico — combustão / fumos
+    "SOLDA":                "SOLDA",
+    "MONOXIDO":             "MONOXIDO DE CARBONO",
+    "MONÓXIDO":             "MONOXIDO DE CARBONO",
+    "POLICORTE":            "POLICORTE",
+    "DIESEL":               "COMBUSTIVEL",
+    "GASOLINA":             "COMBUSTIVEL",
+    "COMBUSTIVEL":          "COMBUSTIVEL",
+    "COMBUSTÍVEL":          "COMBUSTIVEL",
+    # Poeiras / pulmão
+    "SILICA":               "SILICA",
+    "SÍLICA":               "SILICA",
+    "QUARTZO":              "SILICA",
+    "POEIRA MINERAL":       "POEIRA MINERAL",
+    "POEIRAS MINERAIS":     "POEIRA MINERAL",
+    "CIMENTO":              "CIMENTO",
+    "ASBESTO":              "ASBESTO",
+    "AMIANTO":              "ASBESTO",
+    "FUMO METALICO":        "FUMOS METALICOS",
+    "FUMO METÁLICO":        "FUMOS METALICOS",
+    "MADEIRA":              "MADEIRA",
+    "TINTA":                "TINTA",
+    "IMPERMEAB":            "IMPERMEABILIZACAO",
+    "MASCARA":              "MASCARA RESPIRATORIA",
+    "MÁSCARA":              "MASCARA RESPIRATORIA",
+    # Acidente / ergonômico
+    "ALTURA":               "QUEDA DE ALTURA",
+    "CONFINADO":            "ESPACO CONFINADO",
+    "ELETRICO":             "RISCO ELETRICO",
+    "ELÉTRIC":              "RISCO ELETRICO",
+    # Biológico
+    "BIOLOGICO":            "AGENTE BIOLOGICO",
+    "BIOLÓGICO":            "AGENTE BIOLOGICO",
+    "ESGOTO":               "ESGOTO",
+    "EFLUENTE":             "ESGOTO",
+    # Motorista
+    "MOTORISTA":            "MOTORISTA",
 }
 
 _RE_GHE = re.compile(
@@ -187,14 +249,18 @@ def _limpar_nome_ghe(nome: str) -> str:
 
 
 def _is_linha_ghe(linha: str) -> bool:
+    """v4.8 — corrigido bug de variável lc + regex explícita GHE \d+"""
     lu = normalizar_texto(linha.strip())
     for pat in _INVALIDOS_GHE_REGEX:
         if re.search(pat, lu, re.IGNORECASE):
             return False
-    if re.match(r"^GHE\s+\d+", linha.strip(), re.IGNORECASE):
+    # Padrão direto: "GHE 01", "GHE 01 -", "GHE01-"
+    if re.match(r"^GHE\s*\d+", linha.strip(), re.IGNORECASE):
         return True
+    # Padrão composto: "GRUPO HOMOGENEO", "SETOR:", "LOCAL DE TRABALHO:"
     if _RE_GHE.search(linha):
         return True
+    # Departamento sem barra/vírgula (curto)
     if len(linha.strip()) <= 50 and "/" not in linha and "," not in linha:
         if "DEPARTAMENTO" in lu:
             return True
@@ -202,6 +268,7 @@ def _is_linha_ghe(linha: str) -> bool:
 
 
 def _ghe_valido(nome_ghe: str) -> bool:
+    """v4.8 — limite aumentado para 90 chars"""
     norm = normalizar_texto(nome_ghe)
     if len(nome_ghe.strip()) > 90:
         return False
@@ -214,7 +281,7 @@ def _ghe_valido(nome_ghe: str) -> bool:
 
 def _fallback_necessario(ghes: list) -> bool:
     for g in ghes:
-        if len(normalizar_texto(g["ghe"])) <= 60 and g["cargos"]:
+        if len(normalizar_texto(g["ghe"])) <= 90 and g["cargos"]:
             return False
     return True
 
@@ -304,14 +371,18 @@ def extrair_pgr_local(texto: str) -> list:
         lu = normalizar_texto(lc)
 
         if (
-           _is_linha_ghe(lc)
-    and len(lc) < 120          # era 80, aumentar para pegar "GHE 01 - BETONEIRA CMO - RESIDENCIAL..."
-    and len(lc.strip()) >= 4
-    and not lc.strip().endswith(".")
+            _is_linha_ghe(lc)
+            and len(lc) < 120
+            and len(lc.strip()) >= 4
+            and not lc.strip().endswith(".")
         ):
             if ghe_atual and (ghe_atual["cargos"] or ghe_atual["riscos_mapeados"]):
                 ghes.append(ghe_atual)
-            nome_ghe_limpo = re.split(r"\s+CMO\b|\s+[–-]\s+CMO", lc, flags=re.IGNORECASE)[0].strip()
+            # v4.8 — limpar sufixo CMO / razão social do nome do GHE
+            nome_ghe_limpo = re.split(
+                r"\s+CMO\b|\s+[–\-]\s+CMO|\s+SPE\b|\s+LTDA\b",
+                lc, flags=re.IGNORECASE
+            )[0].strip()
             ghe_atual = {"ghe": nome_ghe_limpo, "cargos": [], "riscos_mapeados": []}
             agentes_set = set()
             continue
@@ -319,17 +390,19 @@ def extrair_pgr_local(texto: str) -> list:
         if ghe_atual is None:
             continue
 
+        # Detectar cargos
         if not any(normalizar_texto(exc) in lu for exc in PALAVRAS_EXCLUIR_CARGO):
             for cargo in MAPA_CARGOS_CONHECIDOS:
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual["cargos"]:
                     ghe_atual["cargos"].append(cargo)
                     break
 
-        for palavra, agente in _MAPA_AGENTES.items():
-            if palavra in lu and agente not in agentes_set:
-                agentes_set.add(agente)
+        # v4.8 — detectar agentes: palavra → chave do MATRIZ_RISCO_EXAME
+        for palavra, chave_risco in _MAPA_AGENTES.items():
+            if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
+                agentes_set.add(chave_risco)
                 ghe_atual["riscos_mapeados"].append({
-                    "nome_agente": agente,
+                    "nome_agente": chave_risco,
                     "perigo_especifico": lc[:200],
                 })
 
@@ -365,18 +438,19 @@ def extrair_pgr_matriz_aiha(texto: str) -> list:
             agente_texto = lc.lstrip("- ").split("(")[0].split("\u2013")[0].split("–")[0].strip()
             agente_texto = agente_texto[:120]
             agente_norm = normalizar_texto(agente_texto)
-            agente_mapeado = None
-            for palavra, agente in _MAPA_AGENTES.items():
-                if palavra in agente_norm:
-                    agente_mapeado = agente
+            # v4.8 — mapear via _MAPA_AGENTES
+            chave_risco = None
+            for palavra, chave in _MAPA_AGENTES.items():
+                if normalizar_texto(palavra) in agente_norm:
+                    chave_risco = chave
                     break
-            if not agente_mapeado:
-                agente_mapeado = agente_texto[:80]
+            if not chave_risco:
+                chave_risco = agente_texto[:80]
 
-            if agente_mapeado not in agentes_set:
-                agentes_set.add(agente_mapeado)
+            if chave_risco not in agentes_set:
+                agentes_set.add(chave_risco)
                 funcao_atual["riscos_mapeados"].append({
-                    "nome_agente": agente_mapeado,
+                    "nome_agente": chave_risco,
                     "perigo_especifico": lc[:200],
                     "tipo_risco": _MAPA_TIPO_RISCO.get(tipo_risco_atual, tipo_risco_atual),
                 })
@@ -494,7 +568,7 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
         cargos = ghe.get("cargos") or []
         riscos = ghe.get("riscos_mapeados") or []
         cargos = cargos[:15]
-        riscos = riscos[:10]
+        riscos = riscos[:15]
 
         if not _ghe_valido(nome_ghe):
             continue
@@ -509,15 +583,17 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
         for cargo in cargos:
             exames: dict = {}
 
+            # Exame clínico base — sempre
             adicionar_exame_dedup(exames, {
-                "exame": "Exame Clinico (Anamnese / Exame Fisico)",
+                "exame": "Exame Clínico (Anamnese / Exame Físico)",
                 "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": True,
-                "motivo": "NR-07 Basico",
+                "motivo": "NR-07 Básico",
             })
 
             cargo_norm = normalizar_cargo(cargo)
             cargo_upper = cargo_norm.upper()
 
+            # Pacote canteiro
             if e_canteiro:
                 for ex in _PACOTE_CANTEIRO:
                     adicionar_exame_dedup(exames, {
@@ -527,32 +603,38 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
                         "mro": ex["mro"],
                         "rt": ex["rt"],
                         "dem": ex["dem"],
-                        "motivo": f"Canteiro de Obras — {ex['obs']}" if ex.get("obs") else "Canteiro de Obras — padrao RICCO/HETRIN",
+                        "motivo": f"Canteiro de Obras — {ex['obs']}",
                     })
             else:
+                # Escritório: só exames por função
                 for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
                     if normalizar_texto(funcao) in cargo_upper:
                         for ex in lista_ex:
-                            adicionar_exame_dedup(exames, {**ex, "motivo": f"Funcao: {funcao.title()}"})
+                            adicionar_exame_dedup(exames, {**ex, "motivo": f"Função: {funcao.title()}"})
 
+            # Exames extras por função (canteiro e escritório)
+            for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
+                if normalizar_texto(funcao) in cargo_upper:
+                    for ex in lista_ex:
+                        adicionar_exame_dedup(exames, {**ex, "motivo": f"Função: {funcao.title()}"})
+
+            # v4.8 — Exames por risco: nome_agente já é a chave do MATRIZ_RISCO_EXAME
             bio_real = tem_risco_biologico_real(riscos)
             for risco in riscos:
-                texto_r = normalizar_texto(
-                    risco.get("nome_agente", "") + " " + risco.get("perigo_especifico", "")
-                )
-                for chave_r, regra in MATRIZ_RISCO_EXAME.items():
-                    if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
-                        continue
-                    if chave_r in texto_r:
-                        adicionar_exame_dedup(exames, {
-                            "exame": regra["exame"],
-                            "adm": regra.get("adm", True),
-                            "per": regra.get("periodico", "12 MESES"),
-                            "mro": regra.get("mro", True),
-                            "rt": regra.get("rt", False),
-                            "dem": regra.get("dem", False),
-                            "motivo": f"Exposicao: {chave_r.title()} — {regra.get('obs', '')}",
-                        })
+                chave_r = normalizar_texto(risco.get("nome_agente", ""))
+                if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
+                    continue
+                regra = MATRIZ_RISCO_EXAME.get(chave_r)
+                if regra:
+                    adicionar_exame_dedup(exames, {
+                        "exame": regra["exame"],
+                        "adm":   regra.get("adm", True),
+                        "per":   regra.get("periodico", "12 MESES"),
+                        "mro":   regra.get("mro", True),
+                        "rt":    regra.get("rt", False),
+                        "dem":   regra.get("dem", False),
+                        "motivo": f"Exposição: {chave_r.title()} — {regra.get('obs', '')}",
+                    })
 
             for ex_info in exames.values():
                 per_fmt = _fmt_per(ex_info.get("per", "12 MESES"))
@@ -563,7 +645,7 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
                     "ADM": _flag(ex_info.get("adm", True)),
                     "PER": per_fmt,
                     "MRO": _flag(ex_info.get("mro", True)),
-                    "RT": _flag(ex_info.get("rt", False)),
+                    "RT":  _flag(ex_info.get("rt", False)),
                     "DEM": _flag(ex_info.get("dem", False)),
                     "Justificativa": ex_info.get("motivo", ""),
                 })
@@ -576,13 +658,13 @@ def processar_pcmso(dados_pgr: list, tipo_ambiente: str = "escritorio") -> pd.Da
 def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
     if not cabecalho:
         cabecalho = {}
-    razao = cabecalho.get("razao_social", "Empresa nao informada")
-    cnpj = cabecalho.get("cnpj", "---")
-    obra = cabecalho.get("obra", "---")
-    medico = cabecalho.get("medico_rt", "Nao informado")
+    razao = cabecalho.get("razao_social", "Empresa não informada")
+    cnpj  = cabecalho.get("cnpj", "---")
+    obra  = cabecalho.get("obra", "---")
+    medico= cabecalho.get("medico_rt", "Não informado")
     vig_i = cabecalho.get("vig_ini", "---")
     vig_f = cabecalho.get("vig_fim", "---")
-    tec = cabecalho.get("responsavel_tec", "---")
+    tec   = cabecalho.get("responsavel_tec", "---")
 
     ghe_grupos = {}
     for _, row in df.iterrows():
@@ -645,25 +727,23 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
   {linhas_html}
 </table>
 <p style="font-size:8pt;color:#555;margin-top:12px;">
-  Gerado por Sistema Automacao SST Seconci-GO | NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Dec.3.048/99.
+  Gerado por Sistema Automação SST Seconci-GO | NR-07 (Port.1.031/2018), NR-09, NR-15, NR-35, Dec.3.048/99.
 </p></body></html>"""
 
 
-# ── Geração DOCX ──────────────────────────────────────────────────────────────
-
+# ── Geração DOCX (RQ.61) ─────────────────────────────────────────────────────
 
 def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
     """
     Gera DOCX no formato RQ.61 Seconci-GO:
     - Cabeçalho com empresa, obra, médico, data
-    - Por GHE: linha verde com nome do GHE (colspan)
+    - Por GHE: linha verde escuro com nome do GHE
     - Tabela: FUNÇÃO | EXAMES SOLICITADOS
     - Exames formatados como "Nome (ADM, PER X meses, MRO, DEM)"
     """
     from docx import Document
     from docx.shared import Pt, RGBColor, Cm
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.enum.table import WD_ALIGN_VERTICAL
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
 
@@ -681,7 +761,6 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
     VERDE_ESC = "084D22"
     VERDE_MED = "1AA04B"
     BRANCO    = RGBColor(0xFF, 0xFF, 0xFF)
-    PRETO     = RGBColor(0x00, 0x00, 0x00)
 
     def shd(cell, hex_color):
         tc = cell._tc
@@ -718,13 +797,11 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
             r.font.color.rgb = color
 
     def _fmt_exame_rq61(row) -> str:
-        """Converte as colunas ADM/PER/MRO/RT/DEM para formato '(ADM, PER X meses, MRO, DEM)'"""
         partes = []
         if str(row.get("ADM", "-")) == "X":
             partes.append("ADM")
         per = str(row.get("PER", "-")).strip().upper()
         if per and per != "-":
-            # normalizar: "12M" -> "PER 12 meses", "6M" -> "PER 6 meses"
             per_num = per.replace("M", "").strip()
             try:
                 n = int(per_num)
@@ -747,32 +824,26 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
         sec.left_margin   = Cm(2.0)
         sec.right_margin  = Cm(1.5)
 
-    # ── Cabeçalho institucional ────────────────────────────────────────────
+    # Cabeçalho institucional
     cab = doc.add_table(rows=4, cols=4)
     cab.style = "Table Grid"
 
-    # Linha 0: título
     cab.rows[0].cells[0].merge(cab.rows[0].cells[3])
     shd(cab.rows[0].cells[0], VERDE_ESC)
-    txt(cab.rows[0].cells[0],
-        "MATRIZ FUNÇÃO – EXAMES PCMSO",
-        bold=True, color=BRANCO, size=13,
-        align=WD_ALIGN_PARAGRAPH.CENTER)
+    txt(cab.rows[0].cells[0], "MATRIZ FUNÇÃO – EXAMES PCMSO",
+        bold=True, color=BRANCO, size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-    # Linha 1: empresa
     cab.rows[1].cells[0].merge(cab.rows[1].cells[1])
     cab.rows[1].cells[2].merge(cab.rows[1].cells[3])
     txt(cab.rows[1].cells[0], f"Empresa: {razao}", bold=True, size=9)
     adendo_txt = f"Obra Nova (   )   {tipo} ( X )" if tipo.lower() == "renovação" else f"Obra Nova ( X )   Renovação (   )"
     txt(cab.rows[1].cells[2], adendo_txt, size=9)
 
-    # Linha 2: obra + data
     cab.rows[2].cells[0].merge(cab.rows[2].cells[1])
     cab.rows[2].cells[2].merge(cab.rows[2].cells[3])
     txt(cab.rows[2].cells[0], f"Obra: {obra}", bold=True, size=9)
     txt(cab.rows[2].cells[2], f"Data: {datetime.now().strftime('%d/%m/%Y')}", bold=True, size=9)
 
-    # Linha 3: médico
     cab.rows[3].cells[0].merge(cab.rows[3].cells[3])
     crm_txt = f"  CRM-GO {crm}" if crm else ""
     txt(cab.rows[3].cells[0],
@@ -781,7 +852,7 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
 
     doc.add_paragraph()
 
-    # ── Agrupar por GHE → Cargo → lista de exames ────────────────────────
+    # Agrupar por GHE → Cargo → exames
     ghe_grupos = {}
     for _, row in df.iterrows():
         g = row["GHE / Setor"]
@@ -789,31 +860,26 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
         ghe_grupos.setdefault(g, {}).setdefault(c, []).append(row)
 
     for ghe_nome, cargos_dict in ghe_grupos.items():
-        # Tabela por GHE: 2 colunas (FUNÇÃO | EXAMES SOLICITADOS)
         tbl = doc.add_table(rows=0, cols=2)
         tbl.style = "Table Grid"
         tbl.columns[0].width = Cm(5.5)
         tbl.columns[1].width = Cm(12.0)
 
-        # Linha cabeçalho do GHE (verde escuro, largura total)
         row_ghe = tbl.add_row()
         row_ghe.cells[0].merge(row_ghe.cells[1])
         shd(row_ghe.cells[0], VERDE_ESC)
         set_borders(row_ghe.cells[0])
         txt(row_ghe.cells[0], ghe_nome.upper(),
-            bold=True, color=BRANCO, size=10,
-            align=WD_ALIGN_PARAGRAPH.CENTER)
+            bold=True, color=BRANCO, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-        # Linha cabeçalho da tabela (verde médio)
         row_h = tbl.add_row()
         shd(row_h.cells[0], VERDE_MED)
         shd(row_h.cells[1], VERDE_MED)
-        txt(row_h.cells[0], "FUNÇÃO",          bold=True, color=BRANCO, size=9)
+        txt(row_h.cells[0], "FUNÇÃO",             bold=True, color=BRANCO, size=9)
         txt(row_h.cells[1], "EXAMES SOLICITADOS", bold=True, color=BRANCO, size=9)
 
         for cargo, rows_cargo in cargos_dict.items():
             exames_fmt = [_fmt_exame_rq61(r) for r in rows_cargo]
-            # primeira linha do cargo: célula FUNÇÃO com rowspan simulado
             primeira = True
             for exame_str in exames_fmt:
                 row_ex = tbl.add_row()
@@ -828,7 +894,6 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
 
         doc.add_paragraph()
 
-    # Rodapé
     p = doc.add_paragraph(
         f"Responsável pelo preenchimento: {cabecalho.get('responsavel_tec', '---')}\n"
         f"Médico(a) Responsável pela validação: {medico}{(' CRM-GO ' + crm) if crm else ''}\n"
@@ -840,4 +905,3 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
     doc.save(buf)
     buf.seek(0)
     return buf.read()
-
