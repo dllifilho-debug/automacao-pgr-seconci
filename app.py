@@ -12,7 +12,7 @@ from config.db            import (get_supabase, salvar_historico,
                                    carregar_historico, carregar_html_historico)
 from modules.modulo_pcmso import (extrair_texto_pdf, extrair_pgr_com_fallback,
                                    processar_pcmso, gerar_html_pcmso,
-                                   gerar_docx_pcmso)
+                                   gerar_docx_rq61)
 
 st.set_page_config(page_title="Automacao SST - Seconci GO",
                    layout="wide", page_icon=":shield:")
