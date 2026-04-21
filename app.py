@@ -254,9 +254,9 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.stop()
 
         st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
-        st.dataframe(df_pcmso, use_container_width=True)
+               st.dataframe(df_pcmso, use_container_width=True)
 
-              base_sel = st.session_state.get("base_auditoria")
+        base_sel = st.session_state.get("base_auditoria")
         if base_sel:
             from modules.modulo_auditor_v1_1 import auditar_pcmso
             with st.spinner("Auditando PCMSO..."):
