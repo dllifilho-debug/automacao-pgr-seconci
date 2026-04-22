@@ -20,7 +20,7 @@ except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
 from data.matriz_exames import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
-from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, normalizar_cargo, normalizar_texto
+from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, normalizar_cargo, normalizar_texto, mapear_chave_mestra
 from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 
