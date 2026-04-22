@@ -1,4 +1,6 @@
 import io
+import json
+import os
 import re
 import unicodedata
 from copy import deepcopy
@@ -7,9 +9,10 @@ from datetime import datetime
 import pdfplumber
 import pandas as pd
 
-import json
-import os
-from utils.cargo_utils import mapear_chave_mestra
+from data.matriz_exames import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
+from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, normalizar_cargo, normalizar_texto, mapear_chave_mestra
+from utils.exame_utils import adicionar_exame_dedup
+from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 
 # Carrega banco V2 uma única vez
 _BANCO_V2_PATH = os.path.join("data", "banco_matrizes_v2.json")
@@ -18,11 +21,6 @@ try:
         _BANCO_MATRIZES_V2 = json.load(_f)
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
-
-from data.matriz_exames import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
-from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, normalizar_cargo, normalizar_texto, mapear_chave_mestra
-from utils.exame_utils import adicionar_exame_dedup
-from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 
 VERSAO_MODULO_PCMSO = '5.1'
 
@@ -621,36 +619,37 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         else:
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
         for cargo in cargos:
-    cargo_norm = normalizar_cargo(cargo)
-    exames = {}
+            cargo_norm = normalizar_cargo(cargo)
+            exames = {}
 
-    # ── Motor V2: prescrição direta pelo banco de matrizes ──
-    chave_v2 = mapear_chave_mestra(cargo)
-    regras_v2 = _BANCO_MATRIZES_V2.get(chave_v2, {}).get("exames", [])
+            # ── Motor V2 ──────────────────────────────────────────
+            chave_v2 = mapear_chave_mestra(cargo)
+            regras_v2 = _BANCO_MATRIZES_V2.get(chave_v2, {}).get("exames", [])
 
-    if regras_v2:
-        # Banco V2 tem regra para esse cargo — usa como fonte principal
-        for ex in regras_v2:
-            novo = _novo_exame(
-                ex["nome"],
-                adm=ex.get("adm", True),
-                per=f'{ex["per"]} MESES' if ex.get("per") else None,
-                mro=ex.get("mro", True),
-                rt=ex.get("ret", False),
-                dem=ex.get("dem", False),
-                motivo=f"Banco V2: {chave_v2}"
-            )
-            adicionar_exame_dedup(exames, _forcar_regras_exame(novo, cod_ghe))
-    else:
-        # Fallback: lógica antiga por GHE (mantém compatibilidade)
-        adicionar_exame_dedup(exames, _forcar_regras_exame(
-            _novo_exame('Exame Clinico', adm=True, per='12 MESES', mro=True, rt=True, dem=True, motivo='NR-07 Básico'), cod_ghe
-        ))
-        if cod_ghe:
-            _adicionar_base_por_ghe(exames, cod_ghe)
-        elif not e_canteiro:
-            _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
-        _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
+            if regras_v2:
+                for ex in regras_v2:
+                    novo = _novo_exame(
+                        ex["nome"],
+                        adm=ex.get("adm", True),
+                        per=f'{ex["per"]} MESES' if ex.get("per") else None,
+                        mro=ex.get("mro", True),
+                        rt=ex.get("ret", False),
+                        dem=ex.get("dem", False),
+                        motivo=f"Banco V2: {chave_v2}"
+                    )
+                    adicionar_exame_dedup(exames, _forcar_regras_exame(novo, cod_ghe))
+            else:
+                # Fallback: lógica antiga por GHE
+                adicionar_exame_dedup(exames, _forcar_regras_exame(
+                    _novo_exame('Exame Clinico', adm=True, per='12 MESES', mro=True, rt=True, dem=True, motivo='NR-07 Básico'), cod_ghe
+                ))
+                if cod_ghe:
+                    _adicionar_base_por_ghe(exames, cod_ghe)
+                elif not e_canteiro:
+                    _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
+                _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
+
+            # ── Riscos triviais e biológicos (sempre rodam) ───────
             riscos_expand = list(riscos)
             for risco_trivial in _riscos_triviais_para_cargo(cod_ghe, cargo_norm):
                 riscos_expand.append({'nome_agente': risco_trivial, 'perigo_especifico': 'Risco trivial obrigatório PDF referência'})
@@ -673,7 +672,6 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                 })
             linhas.extend(_ordenar_exames(rows_cargo))
     return pd.DataFrame(linhas)
-
 
 def gerar_html_pcmso(df, cabecalho=None):
     if not cabecalho:
