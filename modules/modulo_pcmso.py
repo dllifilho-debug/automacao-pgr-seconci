@@ -14,7 +14,6 @@ from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, no
 from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 
-# Carrega banco V2 uma única vez
 _BANCO_V2_PATH = os.path.join("data", "banco_matrizes_v2.json")
 try:
     with open(_BANCO_V2_PATH, "r", encoding="utf-8") as _f:
@@ -22,7 +21,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '5.1'
+VERSAO_MODULO_PCMSO = '5.2'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -210,9 +209,11 @@ _GHE_PERIODICIDADES = {
 }
 
 _GHE_EXTRAS = {
-    '06': ['Ácido tricloroacético na urina'], '07': ['RX de coluna lombo-sacra'],
+    '06': ['Ácido tricloroacético na urina'], 
+    '07': ['RX de coluna lombo-sacra'],
     '10': ['Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina'],
-    '11': ['Ácido tricloroacético na urina'], '18': ['Manganês sanguíneo', 'Carboxiemoglobina'],
+    '11': ['Ácido tricloroacético na urina'], 
+    '18': ['Manganês sanguíneo', 'Carboxiemoglobina'],
     '19': ['Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina'],
     '21': ['Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Carboxiemoglobina', 'Avaliação Psicossocial'],
     '23': ['Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico'],
@@ -221,6 +222,9 @@ _GHE_EXTRAS = {
 }
 
 _GHE_RESTRICOES = {
+    '01': {'Exame Clinico', 'Audiometria', 'Espirometria', 'RX de Tórax OIT'},
+    '05': {'Exame Clinico', 'Audiometria', 'Espirometria', 'RX de Tórax OIT'},
+    '07': {'Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Espirometria', 'RX de Tórax OIT', 'RX de coluna lombo-sacra'},
     '17': {'Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG'},
     '24': {'Exame Clinico', 'Acuidade Visual'},
 }
@@ -236,23 +240,19 @@ _RISCOS_TRIVIAIS_OBRIGATORIOS = {
 def _sem_acentos(texto):
     return unicodedata.normalize('NFKD', str(texto)).encode('ascii', 'ignore').decode('ascii')
 
-
 def _norm(texto):
     texto = _sem_acentos(str(texto or '')).upper().strip()
     texto = re.sub(r'[^A-Z0-9]+', ' ', texto)
     return re.sub(r'\s+', ' ', texto).strip()
 
-
 def _ghe_codigo(nome):
     m = re.search(r'GHE\s*(\d{1,2})', str(nome or ''), re.IGNORECASE)
     return m.group(1).zfill(2) if m else ''
-
 
 def _nome_oficial_exame(nome):
     if not nome:
         return ''
     return _EXAME_ALIAS.get(_norm(nome), str(nome).strip())
-
 
 def _limpar_nome_ghe(nome):
     if len(nome) > 100:
@@ -262,7 +262,6 @@ def _limpar_nome_ghe(nome):
         if re.search(lixo, norm, re.IGNORECASE):
             return 'GHE (revisar nome)'
     return nome.strip()
-
 
 def _is_linha_ghe(linha):
     lu = normalizar_texto(linha.strip())
@@ -277,7 +276,6 @@ def _is_linha_ghe(linha):
         return True
     return False
 
-
 def _ghe_valido(nome_ghe):
     norm = normalizar_texto(nome_ghe)
     if len(nome_ghe.strip()) > 90 or len(norm.strip()) < 4:
@@ -286,13 +284,11 @@ def _ghe_valido(nome_ghe):
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
 
-
 def _fallback_necessario(ghes):
     for g in ghes:
         if len(normalizar_texto(g['ghe'])) <= 90 and g['cargos']:
             return False
     return True
-
 
 def _fmt_per(per):
     if per is None or per is False:
@@ -305,12 +301,10 @@ def _fmt_per(per):
     except ValueError:
         return per if per else '-'
 
-
 def _flag(val):
     if isinstance(val, bool):
         return 'X' if val else '-'
     return 'X' if str(val).strip().upper() in ('X', 'TRUE', '1', 'SIM') else '-'
-
 
 def _ghe_e_canteiro_misto(nome_ghe, riscos):
     norm = normalizar_texto(nome_ghe)
@@ -320,7 +314,6 @@ def _ghe_e_canteiro_misto(nome_ghe, riscos):
         return False
     texto_r = ' '.join(normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos)
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
-
 
 def _is_nome_funcao_aiha(linha):
     lstrip = linha.strip()
@@ -335,7 +328,6 @@ def _is_nome_funcao_aiha(linha):
         return False
     return any(p in lu for p in _PALAVRAS_CARGO_AIHA)
 
-
 def extrair_texto_pdf(uploaded_file):
     texto = []
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
@@ -345,7 +337,6 @@ def extrair_texto_pdf(uploaded_file):
                 texto.append(t)
     return '\n'.join(texto)
 
-
 def extrair_texto_pdf_path(caminho):
     texto = []
     with pdfplumber.open(caminho) as pdf:
@@ -354,7 +345,6 @@ def extrair_texto_pdf_path(caminho):
             if t:
                 texto.append(t)
     return '\n'.join(texto)
-
 
 def extrair_pgr_local(texto):
     linhas = texto.split('\n')
@@ -385,7 +375,6 @@ def extrair_pgr_local(texto):
     if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
         ghes.append(ghe_atual)
     return _deduplicar_ghes(ghes)
-
 
 def extrair_pgr_matriz_aiha(texto):
     linhas = texto.split('\n')
@@ -438,7 +427,6 @@ def extrair_pgr_matriz_aiha(texto):
         ghes.append(funcao_atual)
     return ghes
 
-
 def _detectar_formato_pgr(texto):
     norm = normalizar_texto(texto)
     tem_aiha = 'MATRIZ DE RISCO AIHA' in norm
@@ -448,7 +436,6 @@ def _detectar_formato_pgr(texto):
     if tem_aiha:
         return 'aiha'
     return 'ghe'
-
 
 def _deduplicar_ghes(ghes):
     vistos, resultado = {}, []
@@ -470,7 +457,6 @@ def _deduplicar_ghes(ghes):
                     resultado[idx]['riscos_mapeados'].append(r)
                     riscos_existentes.add(r['nome_agente'])
     return resultado
-
 
 def extrair_pgr_com_fallback(texto_pgr, chave_api=None):
     formato = _detectar_formato_pgr(texto_pgr)
@@ -495,21 +481,62 @@ def extrair_pgr_com_fallback(texto_pgr, chave_api=None):
             print(f'[WARN] Falha IA: {e}')
     return (local or [], 'parcial')
 
-
 def _novo_exame(exame, adm=True, per=None, mro=True, rt=False, dem=False, obs='', motivo=''):
     return {'exame': _nome_oficial_exame(exame), 'adm': adm, 'per': per, 'mro': mro, 'rt': rt, 'dem': dem, 'obs': obs, 'motivo': motivo}
-
 
 def _match_funcao_matriz(cargo_upper, funcao_matriz):
     alvo = _norm(funcao_matriz)
     cargo_n = _norm(cargo_upper)
     return alvo == cargo_n or alvo in cargo_n or cargo_n in alvo
 
-
 def _forcar_regras_exame(ex, cod_ghe):
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
+
+    # Default Base Exams Flags (Canteiro)
+    if nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
+        ex['adm'] = True
+        ex['mro'] = True
+        ex['rt'] = True
+        ex['dem'] = True
+
+    if nome == 'Audiometria':
+        ex['per'] = '12 MESES'
+        if cod_ghe == '17':  # Regra especifica Grua
+            ex['per'] = None
+            ex['rt'] = False
+            ex['dem'] = False
+            
+    if nome == 'Espirometria':
+        ex['per'] = '24 MESES'
+
+    if nome == 'RX de Tórax OIT':
+        ex['per'] = '12 MESES'
+
+    if nome == 'Acuidade Visual':
+        ex['dem'] = False
+
+    if nome == 'RX de coluna lombo-sacra':
+        ex['adm'] = True
+        ex['per'] = None
+        ex['mro'] = True
+        ex['rt'] = False
+        ex['dem'] = False
+
+    if nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina'}:
+        ex['adm'] = ex.get('adm', False)
+        ex['mro'] = ex.get('mro', False)
+        ex['dem'] = ex.get('dem', False)
+
+    if nome == 'Hemograma' and cod_ghe in ('21', '23', '25', '26'):
+        ex['dem'] = True
+
+    if nome == 'Manganês sanguíneo':
+        ex['adm'] = True
+        ex['mro'] = True
+        ex['dem'] = False
+
     if nome == 'Exame Clinico':
         ex['adm'] = True if ex.get('adm') is None else ex.get('adm', True)
         ex['mro'] = True if ex.get('mro') is None else ex.get('mro', True)
@@ -517,32 +544,13 @@ def _forcar_regras_exame(ex, cod_ghe):
         ex['dem'] = True if ex.get('dem') is None else ex.get('dem', True)
         ex['per'] = _GHE_PERIODICIDADES.get(cod_ghe, {}).get('Exame Clinico', ex.get('per') or '12 MESES')
     else:
-        ex['rt'] = False
+        ex['rt'] = ex.get('rt', False) 
+
     per_regra = _GHE_PERIODICIDADES.get(cod_ghe, {}).get(nome)
     if per_regra:
         ex['per'] = per_regra
-    if nome == 'RX de coluna lombo-sacra':
-        ex['adm'] = True
-        ex['per'] = None
-        ex['mro'] = True
-        ex['rt'] = False
-        ex['dem'] = False
-    if cod_ghe == '17' and nome == 'Audiometria':
-        ex['adm'] = True
-        ex['per'] = ex.get('per') or '12 MESES'
-        ex['mro'] = True
-        ex['rt'] = False
-        ex['dem'] = False
-    if nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina'}:
-        ex['adm'] = ex.get('adm', False)
-        ex['mro'] = ex.get('mro', False)
-        ex['dem'] = ex.get('dem', False)
-    if nome == 'Manganês sanguíneo':
-        ex['adm'] = True
-        ex['mro'] = True
-        ex['dem'] = False
-    return ex
 
+    return ex
 
 def _adicionar_base_por_ghe(exames, cod_ghe):
     for nome in _GHE_BASE.get(cod_ghe, _BASE_COMPLETO):
@@ -550,10 +558,8 @@ def _adicionar_base_por_ghe(exames, cod_ghe):
     for nome in _GHE_EXTRAS.get(cod_ghe, []):
         adicionar_exame_dedup(exames, _forcar_regras_exame(_novo_exame(nome, motivo=f'Extra GHE {cod_ghe}'), cod_ghe))
 
-
 def _riscos_triviais_para_cargo(cod_ghe, cargo):
     return _RISCOS_TRIVIAIS_OBRIGATORIOS.get(cod_ghe, {}).get(_norm(cargo), [])
-
 
 def _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe):
     for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
@@ -571,7 +577,6 @@ def _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe):
                 )
                 adicionar_exame_dedup(exames, _forcar_regras_exame(exame, cod_ghe))
 
-
 def _aplicar_riscos_matriz(exames, riscos, cod_ghe):
     bio_real = tem_risco_biologico_real(riscos)
     for risco in riscos:
@@ -588,19 +593,16 @@ def _aplicar_riscos_matriz(exames, riscos, cod_ghe):
         )
         adicionar_exame_dedup(exames, _forcar_regras_exame(exame, cod_ghe))
 
-
 def _filtrar_por_restricao_ghe(exames, cod_ghe):
     permitidos = _GHE_RESTRICOES.get(cod_ghe)
     if not permitidos:
         return exames
     return {k: v for k, v in exames.items() if _nome_oficial_exame(v.get('exame', '')) in permitidos}
 
-
 def _ordenar_exames(rows):
     ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
     peso = {nome: i for i, nome in enumerate(ordem)}
     return sorted(rows, key=lambda r: (peso.get(_nome_oficial_exame(r['Exame']), 999), _norm(r['Exame'])))
-
 
 def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     linhas = []
@@ -609,8 +611,10 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         nome_ghe_raw = ghe.get('ghe', 'Sem GHE')
         nome_ghe = _limpar_nome_ghe(str(nome_ghe_raw))
         cod_ghe = _ghe_codigo(nome_ghe)
-        cargos = (ghe.get('cargos') or [])[:15]
-        riscos = (ghe.get('riscos_mapeados') or [])[:25]
+        
+        # REMOVIDOS OS CORTES LIMITADORES QUE OCULTAVAM OS CARGOS
+        cargos = ghe.get('cargos') or []
+        riscos = ghe.get('riscos_mapeados') or []
 
         if not _ghe_valido(nome_ghe):
             continue
@@ -678,7 +682,10 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             rows_cargo = []
             for ex_info in exames.values():
                 nome_exame = _nome_oficial_exame(ex_info.get('exame', ''))
-                rt = bool(ex_info.get('rt', False)) if nome_exame == 'Exame Clinico' else False
+                
+                # CORREÇÃO BUG DAS FLAGS! ESTAVA DESTRUINDO A FLAG RT E DEM
+                rt = bool(ex_info.get('rt', False))
+                dem = bool(ex_info.get('dem', False))
 
                 rows_cargo.append({
                     'GHE / Setor': nome_ghe,
@@ -688,7 +695,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                     'PER': _fmt_per(ex_info.get('per')),
                     'MRO': _flag(ex_info.get('mro', True)),
                     'RT': _flag(rt),
-                    'DEM': _flag(ex_info.get('dem', False)),
+                    'DEM': _flag(dem),
                     'Justificativa': ex_info.get('motivo', ''),
                 })
 
@@ -729,7 +736,6 @@ def gerar_html_pcmso(df, cabecalho=None):
                     primeiro_cargo = False
                 linhas_html += f"<tr>{ghe_td}{cargo_td}<td>{row['Exame']}</td>{cel(row['ADM'])}{per_td}{cel(row['MRO'])}{cel(row['RT'])}{cel(row['DEM'])}<td style='font-size:11px;color:#555;'>{row['Justificativa']}</td></tr>"
     return f'''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{{font-family:Arial,sans-serif;font-size:13px;margin:20px;}}table{{width:100%;border-collapse:collapse;margin-top:10px;}}th{{background:#1AA04B;color:#fff;padding:10px 6px;border:1px solid #084D22;font-size:12px;}}th.c{{text-align:center;}}td{{border:1px solid #ccc;padding:8px 6px;vertical-align:middle;}}tr:nth-child(even) td{{background:#F4F8F5;}}</style></head><body><table style="margin-bottom:12px;border:2px solid #084D22;"><tr style="background:#084D22;color:#fff;"><td colspan="5" style="padding:8px;font-size:12pt;font-weight:bold;text-align:center;">PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL — PCMSO</td></tr><tr><td><b>Empresa:</b> {razao}</td><td><b>CNPJ:</b> {cnpj}</td><td><b>Obra:</b> {obra}</td><td><b>Vigência:</b> {vig_i} a {vig_f}</td><td><b>Emissão:</b> {datetime.now().strftime('%d/%m/%Y')}</td></tr><tr><td colspan="3"><b>Médico(a):</b> {medico}</td><td colspan="2"><b>Técnico SST:</b> {tec}</td></tr></table><table><tr><th style="width:12%">GHE</th><th style="width:14%">Função</th><th style="width:30%">Exame Solicitado</th><th class="c" style="width:5%">ADM</th><th class="c" style="width:6%">PER</th><th class="c" style="width:5%">MRO</th><th class="c" style="width:4%">RT</th><th class="c" style="width:5%">DEM</th><th style="width:19%">Justificativa</th></tr>{linhas_html}</table><p style="font-size:8pt;color:#555;margin-top:12px;">Gerado por Sistema Automação SST Seconci-GO.</p></body></html>'''
-
 
 def gerar_docx_rq61(df, cabecalho=None):
     from docx import Document
