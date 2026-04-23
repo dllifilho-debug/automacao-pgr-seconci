@@ -52,17 +52,15 @@ def normalizar_exame(nome):
 def normalizar_cargo(nome):
     s = norm(nome)
     aliases = {
-        # Já existentes
         'SERVENTE DE ARMADOR': 'Servente',
         'SERVENTE DE CARPINTEIRO': 'Servente',
         'MEIO OFICIAL DE PEDREIRO': 'Meio Oficial de Pedreiro',
         'OPERADOR DE BETONEIRA': 'Operador de Betoneira',
         'OPERADOR DE GRUA': 'Operador de Grua',
         'OPERADOR DE CREMALHEIRA': 'Operador de Cremalheira',
-        # ✅ Novos — casos identificados na matriz RQ.61
         'MESTRE DE OBRA': 'Mestre de Obra',
         'MESTRE DE OBRAS': 'Mestre de Obra',
-        'ELETRICISTA INDUSTRIAL': 'Eletricista',  # GHE 06 unifica
+        'ELETRICISTA INDUSTRIAL': 'Eletricista',
         'SERRALHEIRO': 'Serralheiro',
         'PINTOR': 'Pintor',
         'SERVENTE': 'Servente',
@@ -114,6 +112,50 @@ def _lista_de_exames(payload):
     if isinstance(payload, dict):
         return [_exam_obj(payload.get('nome', ''), payload)]
     return []
+
+
+def pcmso_df_para_dict(df) -> dict:
+    """
+    Converte o DataFrame retornado por processar_pcmso()
+    no formato de dicionário esperado por auditar_pcmso().
+
+    DataFrame esperado com colunas:
+        'GHE / Setor', 'Cargo', 'Exame', 'ADM', 'PER', 'MRO', 'RT', 'DEM'
+
+    Saída:
+        {
+            "GHE 01": {
+                "Operador de Betoneira": [{"nome": "Exame Clinico", "adm": True, ...}],
+                ...
+            },
+            ...
+        }
+    """
+    resultado = {}
+    for _, row in df.iterrows():
+        ghe_raw = str(row.get('GHE / Setor', '')).strip()
+        cargo   = str(row.get('Cargo', '')).strip()
+        exame   = str(row.get('Exame', '')).strip()
+
+        if not ghe_raw or not cargo or not exame:
+            continue
+
+        # Extrai número do GHE e normaliza para "GHE 01", "GHE 02", etc.
+        m = re.search(r'GHE\s*(\d{1,2})', ghe_raw, re.IGNORECASE)
+        ghe_key = f"GHE {int(m.group(1)):02d}" if m else ghe_raw
+
+        resultado.setdefault(ghe_key, {})
+        resultado[ghe_key].setdefault(cargo, [])
+        resultado[ghe_key][cargo].append({
+            'nome': exame,
+            'adm':  row.get('ADM', '-'),
+            'per':  row.get('PER', '-'),
+            'mro':  row.get('MRO', '-'),
+            'ret':  row.get('RT',  '-'),
+            'dem':  row.get('DEM', '-'),
+        })
+
+    return resultado
 
 
 def auditar_pcmso(dados_pcmso, banco, obra_id=None):
