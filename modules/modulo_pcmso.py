@@ -313,23 +313,28 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
     cargo_n = _norm(cargo_upper)
     return alvo == cargo_n or alvo in cargo_n or cargo_n in alvo
 
-def _forcar_regras_universais(ex, cargo_norm):
+def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     """
-    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci.
+    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci,
+    agora com Inteligência Baseada em Riscos.
     """
+    if riscos is None: riscos = []
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
     
     cargo_upper = cargo_norm.upper()
 
-  # 1. Base mínima e Regra de 6 Meses para Químicos Pesados
+    # Concatena todos os riscos para busca inteligente de palavras-chave
+    texto_riscos = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
+    tem_quimico = any(q in texto_riscos for q in ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'TINTA', 'QUIMICO'])
+
+    # 1. Base mínima e Regra de 6 Meses para Químicos Pesados
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
         
-        # Reduzimos a lista estritamente para as funções de química pesada da construção
-        cargos_quimicos = ['PINTOR', 'IMPERMEABILIZADOR', 'IMPERMEABILIZAÇÃO']
-        if any(c in cargo_upper for c in cargos_quimicos):
+        # Reduz para 6 meses se houver risco químico mapeado ou função de pintura/impermeabilização
+        if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
             ex['per'] = '6'
         elif not ex.get('per'): 
             ex['per'] = '12'
@@ -337,41 +342,38 @@ def _forcar_regras_universais(ex, cargo_norm):
     # 2. Exames Pulmonares e Auditivos
     elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
         ex['adm'], ex['mro'], ex['dem'] = True, True, True
-        ex['rt'] = False  # Correção: Retorno ao trabalho é False para complementares
+        ex['rt'] = False  # Retorno ao trabalho é False para complementares
         
         if not ex.get('per'):
             if nome == 'Audiometria': ex['per'] = '12'
             elif nome == 'Espirometria': ex['per'] = '24'
             elif nome == 'RX de Tórax OIT':
-                # Regra Inteligente: Poeira pesada = 12 meses. Restante = 60 meses.
-                if any(x in cargo_upper for x in ['PEDREIRO', 'SERVENTE', 'BETONEIRA']):
+                # Regra Inteligente: Sílica/Cimento no GHE = 12 meses. Restante = 60 meses.
+                tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'CIMENTO', 'ASBESTO', 'POEIRA MINERAL'])
+                if tem_poeira_pesada or any(x in cargo_upper for x in ['PEDREIRO', 'BETONEIRA']):
                     ex['per'] = '12'
                 else:
                     ex['per'] = '60'
 
-    # 3. Kit Operacional (Cardiometabólico e Visual)
+    # 3. Sangue e Kit Operacional
     elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
         ex['adm'], ex['mro'] = True, True
-        ex['rt'], ex['dem'] = False, False # Padrão: não pede sangue na demissão
+        ex['rt'], ex['dem'] = False, False 
         
-        # Exceção: Hemograma para químicos pesados tem validade menor e exige demissional
-        cargos_quimicos = ['PINTOR', 'IMPERMEABILIZADOR', 'IMPERMEABILIZAÇÃO']
-        if nome in ['Hemograma', 'Hemograma Completo'] and any(c in cargo_upper for c in cargos_quimicos):
+        # Exceção: Hemograma para químicos tem validade menor e exige demissional
+        if nome in ['Hemograma', 'Hemograma Completo'] and (tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR'])):
             ex['per'] = '6'
             ex['dem'] = True
         elif not ex.get('per'): 
             ex['per'] = '12'
             
-    # 4. Sangue e Urina Tóxicos (Restrições NR-7)
+    # 4. Sangue e Urina Tóxicos (Restrições NR-7) - Mantendo a blindagem de 6 meses
     elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
                   'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
                   'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
                   'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
-        # Tóxicos não se aplicam a essas 4 flags
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = False, False, False, False
-        
-        # ADICIONE ESTA LINHA: Garante que qualquer IBE tenha 6 meses por padrão legal
-        if not ex.get('per'): ex['per'] = '6'
+        if not ex.get('per'): ex['per'] = '6' 
 
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
