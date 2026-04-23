@@ -21,7 +21,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '5.2'
+VERSAO_MODULO_PCMSO = '6.0 (Universal)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -51,7 +51,7 @@ _INVALIDOS_GHE_REGEX = [
 ]
 
 _PALAVRAS_CANTEIRO = [
-    'OBRA', 'CANTEIRO', 'CONSTRUCAO', 'REFORMA', 'HOSPITAL', 'RESIDENCIAL',
+    'OBRA', 'CANTEIRO', 'CONSTRUCAO', 'REFORMA', 'RESIDENCIAL',
     'EDIFICIO', 'BLOCO', 'TORRE', 'HETRIN', 'VIADUTO', 'PONTE', 'SHOPPING',
     'CONDOMINIO', 'EMPREENDIMENTO', 'MONTAGEM', 'INSTALACAO', 'CAMPO',
 ]
@@ -59,7 +59,7 @@ _PALAVRAS_CANTEIRO = [
 _PALAVRAS_ESCRITORIO = [
     'ESCRITORIO', 'SEDE', 'CORPORATIVO', 'ADMINISTRACAO', 'MARKETING',
     'TECNOLOGIA DA INFORMACAO', 'RECURSOS HUMANOS', 'FINANCEIRO',
-    'CONTABILIDADE', 'JURIDICO', 'COMERCIAL',
+    'CONTABILIDADE', 'JURIDICO', 'COMERCIAL', 'SAUDE', 'CLINICA', 'AMBULATORIO',
 ]
 
 _RISCOS_CANTEIRO = [
@@ -95,10 +95,7 @@ _MAPA_AGENTES = {
     'ESGOTO': 'ESGOTO', 'EFLUENTE': 'ESGOTO', 'MOTORISTA': 'MOTORISTA',
 }
 
-_RE_GHE = re.compile(
-    r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)',
-    re.IGNORECASE,
-)
+_RE_GHE = re.compile(r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)', re.IGNORECASE)
 _RE_TIPO_RISCO = re.compile(r'^[FQBEA]$')
 _RE_CABECALHO_AIHA = re.compile(r'matriz de risco aiha|tipo de risco|identificacao de perigo|codigo e.?social|avaliacao de risco|meio de propagacao|nivel de risco|pouca importancia|probabilidade|efeito', re.IGNORECASE)
 _RE_DESCRICAO_FUNCAO = re.compile(r'supervisiona|elabora documentacao|controla recursos|cronograma da obra|executa atividades|responsavel por|realiza tarefas|desenvolve|presta servicos', re.IGNORECASE)
@@ -126,7 +123,6 @@ _EXAME_ALIAS = {
     'GLICEMIA EM JEJUM': 'Glicemia em Jejum',
     'HEMOGRAMA COMPLETO': 'Hemograma',
     'HEMOGRAMA': 'Hemograma',
-    'HEMOGRAMA COMPLETO UREIA CREATININA': 'Hemograma',
     'RAIO X DE TORAX OIT': 'RX de Tórax OIT',
     'RX DE TORAX OIT': 'RX de Tórax OIT',
     'RAIO X COLUNA LOMBO SACRA': 'RX de coluna lombo-sacra',
@@ -153,89 +149,9 @@ _EXAME_ALIAS = {
     'AVALIACAO PSICOSSOCIAL': 'Avaliação Psicossocial',
     'ORTOCRESOL NA URINA': 'Ortocresol na urina',
     'AC METIL HIPURICO NA URINA': 'Ác. Metil-hipúrico na urina',
-    'ACIDO METIL HIPURICO NA URINA': 'Ác. Metil-hipúrico na urina',
     'ESPIROMETRIA': 'Espirometria',
+    'ANTI HBS HBSAG ANTI HCV': 'Anti-HBs + HBsAg + Anti-HCV',
 }
-
-_BASE_MINIMO = ['Exame Clinico', 'Audiometria', 'Espirometria', 'RX de Tórax OIT']
-_BASE_COMPLETO = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Espirometria', 'RX de Tórax OIT']
-_BASE_GRUA = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG']
-_BASE_PORTARIA = ['Exame Clinico', 'Acuidade Visual']
-
-_GHE_BASE = {
-    '01': _BASE_MINIMO, '02': _BASE_COMPLETO, '03': _BASE_COMPLETO, '04': _BASE_COMPLETO,
-    '05': _BASE_MINIMO, '06': _BASE_COMPLETO, '07': _BASE_COMPLETO, '08': _BASE_COMPLETO,
-    '09': _BASE_COMPLETO, '10': _BASE_COMPLETO, '11': _BASE_COMPLETO, '12': _BASE_COMPLETO,
-    '13': _BASE_COMPLETO, '14': _BASE_MINIMO, '15': _BASE_COMPLETO, '16': _BASE_COMPLETO,
-    '17': _BASE_GRUA, '18': _BASE_COMPLETO, '19': _BASE_COMPLETO, '20': _BASE_COMPLETO,
-    '21': ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Glicemia em Jejum', 'ECG', 'Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Carboxiemoglobina', 'Avaliação Psicossocial', 'Espirometria', 'RX de Tórax OIT'],
-    '22': _BASE_COMPLETO,
-    '23': ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Glicemia em Jejum', 'ECG', 'Espirometria', 'RX de Tórax OIT'],
-    '24': _BASE_PORTARIA,
-    '25': ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Glicemia em Jejum', 'ECG', 'Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Metiletilcetona na urina', 'Ác. Metil-hipúrico na urina', 'Espirometria', 'RX de Tórax OIT'],
-    '26': ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Glicemia em Jejum', 'ECG', 'Hemograma', 'Ácido trans-trans mucônico', 'Contagem de Reticulócitos', 'Ortocresol na urina', 'Metil-Etil-Cetona', 'Acetona na urina', 'Ác. Metil-hipúrico na urina', 'Espirometria', 'RX de Tórax OIT'],
-    '27': _BASE_COMPLETO, '28': _BASE_COMPLETO,
-}
-
-_GHE_PERIODICIDADES = {
-    '01': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '02': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '03': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '04': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '05': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '06': {'Exame Clinico': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES', 'Ácido tricloroacético na urina': '6 MESES'},
-    '07': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '08': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '09': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '10': {'Exame Clinico': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES', 'Acetona na urina': '6 MESES', 'Metil-Etil-Cetona': '6 MESES', 'Ciclohexanol na urina': '6 MESES', 'Tetrahidrofurnano na urina': '6 MESES'},
-    '11': {'Exame Clinico': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES', 'Ácido tricloroacético na urina': '6 MESES'},
-    '12': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '13': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '14': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '15': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '16': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '17': {},
-    '18': {'Exame Clinico': '6 MESES', 'Manganês sanguíneo': '6 MESES', 'Carboxiemoglobina': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '19': {'Exame Clinico': '6 MESES', 'Acetona na urina': '6 MESES', 'Metil-Etil-Cetona': '6 MESES', 'Ciclohexanol na urina': '6 MESES', 'Tetrahidrofurnano na urina': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '20': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '21': {'Exame Clinico': '6 MESES', 'Hemograma': '6 MESES', 'Contagem de Reticulócitos': '6 MESES', 'Ácido trans-trans mucônico': '6 MESES', 'Carboxiemoglobina': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '22': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '23': {'Exame Clinico': '6 MESES', 'Hemograma': '6 MESES', 'Contagem de Reticulócitos': '6 MESES', 'Ácido trans-trans mucônico': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '24': {},
-    '25': {'Exame Clinico': '6 MESES', 'Hemograma': '6 MESES', 'Contagem de Reticulócitos': '6 MESES', 'Ácido trans-trans mucônico': '6 MESES', 'Ortocresol na urina': '6 MESES', 'Metiletilcetona na urina': '6 MESES', 'Ác. Metil-hipúrico na urina': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '26': {'Exame Clinico': '6 MESES', 'Hemograma': '6 MESES', 'Ácido trans-trans mucônico': '6 MESES', 'Contagem de Reticulócitos': '6 MESES', 'Ortocresol na urina': '6 MESES', 'Metil-Etil-Cetona': '6 MESES', 'Acetona na urina': '6 MESES', 'Ác. Metil-hipúrico na urina': '6 MESES', 'Espirometria': '24 MESES', 'RX de Tórax OIT': '60 MESES'},
-    '27': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-    '28': {'Espirometria': '24 MESES', 'RX de Tórax OIT': '12 MESES'},
-}
-
-_GHE_EXTRAS = {
-    '06': ['Ácido tricloroacético na urina'], 
-    '07': ['RX de coluna lombo-sacra'],
-    '10': ['Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina'],
-    '11': ['Ácido tricloroacético na urina'], 
-    '18': ['Manganês sanguíneo', 'Carboxiemoglobina'],
-    '19': ['Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina'],
-    '21': ['Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Carboxiemoglobina', 'Avaliação Psicossocial'],
-    '23': ['Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico'],
-    '25': ['Hemograma', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Metiletilcetona na urina', 'Ác. Metil-hipúrico na urina'],
-    '26': ['Hemograma', 'Ácido trans-trans mucônico', 'Contagem de Reticulócitos', 'Ortocresol na urina', 'Metil-Etil-Cetona', 'Acetona na urina', 'Ác. Metil-hipúrico na urina'],
-}
-
-_GHE_RESTRICOES = {
-    '01': {'Exame Clinico', 'Audiometria', 'Espirometria', 'RX de Tórax OIT'},
-    '05': {'Exame Clinico', 'Audiometria', 'Espirometria', 'RX de Tórax OIT'},
-    '07': {'Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Espirometria', 'RX de Tórax OIT', 'RX de coluna lombo-sacra'},
-    '17': {'Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG'},
-    '24': {'Exame Clinico', 'Acuidade Visual'},
-}
-
-_RISCOS_TRIVIAIS_OBRIGATORIOS = {
-    '10': {'SERVENTE': ['Éter monobutílico de etilenoglicol']},
-    '19': {'ENCANADOR': ['Éter monobutílico de etilenoglicol'], 'MEIO OFICIAL DE ENCANADOR': ['Éter monobutílico de etilenoglicol'], 'SERVENTE': ['Éter monobutílico de etilenoglicol']},
-    '23': {'PINTOR': ['Tolueno', 'Acetona', 'Acetato de etilglicol', 'Xileno']},
-    '25': {'PINTOR': ['Acetona', 'Octoato de Cobalto'], 'SERVENTE': ['Acetona', 'Octoato de Cobalto']},
-}
-
 
 def _sem_acentos(texto):
     return unicodedata.normalize('NFKD', str(texto)).encode('ascii', 'ignore').decode('ascii')
@@ -284,12 +200,6 @@ def _ghe_valido(nome_ghe):
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
 
-def _fallback_necessario(ghes):
-    for g in ghes:
-        if len(normalizar_texto(g['ghe'])) <= 90 and g['cargos']:
-            return False
-    return True
-
 def _fmt_per(per):
     if per is None or per is False:
         return '-'
@@ -315,31 +225,9 @@ def _ghe_e_canteiro_misto(nome_ghe, riscos):
     texto_r = ' '.join(normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos)
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
 
-def _is_nome_funcao_aiha(linha):
-    lstrip = linha.strip()
-    lu = normalizar_texto(lstrip)
-    if not lstrip or len(lstrip) > 60:
-        return False
-    if _RE_CABECALHO_AIHA.search(lu) or _RE_DESCRICAO_FUNCAO.search(lu) or _RE_TIPO_RISCO.match(lstrip):
-        return False
-    if lstrip.startswith('-') or re.match(r'^\d{2}\.\d{2}\.\d{3}$', lstrip):
-        return False
-    if len(lstrip.split()) < 2:
-        return False
-    return any(p in lu for p in _PALAVRAS_CARGO_AIHA)
-
 def extrair_texto_pdf(uploaded_file):
     texto = []
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
-        for p in pdf.pages:
-            t = p.extract_text()
-            if t:
-                texto.append(t)
-    return '\n'.join(texto)
-
-def extrair_texto_pdf_path(caminho):
-    texto = []
-    with pdfplumber.open(caminho) as pdf:
         for p in pdf.pages:
             t = p.extract_text()
             if t:
@@ -351,8 +239,7 @@ def extrair_pgr_local(texto):
     ghes, ghe_atual, agentes_set = [], None, set()
     for linha in linhas:
         lc = linha.strip()
-        if not lc:
-            continue
+        if not lc: continue
         lu = normalizar_texto(lc)
         if _is_linha_ghe(lc) and len(lc) < 120 and len(lc.strip()) >= 4 and not lc.strip().endswith('.'):
             if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
@@ -361,8 +248,7 @@ def extrair_pgr_local(texto):
             ghe_atual = {'ghe': nome_ghe_limpo, 'cargos': [], 'riscos_mapeados': []}
             agentes_set = set()
             continue
-        if ghe_atual is None:
-            continue
+        if ghe_atual is None: continue
         if not any(normalizar_texto(exc) in lu for exc in PALAVRAS_EXCLUIR_CARGO):
             for cargo in MAPA_CARGOS_CONHECIDOS:
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual['cargos']:
@@ -375,67 +261,6 @@ def extrair_pgr_local(texto):
     if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
         ghes.append(ghe_atual)
     return _deduplicar_ghes(ghes)
-
-def extrair_pgr_matriz_aiha(texto):
-    linhas = texto.split('\n')
-    ghes = []
-    funcao_atual = None
-    tipo_risco_atual = None
-    agentes_set = set()
-    i = 0
-    while i < len(linhas):
-        lc = linhas[i].strip()
-        lu = normalizar_texto(lc)
-        if not lc or _RE_CABECALHO_AIHA.search(lu):
-            i += 1
-            continue
-        if _RE_TIPO_RISCO.match(lc):
-            tipo_risco_atual = lc.strip()
-            i += 1
-            continue
-        if lc.startswith('-') and funcao_atual is not None and tipo_risco_atual:
-            agente_texto = lc.lstrip('- ').split('(')[0].split('\u2013')[0].split('–')[0].strip()[:120]
-            agente_norm = normalizar_texto(agente_texto)
-            chave_risco = None
-            for palavra, chave in _MAPA_AGENTES.items():
-                if normalizar_texto(palavra) in agente_norm:
-                    chave_risco = chave
-                    break
-            if not chave_risco:
-                chave_risco = agente_texto[:80]
-            if chave_risco not in agentes_set:
-                agentes_set.add(chave_risco)
-                funcao_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200], 'tipo_risco': _MAPA_TIPO_RISCO.get(tipo_risco_atual, tipo_risco_atual)})
-            i += 1
-            continue
-        if _is_nome_funcao_aiha(lc):
-            nome_completo = lc
-            if i + 1 < len(linhas):
-                proxima = linhas[i + 1].strip()
-                if proxima and len(proxima) <= 40 and not _RE_CABECALHO_AIHA.search(normalizar_texto(proxima)) and not _RE_TIPO_RISCO.match(proxima) and not proxima.startswith('-') and not re.match(r'^\d{2}\.\d{2}\.\d{3}$', proxima) and not _RE_DESCRICAO_FUNCAO.search(normalizar_texto(proxima)):
-                    nome_completo = f'{lc} {proxima}'
-                    i += 1
-            if funcao_atual and (funcao_atual['cargos'] or funcao_atual['riscos_mapeados']):
-                ghes.append(funcao_atual)
-            funcao_atual = {'ghe': nome_completo, 'cargos': [nome_completo], 'riscos_mapeados': []}
-            agentes_set = set()
-            tipo_risco_atual = None
-            i += 1
-            continue
-        i += 1
-    if funcao_atual and (funcao_atual['cargos'] or funcao_atual['riscos_mapeados']):
-        ghes.append(funcao_atual)
-    return ghes
-
-def _detectar_formato_pgr(texto):
-    norm = normalizar_texto(texto)
-    tem_aiha = 'MATRIZ DE RISCO AIHA' in norm
-    tem_ghe = bool(re.search(r'GHE\s*[\d:\-]', texto, re.IGNORECASE))
-    if tem_aiha and tem_ghe:
-        return 'misto'
-    if tem_aiha:
-        return 'aiha'
-    return 'ghe'
 
 def _deduplicar_ghes(ghes):
     vistos, resultado = {}, []
@@ -459,27 +284,8 @@ def _deduplicar_ghes(ghes):
     return resultado
 
 def extrair_pgr_com_fallback(texto_pgr, chave_api=None):
-    formato = _detectar_formato_pgr(texto_pgr)
-    if formato == 'aiha':
-        resultado = extrair_pgr_matriz_aiha(texto_pgr)
-        return (resultado, 'aiha') if resultado else ([], 'parcial')
-    if formato == 'misto':
-        local = extrair_pgr_local(texto_pgr)
-        aiha = extrair_pgr_matriz_aiha(texto_pgr)
-        nomes_local = {x['ghe'] for x in local}
-        merged = local + [g for g in aiha if g['ghe'] not in nomes_local]
-        return (merged, 'misto') if merged else ([], 'parcial')
     local = extrair_pgr_local(texto_pgr)
-    if not _fallback_necessario(local):
-        return local, 'local'
-    if chave_api:
-        try:
-            from utils.ia_client import extrair_pgr_via_ia
-            ia = extrair_pgr_via_ia(texto_pgr, chave_api)
-            return (ia, 'ia') if ia else (local or [], 'parcial')
-        except Exception as e:
-            print(f'[WARN] Falha IA: {e}')
-    return (local or [], 'parcial')
+    return local, 'local'
 
 def _novo_exame(exame, adm=True, per=None, mro=True, rt=False, dem=False, obs='', motivo=''):
     return {'exame': _nome_oficial_exame(exame), 'adm': adm, 'per': per, 'mro': mro, 'rt': rt, 'dem': dem, 'obs': obs, 'motivo': motivo}
@@ -489,79 +295,52 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
     cargo_n = _norm(cargo_upper)
     return alvo == cargo_n or alvo in cargo_n or cargo_n in alvo
 
-def _forcar_regras_exame(ex, cod_ghe):
+def _forcar_regras_universais(ex, cargo_norm):
+    """
+    As regras universais (NR-7) garantem as flags corretas independentemente do GHE.
+    """
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
 
-    # Default Base Exams Flags (Canteiro)
-    if nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
-        ex['adm'] = True
-        ex['mro'] = True
-        ex['rt'] = True
-        ex['dem'] = True
+    # 1. Base mínima
+    if nome == 'Exame Clinico':
+        ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
+        ex['per'] = ex.get('per') or '12 MESES'
 
-    if nome == 'Audiometria':
-        ex['per'] = '12 MESES'
-        if cod_ghe == '17':  # Regra especifica Grua
+    # 2. Exames Pulmonares e Auditivos Básicos
+    elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
+        ex['adm'], ex['mro'] = True, True
+        ex['rt'] = ex.get('rt', True)
+        ex['dem'] = ex.get('dem', True)
+        if not ex.get('per'):
+            if nome == 'Audiometria': ex['per'] = '12 MESES'
+            elif nome == 'Espirometria': ex['per'] = '24 MESES'
+            elif nome == 'RX de Tórax OIT': ex['per'] = '12 MESES'
+
+    # 3. Sangue e Urina Específicos (NR-7)
+    elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
+                  'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
+                  'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
+                  'Ác. Metil-hipúrico na urina'}:
+        ex['adm'] = ex.get('adm', False) # Mantém se vier explícito
+        ex['mro'] = ex.get('mro', True) if ex.get('mro') is not False else False
+        ex['dem'] = ex.get('dem', False)
+        ex['rt'] = False
+
+    elif nome == 'Manganês sanguíneo':
+        ex['adm'], ex['mro'], ex['dem'], ex['rt'] = True, True, False, False
+
+    # Regras e Exceções Específicas de Cargo
+    if cargo_norm in ['OPERADOR DE GRUA', 'GRUEIRO']:
+        if nome == 'Audiometria':
             ex['per'] = None
             ex['rt'] = False
             ex['dem'] = False
-            
-    if nome == 'Espirometria':
-        ex['per'] = '24 MESES'
-
-    if nome == 'RX de Tórax OIT':
-        ex['per'] = '12 MESES'
-
-    if nome == 'Acuidade Visual':
-        ex['dem'] = False
-
-    if nome == 'RX de coluna lombo-sacra':
-        ex['adm'] = True
-        ex['per'] = None
-        ex['mro'] = True
-        ex['rt'] = False
-        ex['dem'] = False
-
-    if nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina'}:
-        ex['adm'] = ex.get('adm', False)
-        ex['mro'] = ex.get('mro', False)
-        ex['dem'] = ex.get('dem', False)
-
-    if nome == 'Hemograma' and cod_ghe in ('21', '23', '25', '26'):
-        ex['dem'] = True
-
-    if nome == 'Manganês sanguíneo':
-        ex['adm'] = True
-        ex['mro'] = True
-        ex['dem'] = False
-
-    if nome == 'Exame Clinico':
-        ex['adm'] = True if ex.get('adm') is None else ex.get('adm', True)
-        ex['mro'] = True if ex.get('mro') is None else ex.get('mro', True)
-        ex['rt'] = True
-        ex['dem'] = True if ex.get('dem') is None else ex.get('dem', True)
-        ex['per'] = _GHE_PERIODICIDADES.get(cod_ghe, {}).get('Exame Clinico', ex.get('per') or '12 MESES')
-    else:
-        ex['rt'] = ex.get('rt', False) 
-
-    per_regra = _GHE_PERIODICIDADES.get(cod_ghe, {}).get(nome)
-    if per_regra:
-        ex['per'] = per_regra
 
     return ex
 
-def _adicionar_base_por_ghe(exames, cod_ghe):
-    for nome in _GHE_BASE.get(cod_ghe, _BASE_COMPLETO):
-        adicionar_exame_dedup(exames, _forcar_regras_exame(_novo_exame(nome, motivo=f'Base GHE {cod_ghe}'), cod_ghe))
-    for nome in _GHE_EXTRAS.get(cod_ghe, []):
-        adicionar_exame_dedup(exames, _forcar_regras_exame(_novo_exame(nome, motivo=f'Extra GHE {cod_ghe}'), cod_ghe))
-
-def _riscos_triviais_para_cargo(cod_ghe, cargo):
-    return _RISCOS_TRIVIAIS_OBRIGATORIOS.get(cod_ghe, {}).get(_norm(cargo), [])
-
-def _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe):
+def _aplicar_funcao_matriz(exames, cargo_norm):
     for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
         if _match_funcao_matriz(cargo_norm, funcao):
             for ex in lista_ex:
@@ -573,11 +352,11 @@ def _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe):
                     rt=ex.get('rt', False),
                     dem=ex.get('dem', False),
                     obs=ex.get('obs', ''),
-                    motivo=f'Função: {funcao.title()}',
+                    motivo=f'Matriz de Função: {funcao.title()}',
                 )
-                adicionar_exame_dedup(exames, _forcar_regras_exame(exame, cod_ghe))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
 
-def _aplicar_riscos_matriz(exames, riscos, cod_ghe):
+def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     bio_real = tem_risco_biologico_real(riscos)
     for risco in riscos:
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
@@ -589,18 +368,12 @@ def _aplicar_riscos_matriz(exames, riscos, cod_ghe):
         exame = _novo_exame(
             regra['exame'], adm=regra.get('adm', True), per=regra.get('per'), mro=regra.get('mro', True),
             rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
-            motivo=f"Exposição: {chave_r.title()} — {regra.get('obs', '')}",
+            motivo=f"Risco Mapeado: {chave_r.title()}",
         )
-        adicionar_exame_dedup(exames, _forcar_regras_exame(exame, cod_ghe))
-
-def _filtrar_por_restricao_ghe(exames, cod_ghe):
-    permitidos = _GHE_RESTRICOES.get(cod_ghe)
-    if not permitidos:
-        return exames
-    return {k: v for k, v in exames.items() if _nome_oficial_exame(v.get('exame', '')) in permitidos}
+        adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
 
 def _ordenar_exames(rows):
-    ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
+    ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Anti-HBs + HBsAg + Anti-HCV', 'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
     peso = {nome: i for i, nome in enumerate(ordem)}
     return sorted(rows, key=lambda r: (peso.get(_nome_oficial_exame(r['Exame']), 999), _norm(r['Exame'])))
 
@@ -610,15 +383,13 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get('ghe', 'Sem GHE')
         nome_ghe = _limpar_nome_ghe(str(nome_ghe_raw))
-        cod_ghe = _ghe_codigo(nome_ghe)
-        
-        # REMOVIDOS OS CORTES LIMITADORES QUE OCULTAVAM OS CARGOS
         cargos = ghe.get('cargos') or []
         riscos = ghe.get('riscos_mapeados') or []
 
         if not _ghe_valido(nome_ghe):
             continue
 
+        # Ambiente é analisado dinamicamente para aplicar Kit Canteiro
         if tipo_ambiente == 'canteiro':
             e_canteiro = True
         elif tipo_ambiente == 'escritorio':
@@ -630,60 +401,28 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             cargo_norm = normalizar_cargo(cargo)
             exames = {}
 
-            chave_v2 = mapear_chave_mestra(cargo)
-            regras_v2 = _BANCO_MATRIZES_V2.get(chave_v2, {}).get('exames', [])
+            # 1. Base: Todo mundo ganha o Clínico Universal
+            clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
+            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm))
 
-            if regras_v2:
-                for ex in regras_v2:
-                    novo = _novo_exame(
-                        ex['nome'],
-                        adm=ex.get('adm', True),
-                        per=f"{ex['per']} MESES" if ex.get('per') else None,
-                        mro=ex.get('mro', True),
-                        rt=ex.get('ret', False),
-                        dem=ex.get('dem', False),
-                        motivo=f"Banco V2: {chave_v2}",
-                    )
-                    adicionar_exame_dedup(exames, _forcar_regras_exame(novo, cod_ghe))
-            else:
-                adicionar_exame_dedup(
-                    exames,
-                    _forcar_regras_exame(
-                        _novo_exame(
-                            'Exame Clinico',
-                            adm=True,
-                            per='12 MESES',
-                            mro=True,
-                            rt=True,
-                            dem=True,
-                            motivo='NR-07 Básico',
-                        ),
-                        cod_ghe,
-                    ),
-                )
+            # 2. Se for ambiente de Obra/Canteiro, injeta pacote básico (ignora os administrativos)
+            e_cargo_adm = any(adm in cargo_norm for adm in ['ADMINISTRATIVO', 'RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR'])
+            
+            if e_canteiro and not e_cargo_adm:
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm))
 
-                if cod_ghe:
-                    _adicionar_base_por_ghe(exames, cod_ghe)
-                elif not e_canteiro:
-                    _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
+            # 3. Cruzamento Dinâmico com a Matriz de Função
+            _aplicar_funcao_matriz(exames, cargo_norm)
 
-                _aplicar_funcao_matriz(exames, cargo_norm, cod_ghe)
+            # 4. Cruzamento Dinâmico com os Riscos Mapeados (Garante os biológicos, químicos, etc)
+            _aplicar_riscos_matriz(exames, riscos, cargo_norm)
 
-                riscos_expand = list(riscos)
-                for risco_trivial in _riscos_triviais_para_cargo(cod_ghe, cargo_norm):
-                    riscos_expand.append({
-                        'nome_agente': risco_trivial,
-                        'perigo_especifico': 'Risco trivial obrigatório PDF referência'
-                    })
-
-                _aplicar_riscos_matriz(exames, riscos_expand, cod_ghe)
-                exames = _filtrar_por_restricao_ghe(exames, cod_ghe)
-
+            # Preparar as linhas finais
             rows_cargo = []
             for ex_info in exames.values():
                 nome_exame = _nome_oficial_exame(ex_info.get('exame', ''))
-                
-                # CORREÇÃO BUG DAS FLAGS! ESTAVA DESTRUINDO A FLAG RT E DEM
                 rt = bool(ex_info.get('rt', False))
                 dem = bool(ex_info.get('dem', False))
 
@@ -704,8 +443,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     return pd.DataFrame(linhas)
 
 def gerar_html_pcmso(df, cabecalho=None):
-    if not cabecalho:
-        cabecalho = {}
+    if not cabecalho: cabecalho = {}
     razao = cabecalho.get('razao_social', 'Empresa não informada')
     cnpj = cabecalho.get('cnpj', '---')
     obra = cabecalho.get('obra', '---')
@@ -743,8 +481,7 @@ def gerar_docx_rq61(df, cabecalho=None):
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt, RGBColor
-    if not cabecalho:
-        cabecalho = {}
+    if not cabecalho: cabecalho = {}
     razao = cabecalho.get('razao_social', 'Empresa não informada')
     obra = cabecalho.get('obra', '---')
     medico = cabecalho.get('medico_rt', 'Não informado')
