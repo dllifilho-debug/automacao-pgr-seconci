@@ -275,11 +275,10 @@ MATRIZ_FUNCAO_EXAME = {
         {"exame": "Carboxihemoglobina no Sangue", "adm": True, "per": "6 MESES",  "mro": True,  "rt": False, "dem": False, "obs": "CO — solda/policorte"},
     ],
     "PINTOR": [
-        {"exame": "Ácido Trans-Trans Mucônico na Urina", "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False, "obs": "Tinta — benzeno/solventes"},
-        {"exame": "Contagem de Reticulócitos",    "adm": True, "per": "6 MESES",  "mro": True,  "rt": False, "dem": False, "obs": "Exposto benzeno/combustíveis"},
-        {"exame": "Ortocresol na Urina",          "adm": True, "per": "6 MESES",  "mro": True,  "rt": False, "dem": False, "obs": "Tolueno — tintas"},
-        {"exame": "EPF (Coproparasitológico) + Anti-HBs", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "GHE 13 Supervisão — biológico"},
-        {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Risco psicossocial — altura/supervisão"},
+    {"exame": "Ácido Trans-Trans Mucônico na Urina", "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False, "obs": "Tinta — benzeno/solventes"},
+    {"exame": "Contagem de Reticulócitos",           "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False, "obs": "Exposto benzeno/combustíveis"},
+    {"exame": "Ortocresol na Urina",                 "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False, "obs": "Tolueno — tintas"},
+    {"exame": "Avaliação Psicossocial (NR-35)",      "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Risco psicossocial — altura/supervisão"},
     ],
     "IMPERMEABILIZADOR": [
         {"exame": "Ácido Trans-Trans Mucônico na Urina", "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False, "obs": "Benzeno — impermeabilizante"},
@@ -296,8 +295,7 @@ MATRIZ_FUNCAO_EXAME = {
         {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Supervisor — NR-35"},
     ],
     "ELETRICISTA": [
-        {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Eletricista — risco altura/eletricidade"},
-        {"exame": "EPF (Coproparasitológico) + Anti-HBs", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "GHE 13 — supervisão"},
+    {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Eletricista — risco altura/eletricidade"},
     ],
     "ELETRICISTA INDUSTRIAL": [
         {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Eletricista industrial — NR-35"},
@@ -337,8 +335,9 @@ MATRIZ_FUNCAO_EXAME = {
         {"exame": "Glicemia de Jejum", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Motorista/op. máq. pesadas"},
         {"exame": "Eletrocardiograma (ECG)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Motorista/op. máq. pesadas"},
     ],
-    "ENCANADOR": [
-        {"exame": "EPF (Coproparasitológico) + Anti-HBs", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Encanador — risco biológico/esgoto"},
-        {"exame": "Avaliação Psicossocial (NR-35)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Risco altura/confinado"},
+  "ENCANADOR": [
+    {"exame": "Acetona na urina",           "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+    {"exame": "Metil-Etil-Cetona",          "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+    {"exame": "Ciclohexanol na urina",      "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+    {"exame": "Tetrahidrofurnano na urina", "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
     ],
-}
