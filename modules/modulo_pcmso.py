@@ -582,7 +582,7 @@ def _aplicar_riscos_matriz(exames, riscos, cod_ghe):
         if not regra:
             continue
         exame = _novo_exame(
-            regra['exame'], adm=regra.get('adm', True), per=regra.get('periodico'), mro=regra.get('mro', True),
+            regra['exame'], adm=regra.get('adm', True), per=regra.get('per'), mro=regra.get('mro', True),
             rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
             motivo=f"Exposição: {chave_r.title()} — {regra.get('obs', '')}",
         )
