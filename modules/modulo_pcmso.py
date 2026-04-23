@@ -304,7 +304,7 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
 
 def _forcar_regras_universais(ex, cargo_norm):
     """
-    As regras universais (NR-7) garantem as flags corretas independentemente do GHE.
+    As regras universais garantem as flags e periodicidades corretas da NR-7.
     """
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
@@ -313,27 +313,26 @@ def _forcar_regras_universais(ex, cargo_norm):
     # 1. Base mínima
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        ex['per'] = ex.get('per') or '12 MESES'
+        if not ex.get('per'): ex['per'] = '12 MESES'
 
     # 2. Exames Pulmonares e Auditivos Básicos
     elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
-        ex['adm'], ex['mro'] = True, True
-        ex['rt'] = ex.get('rt', True)
-        ex['dem'] = ex.get('dem', True)
+        # Forçando o DEM=True que estava quebrando na auditoria
+        ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
+        
         if not ex.get('per'):
             if nome == 'Audiometria': ex['per'] = '12 MESES'
             elif nome == 'Espirometria': ex['per'] = '24 MESES'
-            elif nome == 'RX de Tórax OIT': ex['per'] = '12 MESES'
+            elif nome == 'RX de Tórax OIT': ex['per'] = '60 MESES' # Ajustado para o padrão de 60 meses
 
-    # 3. Sangue e Urina Específicos (NR-7)
+    # 3. Sangue e Urina Específicos Químicos (Restrições NR-7)
     elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
                   'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
                   'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
-                  'Ác. Metil-hipúrico na urina'}:
-        ex['adm'] = ex.get('adm', False) # Mantém se vier explícito
-        ex['mro'] = ex.get('mro', True) if ex.get('mro') is not False else False
-        ex['dem'] = ex.get('dem', False)
-        ex['rt'] = False
+                  'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
+        # Tóxicos nunca são admissionais, mudança de risco ou retorno
+        ex['adm'], ex['mro'], ex['rt'] = False, False, False
+        ex['dem'] = False # Geralmente avaliado periodicamente
 
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['dem'], ex['rt'] = True, True, False, False
