@@ -215,7 +215,7 @@ MATRIZ_RISCO_EXAME = {
 
     # ── BIOLÓGICO ─────────────────────────────────────────────────────────────
     "AGENTE BIOLOGICO": {
-        "exame": "Anti-HBs + HBsAg",
+        "exame": "Anti-HBs + HBsAg + Anti-HCV",
         "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Trabalhadores da saúde / risco biológico.",
     },
