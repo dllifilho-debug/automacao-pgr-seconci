@@ -335,9 +335,10 @@ MATRIZ_FUNCAO_EXAME = {
         {"exame": "Glicemia de Jejum", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Motorista/op. máq. pesadas"},
         {"exame": "Eletrocardiograma (ECG)", "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False, "obs": "Motorista/op. máq. pesadas"},
     ],
-  "ENCANADOR": [
-    {"exame": "Acetona na urina",           "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
-    {"exame": "Metil-Etil-Cetona",          "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
-    {"exame": "Ciclohexanol na urina",      "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
-    {"exame": "Tetrahidrofurnano na urina", "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+ "ENCANADOR": [
+        {"exame": "Acetona na urina",            "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+        {"exame": "Metil-Etil-Cetona",          "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+        {"exame": "Ciclohexanol na urina",      "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
+        {"exame": "Tetrahidrofurnano na urina", "adm": False, "per": "6 MESES", "mro": False, "rt": False, "dem": False, "obs": "Cetonaster — risco solvente encanador"},
     ],
+}
