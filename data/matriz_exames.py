@@ -25,231 +25,231 @@ MATRIZ_RISCO_EXAME = {
     # ── FÍSICOS ───────────────────────────────────────────────────────────────
     "RUIDO": {
         "exame": "Audiometria Tonal (PTA)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": True, "dem": True,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": True,
         "obs": "NR-7 Anexo I — Ruído. Demissional se último exame > 120 dias.",
     },
     "VIBRACAO CORPO INTEIRO": {
         "exame": "Raio-X Coluna Lombo-Sacra",
-        "adm": True, "periodico": None, "mro": False, "rt": False, "dem": False,
+        "adm": True, "per": None, "mro": False, "rt": False, "dem": False,
         "obs": "Vibração de corpo inteiro — avaliação radiológica admissional.",
     },
     "VIBRACAO": {
         "exame": "Avaliação Psicossocial (NR-35)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Vibração — risco psicossocial associado ao trabalho em altura/maquinário.",
     },
 
     # ── QUÍMICOS — Benzeno e derivados ───────────────────────────────────────
     "BENZENO": {
         "exame": "Ácido Trans-Trans Mucônico na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": True, "dem": True,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": True, "dem": True,
         "obs": "NR-7 Anexo II — Benzeno. Inclui hemograma e reticulócitos.",
     },
     "TOLUENO": {
         "exame": "Ortocresol na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Tolueno (solvente orgânico).",
     },
     "XILENO": {
         "exame": "Ác. Metil-Hipúrico na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Xileno.",
     },
     "ACETONA": {
         "exame": "Acetona na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Acetona / 2-Propanol.",
     },
     "METIL-ETIL-CETONA": {
         "exame": "Metil-Etil-Cetona (MEK) na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Metil-Etil-Cetona.",
     },
     "TETRAHIDROFURANO": {
         "exame": "Tetrahidrofurnano na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Tetrahidrofurano.",
     },
     "DICLOROMETANO": {
         "exame": "Diclorometano na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Diclorometano.",
     },
     "TRICLOROETILENO": {
         "exame": "Ác. Tricloroacético na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Tricloroetileno.",
     },
     "ESTIRENO": {
         "exame": "Soma dos Ácidos Mandélico e Fenilglioxílico na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Estireno.",
     },
     "N-HEXANO": {
         "exame": "2,5 Hexanodiona na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — N-Hexano.",
     },
     "FENOL": {
         "exame": "Fenol na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Fenol.",
     },
     "MERCURIO": {
         "exame": "Mercúrio na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Mercúrio metálico.",
     },
     "METANOL": {
         "exame": "Metanol na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Metanol.",
     },
     "CICLOHEXANONA": {
         "exame": "Ciclohexanol (H) na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Ciclohexanona.",
     },
 
     # ── QUÍMICOS — Metais ─────────────────────────────────────────────────────
     "CHUMBO": {
         "exame": "Chumbo no Sangue + ALA-U",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": True, "dem": True,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": True, "dem": True,
         "obs": "NR-7 Anexo II — Chumbo. Reaproveitável no DEM se < 6 meses.",
     },
     "MANGANES": {
         "exame": "Manganês no Sangue",
-        "adm": True, "periodico": "6 MESES", "mro": False, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": False, "rt": False, "dem": False,
         "obs": "Eletrodo de solda que libera manganês.",
     },
     "CROMO": {
         "exame": "Cromo na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Cromo hexavalente (compostos solúveis).",
     },
     "CADMIO": {
         "exame": "Cádmio na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": True, "dem": True,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": True, "dem": True,
         "obs": "NR-7 Anexo II — Cádmio. Reaproveitável no DEM se < 6 meses.",
     },
     "ARSENICO": {
         "exame": "Arsênio Inorgânico + Metabólitos Metilados na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Arsênico elementar e compostos inorgânicos.",
     },
     "COBALTO": {
         "exame": "Cobalto na Urina",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "NR-7 — Cobalto e compostos inorgânicos.",
     },
     "FLUOR": {
         "exame": "Fluoreto Urinário",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": True, "dem": True,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": True, "dem": True,
         "obs": "NR-7 — Flúor e fluoretos inorgânicos.",
     },
 
     # ── FÍSICO-QUÍMICO — Fumos / Solda / Combustão ───────────────────────────
     "SOLDA": {
         "exame": "Carboxihemoglobina no Sangue",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Policorte / Solda — CO liberado.",
     },
     "MONOXIDO DE CARBONO": {
         "exame": "Carboxihemoglobina no Sangue",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Monóxido de Carbono.",
     },
     "POLICORTE": {
         "exame": "Carboxihemoglobina no Sangue",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Policorte — CO liberado.",
     },
     "COMBUSTIVEL": {
         "exame": "Hemograma Completo",
-        "adm": True, "periodico": "6 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "6 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Exposto a combustíveis / benzeno / radiação ionizante.",
     },
 
     # ── FÍSICO — Poeiras / Fibras / Pulmão ───────────────────────────────────
     "SILICA": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Sílica / Quartzo / Poeira mineral — NR-7.",
     },
     "POEIRA MINERAL": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Poeira mineral / sílica / carvão.",
     },
     "CIMENTO": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Cimento / betoneira / azulejista — NR-7.",
     },
     "ASBESTO": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Asbesto / Amianto.",
     },
     "FUMOS METALICOS": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "60 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "60 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "PNOS — Fumos metálicos / poeira metálica.",
     },
     "MADEIRA": {
         "exame": "Raio-X de Tórax OIT",
-        "adm": True, "periodico": "60 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "60 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "PNOS — Poeira de madeira.",
     },
     "TINTA": {
         "exame": "Espirometria (somente)",
-        "adm": True, "periodico": "24 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "24 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Névoas/neblinas/tintas/colas — agressor pulmonar.",
     },
     "IMPERMEABILIZACAO": {
         "exame": "Espirometria (somente)",
-        "adm": True, "periodico": "24 MESES", "mro": True, "rt": True, "dem": False,
+        "adm": True, "per": "24 MESES", "mro": True, "rt": True, "dem": False,
         "obs": "Impermeabilização — agressor pulmonar.",
     },
     "MASCARA RESPIRATORIA": {
         "exame": "Espirometria",
-        "adm": True, "periodico": "24 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Uso de máscara de proteção respiratória sem risco químico específico no PGR.",
     },
 
     # ── RISCO DE ACIDENTE — Altura / Confinado / Eletricidade ────────────────
     "QUEDA DE ALTURA": {
         "exame": "Avaliação Psicossocial (NR-35)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Trabalho em altura — NR-35 obrigatória.",
     },
     "ESPACO CONFINADO": {
         "exame": "Avaliação Psicossocial (NR-35)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Espaço confinado — NR-33 obrigatória.",
     },
     "RISCO ELETRICO": {
         "exame": "Acuidade Visual (Avaliação Oftalmológica)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Eletricidade — NR-10.",
     },
 
     # ── BIOLÓGICO ─────────────────────────────────────────────────────────────
     "AGENTE BIOLOGICO": {
         "exame": "Anti-HBs + HBsAg",
-        "adm": True, "periodico": "24 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "24 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Trabalhadores da saúde / risco biológico.",
     },
     "ESGOTO": {
         "exame": "EPF (Coproparasitológico) + Anti-HBs",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Contato com esgoto / efluentes.",
     },
 
     # ── MOTORISTA / OPERADOR DE MÁQUINAS PESADAS ──────────────────────────────
     "MOTORISTA": {
         "exame": "Acuidade Visual (Avaliação Oftalmológica)",
-        "adm": True, "periodico": "12 MESES", "mro": True, "rt": False, "dem": False,
+        "adm": True, "per": "12 MESES", "mro": True, "rt": False, "dem": False,
         "obs": "Motorista veículos leves.",
     },
 }
