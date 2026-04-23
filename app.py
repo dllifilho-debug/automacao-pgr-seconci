@@ -343,10 +343,20 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.json(g)
 
         # ── Geração do PCMSO ───────────────────────────────────────────────────
+        # ── INTEGRAÇÃO FISPQ (A Mágica) ────────────────────────────────────────
+        resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
+        if resultados_fispq:
+            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados na memória! Injetando no PGR...")
+            dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
+        else:
+            dados_ghe_enriquecido = dados_ghe
+
+        # ── Geração do PCMSO ───────────────────────────────────────────────────
         tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
         with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
             try:
-                df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
+                # Mudamos a variável aqui para passar os dados enriquecidos com a FISPQ
+                df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
             except Exception as e:
                 st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
