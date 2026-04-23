@@ -19,6 +19,7 @@ from config.db import (
 from modules.modulo_pcmso import (
     extrair_texto_pdf,
     extrair_pgr_com_fallback,
+    enriquecer_pgr_com_fispq,  # <--- ADICIONE ESTA LINHA AQUI
     processar_pcmso,
     gerar_html_pcmso,
     gerar_docx_rq61,
