@@ -312,10 +312,16 @@ def _forcar_regras_universais(ex, cargo_norm):
     
     cargo_upper = cargo_norm.upper()
 
-    # 1. Base mínima (O único obrigatório no Retorno ao Trabalho)
+   # 1. Base mínima e Regra de 6 Meses para Químicos/Fumos
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        if not ex.get('per'): ex['per'] = '12'
+        
+        # Se for função exposta a químicos fortes/fumos, a validade cai para 6 meses
+        cargos_quimicos = ['PINTOR', 'ENCANADOR', 'ELETRICISTA', 'MECÂNICO', 'MECANICO', 'MONTADOR', 'SERRALHEIRO', 'IMPERMEABILIZADOR']
+        if any(c in cargo_upper for c in cargos_quimicos):
+            ex['per'] = '6'
+        elif not ex.get('per'): 
+            ex['per'] = '12'
 
     # 2. Exames Pulmonares e Auditivos
     elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
@@ -335,9 +341,16 @@ def _forcar_regras_universais(ex, cargo_norm):
     # 3. Kit Operacional (Cardiometabólico e Visual)
     elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
         ex['adm'], ex['mro'] = True, True
-        ex['rt'], ex['dem'] = False, False # Não se pede sangue/ECG na demissão
-        if not ex.get('per'): ex['per'] = '12'
-
+        ex['rt'], ex['dem'] = False, False # Padrão: não pede sangue na demissão
+        
+        # Exceção: Hemograma para expostos a químicos pesados tem validade menor e exige demissional
+        cargos_quimicos = ['PINTOR', 'ENCANADOR', 'ELETRICISTA', 'MECÂNICO', 'MECANICO', 'MONTADOR', 'SERRALHEIRO', 'IMPERMEABILIZADOR']
+        if nome in ['Hemograma', 'Hemograma Completo'] and any(c in cargo_upper for c in cargos_quimicos):
+            ex['per'] = '6'
+            ex['dem'] = True
+        elif not ex.get('per'): 
+            ex['per'] = '12'
+            
     # 4. Sangue e Urina Tóxicos (Restrições NR-7)
     elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
                   'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
