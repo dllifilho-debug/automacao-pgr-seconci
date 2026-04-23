@@ -356,7 +356,11 @@ def _forcar_regras_universais(ex, cargo_norm):
                   'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
                   'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
                   'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
+        # Tóxicos não se aplicam a essas 4 flags
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = False, False, False, False
+        
+        # ADICIONE ESTA LINHA: Garante que qualquer IBE tenha 6 meses por padrão legal
+        if not ex.get('per'): ex['per'] = '6'
 
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
