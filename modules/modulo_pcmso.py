@@ -266,19 +266,23 @@ def extrair_pgr_local(texto):
     return _deduplicar_ghes(ghes)
 
 def _deduplicar_ghes(ghes):
-    vistos, resultado = {}, []
+    vistos = {}
+    resultado = []
     for ghe in ghes:
-        chave = frozenset(ghe.get('cargos', []))
-        if not chave:
+        nome_ghe = ghe.get('ghe', '').strip().upper()
+        if not nome_ghe:
             resultado.append(ghe)
             continue
-        if chave not in vistos:
-            vistos[chave] = len(resultado)
+            
+        if nome_ghe not in vistos:
+            vistos[nome_ghe] = len(resultado)
             resultado.append(ghe)
         else:
-            idx = vistos[chave]
-            if len(ghe['ghe']) < len(resultado[idx]['ghe']):
-                resultado[idx]['ghe'] = ghe['ghe']
+            idx = vistos[nome_ghe]
+            for c in ghe.get('cargos', []):
+                if c not in resultado[idx]['cargos']:
+                    resultado[idx]['cargos'].append(c)
+            
             riscos_existentes = {r['nome_agente'] for r in resultado[idx]['riscos_mapeados']}
             for r in ghe.get('riscos_mapeados', []):
                 if r['nome_agente'] not in riscos_existentes:
