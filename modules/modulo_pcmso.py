@@ -405,20 +405,30 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     bio_real = tem_risco_biologico_real(riscos)
     for risco in riscos:
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
+        cas_r = str(risco.get('cas', '')).strip() # NOVO: Lê o CAS que veio da FISPQ
         
         # ====================================================================
-        # GATILHOS DE IBE (NR-07) - INTEGRIDADE QUÍMICA
-        # Agentes com CAS diferentes que exigem o mesmo exame
+        # NOVO MOTOR CAS-DRIVEN: Aciona exames com base no número exato!
         # ====================================================================
-        if chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
-            exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07: {chave_r}")
+        
+        # Tricloroetileno (79-01-6) e 1,1,1-Tricloroetano (71-55-6)
+        if cas_r in ['79-01-6', '71-55-6'] or chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
+            exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
-            continue # Já resolvemos o exame, pula para o próximo risco
+            continue 
             
-        elif chave_r in ['N-HEXANO', 'HEXANO']:
-            exame = _novo_exame('2,5 Hexanodiona na Urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07: {chave_r}")
+        # n-Hexano (110-54-3)
+        elif cas_r == '110-54-3' or chave_r in ['N-HEXANO', 'HEXANO']:
+            exame = _novo_exame('2,5 Hexanodiona na Urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
+            
+        # Tolueno (108-88-3)
+        elif cas_r == '108-88-3' or chave_r == 'TOLUENO':
+            exame = _novo_exame('Ortocresol na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
+            adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
+            continue
+            
         # ====================================================================
 
         if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
