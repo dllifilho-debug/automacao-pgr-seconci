@@ -461,7 +461,7 @@ def enriquecer_pgr_com_fispq(dados_pgr, resultados_medicos_fispq):
             
             # Se o GHE da FISPQ bater com o GHE do PGR
             if nome_ghe_fispq in nome_ghe_pgr or nome_ghe_pgr in nome_ghe_fispq:
-                agentes_para_injetar.append(item_fispq.get('Agente Quimico', ''))
+                agentes_para_injetar.append(item_fispq)
         
         # Injeta os riscos no GHE do PGR
         riscos_existentes = {normalizar_texto(r['nome_agente']) for r in ghe_pgr.get('riscos_mapeados', [])}
