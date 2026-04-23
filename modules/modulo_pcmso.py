@@ -411,17 +411,23 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
             adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm))
 
-            # 2. Se for ambiente de Obra/Canteiro, injeta pacote básico (ignora os administrativos)
-            # Dentro da função processar_pcmso:
+           # 2. Se for ambiente de Obra/Canteiro, injeta pacote básico (ignora administrativos puros)
             e_cargo_adm = any(adm in cargo_norm for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO'])
             
             if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
                 e_cargo_adm = True
             
             if e_canteiro and not e_cargo_adm:
+                # Kit Básico Respiratório / Auditivo
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm))
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm))
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm))
+                
+                # NOVO: Kit Operacional Canteiro (Altura / Esforço Físico)
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Base Operacional'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Base Operacional'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Base Operacional'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Base Operacional'), cargo_norm))
 
             # 3. Cruzamento Dinâmico com a Matriz de Função
             _aplicar_funcao_matriz(exames, cargo_norm)
