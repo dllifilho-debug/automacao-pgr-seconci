@@ -102,6 +102,11 @@ _MAPA_AGENTES = {
     'N-HEXANO': 'N-HEXANO',
     'TOLUENO': 'TOLUENO',
     'XILENO': 'XILENO',
+    # MANTENHA A INTEGRIDADE QUÍMICA
+    'TRICLOROETILENO': 'TRICLOROETILENO',
+    'TRICLOROETENO': 'TRICLOROETILENO', # Tricloroeteno é sinônimo direto de Tricloroetileno
+    'TRICLOROETANO': '1,1,1-TRICLOROETANO',
+    'METILETILCETONA': 'METIL-ETIL-CETONA',
 }
 
 _RE_GHE = re.compile(r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)', re.IGNORECASE)
