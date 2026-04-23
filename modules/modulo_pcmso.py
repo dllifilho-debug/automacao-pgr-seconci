@@ -413,7 +413,11 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm))
 
             # 2. Se for ambiente de Obra/Canteiro, injeta pacote básico (ignora os administrativos)
-            e_cargo_adm = any(adm in cargo_norm for adm in ['ADMINISTRATIVO', 'RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR'])
+            # Dentro da função processar_pcmso:
+            e_cargo_adm = any(adm in cargo_norm for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO'])
+            
+            if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
+                e_cargo_adm = True
             
             if e_canteiro and not e_cargo_adm:
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm))
