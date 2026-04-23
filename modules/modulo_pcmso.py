@@ -304,41 +304,52 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
 
 def _forcar_regras_universais(ex, cargo_norm):
     """
-    As regras universais garantem as flags e periodicidades corretas da NR-7.
+    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci.
     """
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
+    
+    cargo_upper = cargo_norm.upper()
 
-    # 1. Base mínima
+    # 1. Base mínima (O único obrigatório no Retorno ao Trabalho)
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        if not ex.get('per'): ex['per'] = '12 MESES'
+        if not ex.get('per'): ex['per'] = '12'
 
-    # 2. Exames Pulmonares e Auditivos Básicos
+    # 2. Exames Pulmonares e Auditivos
     elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
-        # Forçando o DEM=True que estava quebrando na auditoria
-        ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
+        ex['adm'], ex['mro'], ex['dem'] = True, True, True
+        ex['rt'] = False  # Correção: Retorno ao trabalho é False para complementares
         
         if not ex.get('per'):
-            if nome == 'Audiometria': ex['per'] = '12 MESES'
-            elif nome == 'Espirometria': ex['per'] = '24 MESES'
-            elif nome == 'RX de Tórax OIT': ex['per'] = '60 MESES' # Ajustado para o padrão de 60 meses
+            if nome == 'Audiometria': ex['per'] = '12'
+            elif nome == 'Espirometria': ex['per'] = '24'
+            elif nome == 'RX de Tórax OIT':
+                # Regra Inteligente: Poeira pesada = 12 meses. Restante = 60 meses.
+                if any(x in cargo_upper for x in ['PEDREIRO', 'SERVENTE', 'BETONEIRA']):
+                    ex['per'] = '12'
+                else:
+                    ex['per'] = '60'
 
-    # 3. Sangue e Urina Específicos Químicos (Restrições NR-7)
+    # 3. Kit Operacional (Cardiometabólico e Visual)
+    elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
+        ex['adm'], ex['mro'] = True, True
+        ex['rt'], ex['dem'] = False, False # Não se pede sangue/ECG na demissão
+        if not ex.get('per'): ex['per'] = '12'
+
+    # 4. Sangue e Urina Tóxicos (Restrições NR-7)
     elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
                   'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
                   'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
                   'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
-        # Tóxicos nunca são admissionais, mudança de risco ou retorno
-        ex['adm'], ex['mro'], ex['rt'] = False, False, False
-        ex['dem'] = False # Geralmente avaliado periodicamente
+        ex['adm'], ex['mro'], ex['rt'], ex['dem'] = False, False, False, False
 
     elif nome == 'Manganês sanguíneo':
-        ex['adm'], ex['mro'], ex['dem'], ex['rt'] = True, True, False, False
+        ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
 
-    # Regras e Exceções Específicas de Cargo
-    if cargo_norm in ['OPERADOR DE GRUA', 'GRUEIRO']:
+    # 5. Exceções de Cargo
+    if cargo_upper in ['OPERADOR DE GRUA', 'GRUEIRO']:
         if nome == 'Audiometria':
             ex['per'] = None
             ex['rt'] = False
