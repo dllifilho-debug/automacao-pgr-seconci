@@ -405,11 +405,29 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     bio_real = tem_risco_biologico_real(riscos)
     for risco in riscos:
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
+        
+        # ====================================================================
+        # GATILHOS DE IBE (NR-07) - INTEGRIDADE QUÍMICA
+        # Agentes com CAS diferentes que exigem o mesmo exame
+        # ====================================================================
+        if chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
+            exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07: {chave_r}")
+            adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
+            continue # Já resolvemos o exame, pula para o próximo risco
+            
+        elif chave_r in ['N-HEXANO', 'HEXANO']:
+            exame = _novo_exame('2,5 Hexanodiona na Urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07: {chave_r}")
+            adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
+            continue
+        # ====================================================================
+
         if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
             continue
+            
         regra = MATRIZ_RISCO_EXAME.get(chave_r)
         if not regra:
             continue
+            
         exame = _novo_exame(
             regra['exame'], adm=regra.get('adm', True), per=regra.get('per'), mro=regra.get('mro', True),
             rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
