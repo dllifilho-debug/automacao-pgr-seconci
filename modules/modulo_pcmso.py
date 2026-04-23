@@ -604,6 +604,7 @@ def _ordenar_exames(rows):
 
 def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     linhas = []
+
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get('ghe', 'Sem GHE')
         nome_ghe = _limpar_nome_ghe(str(nome_ghe_raw))
@@ -626,17 +627,17 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             exames = {}
 
             chave_v2 = mapear_chave_mestra(cargo)
-            regras_v2 = _BANCO_MATRIZES_V2.get(chave_v2, {}).get("exames", [])
+            regras_v2 = _BANCO_MATRIZES_V2.get(chave_v2, {}).get('exames', [])
 
             if regras_v2:
                 for ex in regras_v2:
                     novo = _novo_exame(
-                        ex["nome"],
-                        adm=ex.get("adm", True),
-                        per=f'{ex["per"]} MESES' if ex.get("per") else None,
-                        mro=ex.get("mro", True),
-                        rt=ex.get("ret", False),
-                        dem=ex.get("dem", False),
+                        ex['nome'],
+                        adm=ex.get('adm', True),
+                        per=f"{ex['per']} MESES" if ex.get('per') else None,
+                        mro=ex.get('mro', True),
+                        rt=ex.get('ret', False),
+                        dem=ex.get('dem', False),
                         motivo=f"Banco V2: {chave_v2}",
                     )
                     adicionar_exame_dedup(exames, _forcar_regras_exame(novo, cod_ghe))
@@ -644,10 +645,19 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                 adicionar_exame_dedup(
                     exames,
                     _forcar_regras_exame(
-                        _novo_exame('Exame Clinico', adm=True, per='12 MESES', mro=True, rt=True, dem=True, motivo='NR-07 Básico'),
+                        _novo_exame(
+                            'Exame Clinico',
+                            adm=True,
+                            per='12 MESES',
+                            mro=True,
+                            rt=True,
+                            dem=True,
+                            motivo='NR-07 Básico',
+                        ),
                         cod_ghe,
                     ),
                 )
+
                 if cod_ghe:
                     _adicionar_base_por_ghe(exames, cod_ghe)
                 elif not e_canteiro:
@@ -659,7 +669,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                 for risco_trivial in _riscos_triviais_para_cargo(cod_ghe, cargo_norm):
                     riscos_expand.append({
                         'nome_agente': risco_trivial,
-                        'perigo_especifico': 'Risco trivial obrigatório PDF referência',
+                        'perigo_especifico': 'Risco trivial obrigatório PDF referência'
                     })
 
                 _aplicar_riscos_matriz(exames, riscos_expand, cod_ghe)
@@ -669,6 +679,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             for ex_info in exames.values():
                 nome_exame = _nome_oficial_exame(ex_info.get('exame', ''))
                 rt = bool(ex_info.get('rt', False)) if nome_exame == 'Exame Clinico' else False
+
                 rows_cargo.append({
                     'GHE / Setor': nome_ghe,
                     'Cargo': cargo,
