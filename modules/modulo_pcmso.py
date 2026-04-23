@@ -466,13 +466,17 @@ def enriquecer_pgr_com_fispq(dados_pgr, resultados_medicos_fispq):
         # Injeta os riscos no GHE do PGR
         riscos_existentes = {normalizar_texto(r['nome_agente']) for r in ghe_pgr.get('riscos_mapeados', [])}
         
-        for agente in agentes_para_injetar:
+        # Modificamos a captura para pegar o dicionário inteiro do Módulo de Engenharia
+        for item in agentes_para_injetar:
+            agente = item.get('Agente Quimico', '')
+            cas = item.get('N CAS', '') # <--- AGORA ESTAMOS PEGANDO O CAS!
             agente_norm = normalizar_texto(agente)
-            # Verifica se o agente já não existe para não duplicar exames
+            
             if agente_norm not in riscos_existentes:
                 ghe_pgr['riscos_mapeados'].append({
                     'nome_agente': agente, 
-                    'perigo_especifico': 'Agente Químico detectado automaticamente pelo Módulo FISPQ'
+                    'cas': cas, # <--- INJETAMOS O CAS DENTRO DO PGR
+                    'perigo_especifico': f'Mapeado via FISPQ (CAS: {cas})'
                 })
                 riscos_existentes.add(agente_norm)
                 
