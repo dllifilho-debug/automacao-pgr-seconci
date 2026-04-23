@@ -312,12 +312,12 @@ def _forcar_regras_universais(ex, cargo_norm):
     
     cargo_upper = cargo_norm.upper()
 
-   # 1. Base mínima e Regra de 6 Meses para Químicos/Fumos
+  # 1. Base mínima e Regra de 6 Meses para Químicos Pesados
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
         
-        # Se for função exposta a químicos fortes/fumos, a validade cai para 6 meses
-        cargos_quimicos = ['PINTOR', 'ENCANADOR', 'ELETRICISTA', 'MECÂNICO', 'MECANICO', 'MONTADOR', 'SERRALHEIRO', 'IMPERMEABILIZADOR']
+        # Reduzimos a lista estritamente para as funções de química pesada da construção
+        cargos_quimicos = ['PINTOR', 'IMPERMEABILIZADOR', 'IMPERMEABILIZAÇÃO']
         if any(c in cargo_upper for c in cargos_quimicos):
             ex['per'] = '6'
         elif not ex.get('per'): 
@@ -343,8 +343,8 @@ def _forcar_regras_universais(ex, cargo_norm):
         ex['adm'], ex['mro'] = True, True
         ex['rt'], ex['dem'] = False, False # Padrão: não pede sangue na demissão
         
-        # Exceção: Hemograma para expostos a químicos pesados tem validade menor e exige demissional
-        cargos_quimicos = ['PINTOR', 'ENCANADOR', 'ELETRICISTA', 'MECÂNICO', 'MECANICO', 'MONTADOR', 'SERRALHEIRO', 'IMPERMEABILIZADOR']
+        # Exceção: Hemograma para químicos pesados tem validade menor e exige demissional
+        cargos_quimicos = ['PINTOR', 'IMPERMEABILIZADOR', 'IMPERMEABILIZAÇÃO']
         if nome in ['Hemograma', 'Hemograma Completo'] and any(c in cargo_upper for c in cargos_quimicos):
             ex['per'] = '6'
             ex['dem'] = True
