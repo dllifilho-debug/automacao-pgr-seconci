@@ -411,6 +411,44 @@ def _ordenar_exames(rows):
     peso = {nome: i for i, nome in enumerate(ordem)}
     return sorted(rows, key=lambda r: (peso.get(_nome_oficial_exame(r['Exame']), 999), _norm(r['Exame'])))
 
+# =====================================================================
+# 1. COLE A FUNÇÃO NOVA AQUI (ACIMA DO PROCESSAR_PCMSO)
+# =====================================================================
+def enriquecer_pgr_com_fispq(dados_pgr, resultados_medicos_fispq):
+    """
+    Cruza os GHEs do PGR com os agentes químicos descobertos pelo Módulo de FISPQ
+    e injeta os riscos químicos ocultos para gerar os exames de sangue/urina.
+    """
+    if not resultados_medicos_fispq:
+        return dados_pgr
+        
+    for ghe_pgr in dados_pgr:
+        nome_ghe_pgr = normalizar_texto(ghe_pgr.get('ghe', ''))
+        
+        # Procura os agentes da FISPQ que foram mapeados para este GHE
+        agentes_para_injetar = []
+        for item_fispq in resultados_medicos_fispq:
+            nome_ghe_fispq = normalizar_texto(item_fispq.get('GHE', ''))
+            
+            # Se o GHE da FISPQ bater com o GHE do PGR
+            if nome_ghe_fispq in nome_ghe_pgr or nome_ghe_pgr in nome_ghe_fispq:
+                agentes_para_injetar.append(item_fispq.get('Agente Quimico', ''))
+        
+        # Injeta os riscos no GHE do PGR
+        riscos_existentes = {normalizar_texto(r['nome_agente']) for r in ghe_pgr.get('riscos_mapeados', [])}
+        
+        for agente in agentes_para_injetar:
+            agente_norm = normalizar_texto(agente)
+            # Verifica se o agente já não existe para não duplicar exames
+            if agente_norm not in riscos_existentes:
+                ghe_pgr['riscos_mapeados'].append({
+                    'nome_agente': agente, 
+                    'perigo_especifico': 'Agente Químico detectado automaticamente pelo Módulo FISPQ'
+                })
+                riscos_existentes.add(agente_norm)
+                
+    return dados_pgr
+
 def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     linhas = []
 
