@@ -361,10 +361,10 @@ elif modulo == "Medicina: PGR - PCMSO":
         # ── Auditoria automática ───────────────────────────────────────────────
         if base_sel and banco_matrizes:
             try:
-                from modules.modulo_auditor_v1_1 import auditar_pcmso, formatar_relatorio_auditoria
+                from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
 
                 # ✅ Converte DataFrame → dict no formato esperado pelo auditor
-                dados_para_auditoria = df_pcmso_para_dict(df_pcmso)
+                dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
 
                 with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
                     resultado_auditoria = auditar_pcmso(
