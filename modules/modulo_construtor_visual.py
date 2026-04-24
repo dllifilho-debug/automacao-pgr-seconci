@@ -66,7 +66,7 @@ _CARGOS_LISTA = sorted(set(MAPA_CARGOS_CONHECIDOS))
 # ── Helpers de estado ─────────────────────────────────────────────────────────
 def _init_state():
     if "cv_ghes" not in st.session_state:
-        st.session_state["cv_ghes"] = []  # lista de dicts {ghe, cargos, riscos_mapeados}
+        st.session_state["cv_ghes"] = []
     if "cv_ghe_editando" not in st.session_state:
         st.session_state["cv_ghe_editando"] = None
 
@@ -93,7 +93,6 @@ def render_construtor_visual():
         "e gere o PCMSO ao final."
     )
 
-    # ── Painel esquerdo: lista de GHEs ────────────────────────────────────────
     col_lista, col_editor = st.columns([1, 2])
 
     with col_lista:
@@ -138,14 +137,13 @@ def render_construtor_visual():
                 st.session_state["cv_ghe_editando"] = nome
                 st.rerun()
 
-        # Importar GHEs de sessão anterior (PCMSO já processado)
         st.markdown("---")
         st.markdown("#### 📥 Importar GHEs do PGR")
         st.caption("Se você já processou um PGR nesta sessão, pode importar os GHEs aqui.")
         if st.button("Importar da sessão atual", key="cv_btn_importar", use_container_width=True):
             dados_sessao = st.session_state.get("dados_ghe_processados", [])
             if not dados_sessao:
-                st.warning("Nenhum PGR processado nesta sessão. Processe um PDF no módulo Medicina primeiro.")
+                st.warning("Nenhum PGR processado nesta sessão.")
             else:
                 importados = 0
                 for g in dados_sessao:
@@ -160,7 +158,6 @@ def render_construtor_visual():
                 st.success(f"{importados} GHE(s) importado(s) com sucesso!")
                 st.rerun()
 
-    # ── Painel direito: editor do GHE selecionado ─────────────────────────────
     with col_editor:
         ghe_nome_editando = st.session_state.get("cv_ghe_editando")
         idx = _indice_ghe(ghe_nome_editando) if ghe_nome_editando else None
@@ -174,25 +171,19 @@ def render_construtor_visual():
 
             tab_cargos, tab_riscos, tab_resumo = st.tabs(["👷 Cargos", "⚠️ Riscos", "📊 Resumo"])
 
-            # ── Tab Cargos ────────────────────────────────────────────────────
             with tab_cargos:
                 st.markdown("**Cargos atribuídos a este GHE:**")
-
-                # Remove cargo
                 for ci, cargo in enumerate(list(ghe["cargos"])):
                     c1, c2 = st.columns([4, 1])
                     c1.markdown(f"• {cargo}")
                     if c2.button("❌", key=f"rm_cargo_{idx}_{ci}", help="Remover"):
                         ghe["cargos"].remove(cargo)
                         st.rerun()
-
                 if not ghe["cargos"]:
                     st.caption("Nenhum cargo adicionado.")
-
                 st.markdown("---")
                 st.markdown("**Adicionar cargo:**")
                 c_sel, c_outro = st.columns([2, 2])
-
                 with c_sel:
                     cargo_sel = st.selectbox(
                         "Selecionar da lista",
@@ -206,7 +197,6 @@ def render_construtor_visual():
                                 st.rerun()
                             else:
                                 st.warning("Cargo já adicionado.")
-
                 with c_outro:
                     cargo_livre = st.text_input(
                         "Ou digitar cargo personalizado",
@@ -222,15 +212,12 @@ def render_construtor_visual():
                             else:
                                 st.warning("Cargo já adicionado.")
 
-            # ── Tab Riscos ────────────────────────────────────────────────────
             with tab_riscos:
                 st.markdown("**Riscos mapeados neste GHE:**")
-
                 riscos_por_tipo: dict[str, list] = {}
                 for r in ghe["riscos_mapeados"]:
                     tipo = _MAPA_RISCO_TIPO.get(r["nome_agente"].upper(), "Outro")
                     riscos_por_tipo.setdefault(tipo, []).append(r)
-
                 for tipo, lista in riscos_por_tipo.items():
                     st.markdown(f"**{tipo}**")
                     for ri, risco in enumerate(list(lista)):
@@ -243,13 +230,10 @@ def render_construtor_visual():
                                 if r["nome_agente"] != risco["nome_agente"]
                             ]
                             st.rerun()
-
                 if not ghe["riscos_mapeados"]:
                     st.caption("Nenhum risco adicionado.")
-
                 st.markdown("---")
                 st.markdown("**Adicionar risco:**")
-
                 r_col1, r_col2 = st.columns([3, 1])
                 with r_col1:
                     tipo_filtro = st.selectbox(
@@ -267,7 +251,6 @@ def render_construtor_visual():
                         ["— selecione —"] + lista_filtrada,
                         key=f"cv_sel_risco_{idx}",
                     )
-
                 with r_col2:
                     st.markdown("&nbsp;", unsafe_allow_html=True)
                     st.markdown("&nbsp;", unsafe_allow_html=True)
@@ -277,13 +260,11 @@ def render_construtor_visual():
                             if risco_sel.upper() not in nomes_existentes:
                                 ghe["riscos_mapeados"].append({
                                     "nome_agente": risco_sel,
-                                    "perigo_especifico": f"Mapeado manualmente via Construtor Visual",
+                                    "perigo_especifico": "Mapeado manualmente via Construtor Visual",
                                 })
                                 st.rerun()
                             else:
                                 st.warning("Risco já adicionado.")
-
-                # Risco personalizado
                 st.markdown("**Ou adicionar risco personalizado:**")
                 risco_livre = st.text_input(
                     "Nome do agente",
@@ -303,7 +284,6 @@ def render_construtor_visual():
                         else:
                             st.warning("Agente já adicionado.")
 
-            # ── Tab Resumo ────────────────────────────────────────────────────
             with tab_resumo:
                 st.markdown(f"**GHE:** {ghe['ghe']}")
                 st.markdown(f"**Cargos ({len(ghe['cargos'])}):** {', '.join(ghe['cargos']) or '—'}")
@@ -329,7 +309,6 @@ def render_construtor_visual():
         "com cargos/riscos preenchidos serão processados."
     )
 
-    # Tipo de ambiente
     opcoes_amb = {
         "🏗️ Canteiro de Obras": "canteiro",
         "🏢 Escritório": "escritorio",
@@ -343,7 +322,6 @@ def render_construtor_visual():
     )
     tipo_amb = opcoes_amb[label_amb]
 
-    # Cabeçalho rápido
     with st.expander("📝 Cabeçalho do PCMSO (opcional)", expanded=False):
         cab_col1, cab_col2 = st.columns(2)
         with cab_col1:
@@ -362,7 +340,7 @@ def render_construtor_visual():
         key="cv_btn_gerar",
     ):
         if not ghes_validos:
-            st.error("Nenhum GHE tem cargos ou riscos preenchidos. Adicione ao menos um cargo ou risco.")
+            st.error("Nenhum GHE tem cargos ou riscos preenchidos.")
             return
 
         import traceback
@@ -371,13 +349,13 @@ def render_construtor_visual():
 
         cabecalho_cv = {
             "razao_social": st.session_state.get("cv_razao", ""),
-            "cnpj": st.session_state.get("cv_cnpj", ""),
-            "medico_rt": st.session_state.get("cv_medico", ""),
-            "obra": st.session_state.get("cv_obra", ""),
+            "cnpj":         st.session_state.get("cv_cnpj", ""),
+            "medico_rt":    st.session_state.get("cv_medico", ""),
+            "obra":         st.session_state.get("cv_obra", ""),
             "responsavel_tec": st.session_state.get("cv_tec", ""),
-            "crm": st.session_state.get("cv_crm", ""),
-            "vig_ini": date.today().strftime("%d/%m/%Y"),
-            "vig_fim": date.today().strftime("%d/%m/%Y"),
+            "crm":          st.session_state.get("cv_crm", ""),
+            "vig_ini":      date.today().strftime("%d/%m/%Y"),
+            "vig_fim":      date.today().strftime("%d/%m/%Y"),
         }
 
         with st.spinner("Processando PCMSO..."):
@@ -394,7 +372,6 @@ def render_construtor_visual():
 
         st.success(f"✅ PCMSO gerado com {len(df_cv)} linhas de exames.")
 
-        # Staging area — triagem médica
         st.markdown("#### 👩‍⚕️ Triagem Médica")
         df_cv_editado = st.data_editor(
             df_cv,
@@ -434,3 +411,12 @@ def render_construtor_visual():
 
             with st.expander("👁️ Preview", expanded=False):
                 components.html(html_cv, height=600, scrolling=True)
+
+            # ── Passo 4: botão XML eSocial ─────────────────────────────────────────
+            from modules.modulo_esocial_xml import render_botao_xml
+            render_botao_xml(
+                df_cv_editado,
+                cabecalho_cv,
+                dados_pgr=ghes_validos,
+                key_prefix="cv",
+            )

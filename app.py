@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.8 — Passo 3: Construtor Visual de GHEs integrado
+app.py v5.9 — Passo 4: Exportação XML eSocial S-2240
 """
 import json
 import os
@@ -139,7 +139,7 @@ else:
     st.sidebar.write("Nenhum projeto salvo ainda.")
 
 
-# ── Carrega banco de matrizes uma vez na inicialização ────────────────────────
+# ── Banco de matrizes ───────────────────────────────────────────────────────────
 banco_path = os.path.join("data", "banco_matrizes_v1_1.json")
 banco_matrizes = {}
 bases_disponiveis = []
@@ -181,7 +181,6 @@ def df_pcmso_para_dict(df) -> dict:
     col_mro   = next((c for c in df.columns if c.upper() == "MRO"), None)
     col_ret   = next((c for c in df.columns if c.upper() == "RET"), None)
     col_dem   = next((c for c in df.columns if c.upper() == "DEM"), None)
-
     for _, row in df.iterrows():
         ghe   = str(row[col_ghe]).strip()   if col_ghe   else ""
         cargo = str(row[col_cargo]).strip() if col_cargo else ""
@@ -199,7 +198,7 @@ def df_pcmso_para_dict(df) -> dict:
     return resultado
 
 
-# ── Roteamento de módulos ─────────────────────────────────────────────────────
+# ── Roteamento ──────────────────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
     components.html(historico_html, height=700, scrolling=True)
@@ -212,11 +211,10 @@ elif modulo == "Dashboard":
         total_cas = sb.table("dicionario_dinamico").select("cas", count="exact").execute().count or 0
     except Exception:
         total, total_cas = 0, 0
-
     c1, c2, c3 = st.columns(3)
     c1.metric("Laudos Gerados", total)
     c2.metric("CAS no Banco Dinamico", total_cas)
-    c3.metric("Modulos Ativos", 3)
+    c3.metric("Modulos Ativos", 4)
     st.info("Use o menu lateral para acessar os modulos.")
 
 elif modulo == "Engenharia: FISPQ / FDS - PGR":
@@ -245,18 +243,15 @@ elif modulo == "Medicina: PGR - PCMSO":
     with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
         col1, col2 = st.columns(2)
         cab = st.session_state.get("pcmso_cabecalho", {})
-
         with col1:
             razao_social = st.text_input("Razao Social da Empresa *",    value=cab.get("razao_social", ""))
             cnpj         = st.text_input("CNPJ *",                       value=cab.get("cnpj", ""))
             medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
-
         with col2:
             vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
             vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
             resp_tec = st.text_input("Tecnico SST Responsavel (opcional)", value=cab.get("responsavel_tec", ""))
             obra     = st.text_input("Obra / Unidade (opcional)",          value=cab.get("obra", ""))
-
         st.markdown("---")
         st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
         opcoes_amb = {
@@ -276,7 +271,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             horizontal=True,
         )
         tipo_ambiente = opcoes_amb[label_amb]
-
         st.markdown("---")
         if bases_disponiveis:
             st.caption(
@@ -285,7 +279,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             )
         else:
             st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
-
         st.session_state["pcmso_cabecalho"] = {
             "razao_social":    razao_social,
             "cnpj":            cnpj,
@@ -324,7 +317,6 @@ elif modulo == "Medicina: PGR - PCMSO":
         with st.spinner("Processando GHEs..."):
             dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
-        # Salva na sessão para o Construtor Visual poder importar
         st.session_state["dados_ghe_processados"] = dados_ghe
 
         if fonte == "local":
@@ -344,7 +336,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
         if resultados_fispq:
-            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados na memória! Injetando no PGR...")
+            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
             dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
         else:
             dados_ghe_enriquecido = dados_ghe
@@ -367,26 +359,19 @@ elif modulo == "Medicina: PGR - PCMSO":
         if base_sel and banco_matrizes:
             try:
                 from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
-
                 dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
-
                 with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
                     resultado_auditoria = auditar_pcmso(
-                        dados_para_auditoria,
-                        banco_matrizes,
-                        obra_id=base_sel,
+                        dados_para_auditoria, banco_matrizes, obra_id=base_sel,
                     )
                     relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
-
                 if resultado_auditoria.get("ok"):
                     st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
                 else:
                     n = resultado_auditoria["total_divergencias"]
                     st.warning(f"⚠️ Auditoria concluída — {n} divergência(s) detectada(s).")
-
                 with st.expander("📋 Relatório da Auditoria", expanded=True):
                     st.code(relatorio_txt, language="text")
-
             except Exception as e:
                 st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
@@ -395,7 +380,7 @@ elif modulo == "Medicina: PGR - PCMSO":
         st.markdown("### 👩‍⚕️ Triagem Médica (Revisão da Inteligência)")
         st.info(
             "Revise a matriz abaixo. Você pode clicar em qualquer célula para corrigir nomes, "
-            "alterar periodicidades (ex: de 12 para 60) e marcar/desmarcar as opções ADM/PER/DEM. "
+            "alterar periodicidades e marcar/desmarcar as opções ADM/PER/DEM. "
             "Você também pode **excluir linhas** ou **adicionar novos exames** diretamente na tabela."
         )
 
@@ -410,9 +395,7 @@ elif modulo == "Medicina: PGR - PCMSO":
         st.markdown("---")
 
         if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
-
             cabecalho_atual = st.session_state["pcmso_cabecalho"]
-
             with st.spinner("Consolidando correções e gerando laudos oficiais..."):
                 try:
                     html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
@@ -423,7 +406,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                     st.stop()
 
             nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
-
             st.markdown("### ⬇️ Documentos Prontos para Download")
             col_html, col_docx = st.columns(2)
             with col_html:
@@ -452,3 +434,12 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.success("Laudo aprovado e salvo no histórico com sucesso!")
             else:
                 st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
+
+            # ── Passo 4: botão XML eSocial ─────────────────────────────────────────
+            from modules.modulo_esocial_xml import render_botao_xml
+            render_botao_xml(
+                df_editado,
+                cabecalho_atual,
+                dados_pgr=st.session_state.get("dados_ghe_processados"),
+                key_prefix="med",
+            )
