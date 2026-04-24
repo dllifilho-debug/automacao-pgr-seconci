@@ -13,6 +13,7 @@ from data.matriz_exames import MATRIZ_FUNCAO_EXAME, MATRIZ_RISCO_EXAME
 from utils.cargo_utils import MAPA_CARGOS_CONHECIDOS, PALAVRAS_EXCLUIR_CARGO, normalizar_cargo, normalizar_texto, mapear_chave_mestra
 from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
+from utils.fuzzy_utils import normalizar_agente
 
 _BANCO_V2_PATH = os.path.join("data", "banco_matrizes_v2.json")
 try:
@@ -272,6 +273,16 @@ def extrair_pgr_local(texto):
             if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
                 agentes_set.add(chave_risco)
                 ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+        # Fuzzy matching: tenta normalizar palavras da linha que não bateram no _MAPA_AGENTES
+        for token in lu.split():
+            if len(token) < 3:
+                continue
+            nome_normalizado = normalizar_agente(token)
+            if nome_normalizado != token:
+                chave_risco = _MAPA_AGENTES.get(nome_normalizado.upper(), nome_normalizado.upper())
+                if chave_risco not in agentes_set:
+                    agentes_set.add(chave_risco)
+                    ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
     if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
         ghes.append(ghe_atual)
     return _deduplicar_ghes(ghes)
