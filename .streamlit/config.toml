@@ -1,8 +1,14 @@
 [theme]
-primaryColor="#084D22"
-backgroundColor="#FFFFFF"
-secondaryBackgroundColor="#F2F9F4"
-textColor="#1E1E1E"
-font="sans serif"
-USUARIO_SISTEMA = "diovanni"
-SENHA_SISTEMA = "seconci@2026"
+primaryColor = "#084D22"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F9F4"
+textColor = "#1E1E1E"
+font = "sans serif"
+
+[server]
+maxUploadSize = 50
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
