@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.7 — Staging Area (Triagem Médica) com st.data_editor
+app.py v5.8 — Passo 3: Construtor Visual de GHEs integrado
 """
 import json
 import os
@@ -106,7 +106,12 @@ st.sidebar.markdown("---")
 st.sidebar.title("Modulos do Sistema")
 modulo = st.sidebar.radio(
     "Selecione a funcionalidade:",
-    ["Dashboard", "Engenharia: FISPQ / FDS - PGR", "Medicina: PGR - PCMSO"],
+    [
+        "Dashboard",
+        "Engenharia: FISPQ / FDS - PGR",
+        "Medicina: PGR - PCMSO",
+        "Construtor Visual de GHEs",
+    ],
 )
 
 st.sidebar.markdown("---")
@@ -149,11 +154,6 @@ if os.path.exists(banco_path):
 
 
 def selecionar_base_automatica(nome_arquivo: str) -> str | None:
-    """
-    Casa o nome do PDF com uma chave de obras_referencia.
-    Ex: "Inventário Vistamérica R03.pdf" → "vistamerica_2025"
-    Fallback: retorna a primeira base disponível.
-    """
     if not bases_disponiveis:
         return None
     import unicodedata
@@ -172,10 +172,6 @@ def selecionar_base_automatica(nome_arquivo: str) -> str | None:
 
 
 def df_pcmso_para_dict(df) -> dict:
-    """
-    Converte o DataFrame do processar_pcmso() para o dict esperado por auditar_pcmso().
-    Formato de saída: {"GHE 01": {"Operador de Betoneira": [{nome, adm, per, mro, ret, dem}]}}
-    """
     resultado = {}
     col_ghe   = next((c for c in df.columns if c.upper() in ("GHE", "GHE_ID", "ID_GHE")), None)
     col_cargo = next((c for c in df.columns if c.upper() in ("CARGO", "FUNÇÃO", "FUNCAO", "CARGO_NOME")), None)
@@ -220,7 +216,7 @@ elif modulo == "Dashboard":
     c1, c2, c3 = st.columns(3)
     c1.metric("Laudos Gerados", total)
     c2.metric("CAS no Banco Dinamico", total_cas)
-    c3.metric("Modulos Ativos", 2)
+    c3.metric("Modulos Ativos", 3)
     st.info("Use o menu lateral para acessar os modulos.")
 
 elif modulo == "Engenharia: FISPQ / FDS - PGR":
@@ -229,6 +225,14 @@ elif modulo == "Engenharia: FISPQ / FDS - PGR":
         render_engenharia()
     except ImportError:
         st.warning("modulo_engenharia.py nao encontrado.")
+
+elif modulo == "Construtor Visual de GHEs":
+    try:
+        from modules.modulo_construtor_visual import render_construtor_visual
+        render_construtor_visual()
+    except Exception as e:
+        st.error(f"❌ Erro no Construtor Visual: {type(e).__name__}: {e}")
+        st.code(traceback.format_exc(), language="python")
 
 elif modulo == "Medicina: PGR - PCMSO":
     st.title("Modulo Medico: Importador de PGR e Gerador de PCMSO")
@@ -273,7 +277,6 @@ elif modulo == "Medicina: PGR - PCMSO":
         )
         tipo_ambiente = opcoes_amb[label_amb]
 
-        # ── Indicador de auditoria automática ─────────────────────────────────
         st.markdown("---")
         if bases_disponiveis:
             st.caption(
@@ -303,7 +306,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.error("Faca upload do PDF do PGR antes de continuar.")
             st.stop()
 
-        # ── Detecta base de auditoria automaticamente ─────────────────────────
         nome_pdf = st.session_state.get("nome_pdf_atual", "")
         base_sel = selecionar_base_automatica(nome_pdf)
         if base_sel:
@@ -311,7 +313,6 @@ elif modulo == "Medicina: PGR - PCMSO":
         else:
             st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
 
-        # ── Extração de texto ──────────────────────────────────────────────────
         with st.spinner("Extraindo texto do PDF..."):
             texto_pgr = extrair_texto_pdf(pdf_file)
         st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
@@ -320,9 +321,11 @@ elif modulo == "Medicina: PGR - PCMSO":
             for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
                 st.text(f"{i:3}: {linha}")
 
-        # ── Extração de GHEs ───────────────────────────────────────────────────
         with st.spinner("Processando GHEs..."):
             dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
+
+        # Salva na sessão para o Construtor Visual poder importar
+        st.session_state["dados_ghe_processados"] = dados_ghe
 
         if fonte == "local":
             st.success("Dados extraidos localmente — sem consumo de IA!")
@@ -339,7 +342,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             for g in dados_ghe[:3]:
                 st.json(g)
 
-        # ── Integração FISPQ ───────────────────────────────────────────────────
         resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
         if resultados_fispq:
             st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados na memória! Injetando no PGR...")
@@ -347,7 +349,6 @@ elif modulo == "Medicina: PGR - PCMSO":
         else:
             dados_ghe_enriquecido = dados_ghe
 
-        # ── Geração do PCMSO ───────────────────────────────────────────────────
         tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
         with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
             try:
@@ -357,14 +358,12 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.code(traceback.format_exc(), language="python")
                 st.stop()
 
-        # ── Verificação de sucesso ─────────────────────────────────────────────
         if df_pcmso.empty:
             st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
             st.stop()
 
         st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
 
-        # ── Auditoria automática ───────────────────────────────────────────────
         if base_sel and banco_matrizes:
             try:
                 from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
@@ -392,9 +391,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
 
-        # =======================================================================
-        # STAGING AREA — Triagem Médica (v5.7)
-        # =======================================================================
         st.markdown("---")
         st.markdown("### 👩‍⚕️ Triagem Médica (Revisão da Inteligência)")
         st.info(
@@ -413,9 +409,6 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         st.markdown("---")
 
-        # =======================================================================
-        # GERAÇÃO DE DOCUMENTOS — apenas após aprovação médica
-        # =======================================================================
         if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
 
             cabecalho_atual = st.session_state["pcmso_cabecalho"]
