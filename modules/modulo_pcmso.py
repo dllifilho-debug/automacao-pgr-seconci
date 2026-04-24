@@ -387,27 +387,23 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
 
     return ex
 
-def _aplicar_funcao_matriz(exames, cargo_norm):
+def _aplicar_funcao_matriz(exames, cargo_norm, riscos):
     for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
         if _match_funcao_matriz(cargo_norm, funcao):
             for ex in lista_ex:
                 exame = _novo_exame(
-                    ex.get('exame', ''),
-                    adm=ex.get('adm', True),
-                    per=ex.get('per'),
-                    mro=ex.get('mro', True),
-                    rt=ex.get('rt', False),
-                    dem=ex.get('dem', False),
-                    obs=ex.get('obs', ''),
-                    motivo=f'Matriz de Função: {funcao.title()}',
+                    ex.get('exame', ''), adm=ex.get('adm', True), per=ex.get('per'),
+                    mro=ex.get('mro', True), rt=ex.get('rt', False), dem=ex.get('dem', False),
+                    obs=ex.get('obs', ''), motivo=f'Matriz de Função: {funcao.title()}',
                 )
-                adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
+                # Passando 'riscos' para a inteligência de validação
+                adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
 
 def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     bio_real = tem_risco_biologico_real(riscos)
     for risco in riscos:
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
-        cas_r = str(risco.get('cas', '')).strip() # NOVO: Lê o CAS que veio da FISPQ
+        cas_r = str(risco.get('cas', '')).strip()
         
         # ====================================================================
         # NOVO MOTOR CAS-DRIVEN: Aciona exames com base no número exato!
@@ -445,7 +441,8 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
             rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
             motivo=f"Risco Mapeado: {chave_r.title()}",
         )
-        adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
+        # Passando 'riscos' para a inteligência de validação
+        adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
 
 def _ordenar_exames(rows):
     ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Anti-HBs + HBsAg + Anti-HCV', 'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
@@ -506,7 +503,6 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         if not _ghe_valido(nome_ghe):
             continue
 
-        # Ambiente é analisado dinamicamente para aplicar Kit Canteiro
         if tipo_ambiente == 'canteiro':
             e_canteiro = True
         elif tipo_ambiente == 'escritorio':
@@ -514,36 +510,45 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         else:
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
 
+        # ANÁLISE DE RISCOS DO GHE (A mágica que limpa o excesso de exames)
+        texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
+        tem_altura_confinado = any(x in texto_riscos_ghe for x in ['ALTURA', 'CONFINADO', 'ESPACO CONFINADO'])
+        tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
+
         for cargo in cargos:
             cargo_norm = normalizar_cargo(cargo)
             exames = {}
 
             # 1. Base: Todo mundo ganha o Clínico Universal
             clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
-            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm))
+            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm, riscos))
 
-           # 2. Se for ambiente de Obra/Canteiro, injeta pacote básico (ignora administrativos puros)
             e_cargo_adm = any(adm in cargo_norm for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO'])
-            
             if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
                 e_cargo_adm = True
-            
+
+            # Verifica se o cargo é de operação de máquina pesada
+            operador_maquina = any(x in cargo_norm for x in ['OPERADOR', 'MOTORISTA', 'GUINDASTE', 'GRUA', 'EMPILHADEIRA'])
+
             if e_canteiro and not e_cargo_adm:
                 # Kit Básico Respiratório / Auditivo
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm, riscos))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
                 
-                # NOVO: Kit Operacional Canteiro (Altura / Esforço Físico)
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Base Operacional'), cargo_norm))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Base Operacional'), cargo_norm))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Base Operacional'), cargo_norm))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Base Operacional'), cargo_norm))
+                # KIT OPERACIONAL (Aplicado APENAS se houver os riscos críticos ou for operador)
+                if tem_altura_confinado or tem_eletricidade or operador_maquina:
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
 
-            # 3. Cruzamento Dinâmico com a Matriz de Função
-            _aplicar_funcao_matriz(exames, cargo_norm)
+                # AVALIAÇÃO PSICOSSOCIAL (Aplicada APENAS para Altura ou Espaço Confinado)
+                if tem_altura_confinado:
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Avaliação Psicossocial', motivo='NR-35 / NR-33'), cargo_norm, riscos))
 
-            # 4. Cruzamento Dinâmico com os Riscos Mapeados (Garante os biológicos, químicos, etc)
+            # 3 e 4. Cruzamento com as Matrizes e FISPQ
+            _aplicar_funcao_matriz(exames, cargo_norm, riscos)
             _aplicar_riscos_matriz(exames, riscos, cargo_norm)
 
             # Preparar as linhas finais
