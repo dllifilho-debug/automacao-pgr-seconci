@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.7 — Triagem Médica (Human-in-the-Loop) implementada
+app.py v5.6 — Auditoria automática corrigida (obras_referencia + conversão df→dict)
 """
 import json
 import os
@@ -11,108 +11,108 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from config.db import (
-    get_supabase,
-    salvar_historico,
-    carregar_historico,
-    carregar_html_historico,
+    get_supabase,
+    salvar_historico,
+    carregar_historico,
+    carregar_html_historico,
 )
 from modules.modulo_pcmso import (
-    extrair_texto_pdf,
-    extrair_pgr_com_fallback,
-    enriquecer_pgr_com_fispq, 
-    processar_pcmso,
-    gerar_html_pcmso,
-    gerar_docx_rq61,
+    extrair_texto_pdf,
+    extrair_pgr_com_fallback,
+    enriquecer_pgr_com_fispq,  # <--- ADICIONE ESTA LINHA AQUI
+    processar_pcmso,
+    gerar_html_pcmso,
+    gerar_docx_rq61,
 )
 
 st.set_page_config(
-    page_title="Automacao SST - Seconci GO",
-    layout="wide",
-    page_icon=":shield:",
+    page_title="Automacao SST - Seconci GO",
+    layout="wide",
+    page_icon=":shield:",
 )
 
 st.markdown("""<style>
-  .block-container{padding-top:2rem;padding-bottom:2rem;}
-  .stButton>button{background-color:#084D22;color:white;border-radius:8px;
-    border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;
-    font-weight:600;padding:.5rem 1rem;}
-  .stButton>button:hover{background-color:#1AA04B;transform:translateY(-2px);}
-  h1,h2,h3{color:#084D22!important;}
-  [data-testid="stSidebar"]{background:#F4F8F5;border-right:1px solid #E0ECE4;}
-  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;
-    border-radius:12px;background:#FAFFFA;}
-  .stAlert{border-radius:8px;border-left:5px solid #084D22;}
+  .block-container{padding-top:2rem;padding-bottom:2rem;}
+  .stButton>button{background-color:#084D22;color:white;border-radius:8px;
+    border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;
+    font-weight:600;padding:.5rem 1rem;}
+  .stButton>button:hover{background-color:#1AA04B;transform:translateY(-2px);}
+  h1,h2,h3{color:#084D22!important;}
+  [data-testid="stSidebar"]{background:#F4F8F5;border-right:1px solid #E0ECE4;}
+  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;
+    border-radius:12px;background:#FAFFFA;}
+  .stAlert{border-radius:8px;border-left:5px solid #084D22;}
 </style>""", unsafe_allow_html=True)
 
 
 # ── Autenticação ──────────────────────────────────────────────────────────────
 def check_password():
-    def validar_login():
-        usr_digitado = st.session_state["username_input"]
-        pwd_digitada = st.session_state["password_input"]
-        usr_correto = st.secrets.get("USUARIO_SISTEMA", "diovanni")
-        pwd_correta = st.secrets.get("SENHA_SISTEMA", "seconci123")
-        if usr_digitado == usr_correto and pwd_digitada == pwd_correta:
-            st.session_state["autenticado"] = True
-            del st.session_state["password_input"]
-            del st.session_state["username_input"]
-        else:
-            st.session_state["autenticado"] = False
+    def validar_login():
+        usr_digitado = st.session_state["username_input"]
+        pwd_digitada = st.session_state["password_input"]
+        usr_correto = st.secrets.get("USUARIO_SISTEMA", "diovanni")
+        pwd_correta = st.secrets.get("SENHA_SISTEMA", "seconci123")
+        if usr_digitado == usr_correto and pwd_digitada == pwd_correta:
+            st.session_state["autenticado"] = True
+            del st.session_state["password_input"]
+            del st.session_state["username_input"]
+        else:
+            st.session_state["autenticado"] = False
 
-    if st.session_state.get("autenticado", False):
-        return True
+    if st.session_state.get("autenticado", False):
+        return True
 
-    st.markdown("""
-        <h2 style='text-align:center;color:#084D22;margin-top:80px;'>
-            🔒 Acesso Restrito — Seconci GO
-        </h2>
-        <p style='text-align:center;color:#6C757D;margin-bottom:30px;'>
-            Sistema de Automação SST
-        </p>
-    """, unsafe_allow_html=True)
+    st.markdown("""
+        <h2 style='text-align:center;color:#084D22;margin-top:80px;'>
+            🔒 Acesso Restrito — Seconci GO
+        </h2>
+        <p style='text-align:center;color:#6C757D;margin-bottom:30px;'>
+            Sistema de Automação SST
+        </p>
+    """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.markdown("""
-            <div style='border:1px solid #1AA04B;padding:30px;
-                        border-radius:10px;background-color:#F8F9FA;
-                        box-shadow:0 4px 12px rgba(8,77,34,.1);'>
-        """, unsafe_allow_html=True)
-        st.text_input("Usuário", key="username_input")
-        st.text_input("Senha", type="password", key="password_input")
-        st.button("Entrar no Sistema", on_click=validar_login, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        if "autenticado" in st.session_state and not st.session_state["autenticado"]:
-            st.error("Usuário ou senha incorretos.")
-    return False
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.markdown("""
+            <div style='border:1px solid #1AA04B;padding:30px;
+                        border-radius:10px;background-color:#F8F9FA;
+                        box-shadow:0 4px 12px rgba(8,77,34,.1);'>
+        """, unsafe_allow_html=True)
+        st.text_input("Usuário", key="username_input")
+        st.text_input("Senha", type="password", key="password_input")
+        st.button("Entrar no Sistema", on_click=validar_login, use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        if "autenticado" in st.session_state and not st.session_state["autenticado"]:
+            st.error("Usuário ou senha incorretos.")
+    return False
 
 
 if not check_password():
-    st.stop()
+    st.stop()
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 for logo in ("logo.png", "logo.jpg"):
-    if os.path.exists(logo):
-        st.sidebar.image(logo, width=220)
-        break
+    if os.path.exists(logo):
+        st.sidebar.image(logo, width=220)
+        break
 else:
-    st.sidebar.markdown(
-        "<h2 style='text-align:center;color:#084D22;'>SECONCI-GO</h2>",
-        unsafe_allow_html=True,
-    )
+    st.sidebar.markdown(
+        "<h2 style='text-align:center;color:#084D22;'>SECONCI-GO</h2>",
+        unsafe_allow_html=True,
+    )
 
 st.sidebar.markdown("---")
 st.sidebar.title("Modulos do Sistema")
 modulo = st.sidebar.radio(
-    "Selecione a funcionalidade:",
-    ["Dashboard", "Engenharia: FISPQ / FDS - PGR", "Medicina: PGR - PCMSO"],
+    "Selecione a funcionalidade:",
+    ["Dashboard", "Engenharia: FISPQ / FDS - PGR", "Medicina: PGR - PCMSO"],
 )
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Sair do Sistema", use_container_width=True):
-    st.session_state["autenticado"] = False
-    st.rerun()
+    st.session_state["autenticado"] = False
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.title("Historico de Laudos")
@@ -120,18 +120,18 @@ historico = carregar_historico()
 historico_html = None
 
 if historico:
-    opcoes = ["Selecione um projeto salvo..."] + [
-        f"{r['id']} - {r['nome_projeto']} ({r['data_salvamento']})"
-        for r in historico
-    ]
-    sel = st.sidebar.selectbox("Carregar projeto:", opcoes)
-    if sel != "Selecione um projeto salvo...":
-        id_sel = int(sel.split(" - ")[0])
-        historico_html = carregar_html_historico(id_sel)
-        if historico_html:
-            st.sidebar.success("Projeto carregado.")
+    opcoes = ["Selecione um projeto salvo..."] + [
+        f"{r['id']} - {r['nome_projeto']} ({r['data_salvamento']})"
+        for r in historico
+    ]
+    sel = st.sidebar.selectbox("Carregar projeto:", opcoes)
+    if sel != "Selecione um projeto salvo...":
+        id_sel = int(sel.split(" - ")[0])
+        historico_html = carregar_html_historico(id_sel)
+        if historico_html:
+            st.sidebar.success("Projeto carregado.")
 else:
-    st.sidebar.write("Nenhum projeto salvo ainda.")
+    st.sidebar.write("Nenhum projeto salvo ainda.")
 
 
 # ── Carrega banco de matrizes uma vez na inicialização ────────────────────────
@@ -140,306 +140,309 @@ banco_matrizes = {}
 bases_disponiveis = []
 
 if os.path.exists(banco_path):
-    try:
-        with open(banco_path, "r", encoding="utf-8") as f:
-            banco_matrizes = json.load(f)
-        # ✅ Chaves corretas: dentro de "obras_referencia"
-        bases_disponiveis = list(banco_matrizes.get("obras_referencia", {}).keys())
-    except Exception as e:
-        st.sidebar.warning(f"Banco de matrizes não carregado: {e}")
+    try:
+        with open(banco_path, "r", encoding="utf-8") as f:
+            banco_matrizes = json.load(f)
+        # ✅ Chaves corretas: dentro de "obras_referencia"
+        bases_disponiveis = list(banco_matrizes.get("obras_referencia", {}).keys())
+    except Exception as e:
+        st.sidebar.warning(f"Banco de matrizes não carregado: {e}")
 
 
 def selecionar_base_automatica(nome_arquivo: str) -> str | None:
-    """
-    Casa o nome do PDF com uma chave de obras_referencia.
-    Ex: "Inventário Vistamérica R03.pdf" → "vistamerica_2025"
-    Fallback: retorna a primeira base disponível.
-    """
-    if not bases_disponiveis:
-        return None
-    # Normaliza nome do arquivo: remove acentos, caixa baixa, separa por espaço
-    import unicodedata
-    def strip_acc(s):
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', s)
-            if unicodedata.category(c) != 'Mn'
-        )
-    nome_norm = strip_acc(nome_arquivo).upper().replace("-", " ").replace("_", " ")
-    for base in bases_disponiveis:
-        base_norm = strip_acc(base).upper().replace("_", " ")
-        for palavra in base_norm.split():
-            if len(palavra) > 4 and palavra in nome_norm:
-                return base
-    return bases_disponiveis[0]  # fallback: usa a primeira base
+    """
+    Casa o nome do PDF com uma chave de obras_referencia.
+    Ex: "Inventário Vistamérica R03.pdf" → "vistamerica_2025"
+    Fallback: retorna a primeira base disponível.
+    """
+    if not bases_disponiveis:
+        return None
+    # Normaliza nome do arquivo: remove acentos, caixa baixa, separa por espaço
+    import unicodedata
+    def strip_acc(s):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s)
+            if unicodedata.category(c) != 'Mn'
+        )
+    nome_norm = strip_acc(nome_arquivo).upper().replace("-", " ").replace("_", " ")
+    for base in bases_disponiveis:
+        base_norm = strip_acc(base).upper().replace("_", " ")
+        for palavra in base_norm.split():
+            if len(palavra) > 4 and palavra in nome_norm:
+                return base
+    return bases_disponiveis[0]  # fallback: usa a primeira base
 
 
 def df_pcmso_para_dict(df) -> dict:
-    """
-    Converte o DataFrame do processar_pcmso() para o dict esperado por auditar_pcmso().
-    Formato de saída: {"GHE 01": {"Operador de Betoneira": [{nome, adm, per, mro, ret, dem}]}}
-    Tenta as variações de nome de coluna usadas no módulo PCMSO.
-    """
-    resultado = {}
-    col_ghe   = next((c for c in df.columns if c.upper() in ("GHE", "GHE_ID", "ID_GHE")), None)
-    col_cargo = next((c for c in df.columns if c.upper() in ("CARGO", "FUNÇÃO", "FUNCAO", "CARGO_NOME")), None)
-    col_exame = next((c for c in df.columns if c.upper() in ("EXAME", "EXAME_NOME", "NOME_EXAME", "NOME")), None)
-    col_adm   = next((c for c in df.columns if c.upper() == "ADM"), None)
-    col_per   = next((c for c in df.columns if c.upper() in ("PER", "PERIODICIDADE")), None)
-    col_mro   = next((c for c in df.columns if c.upper() == "MRO"), None)
-    col_ret   = next((c for c in df.columns if c.upper() == "RET"), None)
-    col_dem   = next((c for c in df.columns if c.upper() == "DEM"), None)
+    """
+    Converte o DataFrame do processar_pcmso() para o dict esperado por auditar_pcmso().
+    Formato de saída: {"GHE 01": {"Operador de Betoneira": [{nome, adm, per, mro, ret, dem}]}}
+    Tenta as variações de nome de coluna usadas no módulo PCMSO.
+    """
+    resultado = {}
+    col_ghe   = next((c for c in df.columns if c.upper() in ("GHE", "GHE_ID", "ID_GHE")), None)
+    col_cargo = next((c for c in df.columns if c.upper() in ("CARGO", "FUNÇÃO", "FUNCAO", "CARGO_NOME")), None)
+    col_exame = next((c for c in df.columns if c.upper() in ("EXAME", "EXAME_NOME", "NOME_EXAME", "NOME")), None)
+    col_adm   = next((c for c in df.columns if c.upper() == "ADM"), None)
+    col_per   = next((c for c in df.columns if c.upper() in ("PER", "PERIODICIDADE")), None)
+    col_mro   = next((c for c in df.columns if c.upper() == "MRO"), None)
+    col_ret   = next((c for c in df.columns if c.upper() == "RET"), None)
+    col_dem   = next((c for c in df.columns if c.upper() == "DEM"), None)
 
-    for _, row in df.iterrows():
-        ghe   = str(row[col_ghe]).strip()   if col_ghe   else ""
-        cargo = str(row[col_cargo]).strip() if col_cargo else ""
-        exame = str(row[col_exame]).strip() if col_exame else ""
-        if not ghe or not cargo or not exame:
-            continue
-        resultado.setdefault(ghe, {}).setdefault(cargo, []).append({
-            "nome": exame,
-            "adm":  bool(row[col_adm])  if col_adm  else False,
-            "per":  str(row[col_per])   if col_per and row[col_per] else None,
-            "mro":  bool(row[col_mro])  if col_mro  else False,
-            "ret":  bool(row[col_ret])  if col_ret  else False,
-            "dem":  bool(row[col_dem])  if col_dem  else False,
-        })
-    return resultado
+    for _, row in df.iterrows():
+        ghe   = str(row[col_ghe]).strip()   if col_ghe   else ""
+        cargo = str(row[col_cargo]).strip() if col_cargo else ""
+        exame = str(row[col_exame]).strip() if col_exame else ""
+        if not ghe or not cargo or not exame:
+            continue
+        resultado.setdefault(ghe, {}).setdefault(cargo, []).append({
+            "nome": exame,
+            "adm":  bool(row[col_adm])  if col_adm  else False,
+            "per":  str(row[col_per])   if col_per and row[col_per] else None,
+            "mro":  bool(row[col_mro])  if col_mro  else False,
+            "ret":  bool(row[col_ret])  if col_ret  else False,
+            "dem":  bool(row[col_dem])  if col_dem  else False,
+        })
+    return resultado
 
 
 # ── Roteamento de módulos ─────────────────────────────────────────────────────
 if historico_html:
-    st.title("Laudo Carregado do Historico")
-    components.html(historico_html, height=700, scrolling=True)
+    st.title("Laudo Carregado do Historico")
+    components.html(historico_html, height=700, scrolling=True)
 
 elif modulo == "Dashboard":
-    st.title("Dashboard - Sistema Integrado SST")
-    try:
-        sb = get_supabase()
-        total     = sb.table("historico_laudos").select("id", count="exact").execute().count or 0
-        total_cas = sb.table("dicionario_dinamico").select("cas", count="exact").execute().count or 0
-    except Exception:
-        total, total_cas = 0, 0
+    st.title("Dashboard - Sistema Integrado SST")
+    try:
+        sb = get_supabase()
+        total     = sb.table("historico_laudos").select("id", count="exact").execute().count or 0
+        total_cas = sb.table("dicionario_dinamico").select("cas", count="exact").execute().count or 0
+    except Exception:
+        total, total_cas = 0, 0
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Laudos Gerados", total)
-    c2.metric("CAS no Banco Dinamico", total_cas)
-    c3.metric("Modulos Ativos", 2)
-    st.info("Use o menu lateral para acessar os modulos.")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Laudos Gerados", total)
+    c2.metric("CAS no Banco Dinamico", total_cas)
+    c3.metric("Modulos Ativos", 2)
+    st.info("Use o menu lateral para acessar os modulos.")
 
 elif modulo == "Engenharia: FISPQ / FDS - PGR":
-    try:
-        from modules.modulo_engenharia import render_engenharia
-        render_engenharia()
-    except ImportError:
-        st.warning("modulo_engenharia.py nao encontrado.")
+    try:
+        from modules.modulo_engenharia import render_engenharia
+        render_engenharia()
+    except ImportError:
+        st.warning("modulo_engenharia.py nao encontrado.")
 
 elif modulo == "Medicina: PGR - PCMSO":
-    st.title("Modulo Medico: Importador de PGR e Gerador de PCMSO")
-    st.info(
-        "Motor de extracao em 2 etapas: "
-        "Etapa 1 — Extracao Local (gratuita, instantanea). "
-        "Etapa 2 — IA Gemini (fallback — acionada so se necessario)."
-    )
+    st.title("Modulo Medico: Importador de PGR e Gerador de PCMSO")
+    st.info(
+        "Motor de extracao em 2 etapas: "
+        "Etapa 1 — Extracao Local (gratuita, instantanea). "
+        "Etapa 2 — IA Gemini (fallback — acionada so se necessario)."
+    )
 
-    with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
-        col1, col2 = st.columns(2)
-        cab = st.session_state.get("pcmso_cabecalho", {})
+    with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
+        col1, col2 = st.columns(2)
+        cab = st.session_state.get("pcmso_cabecalho", {})
 
-        with col1:
-            razao_social = st.text_input("Razao Social da Empresa *",    value=cab.get("razao_social", ""))
-            cnpj         = st.text_input("CNPJ *",                       value=cab.get("cnpj", ""))
-            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
+        with col1:
+            razao_social = st.text_input("Razao Social da Empresa *",    value=cab.get("razao_social", ""))
+            cnpj         = st.text_input("CNPJ *",                       value=cab.get("cnpj", ""))
+            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
 
-        with col2:
-            vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
-            vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
-            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)", value=cab.get("responsavel_tec", ""))
-            obra     = st.text_input("Obra / Unidade (opcional)",          value=cab.get("obra", ""))
+        with col2:
+            vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
+            vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
+            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)", value=cab.get("responsavel_tec", ""))
+            obra     = st.text_input("Obra / Unidade (opcional)",          value=cab.get("obra", ""))
 
-        st.markdown("---")
-        st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
-        opcoes_amb = {
-            "🏗️ Canteiro de Obras / Obra":                "canteiro",
-            "🏢 Escritório Corporativo":                  "escritorio",
-            "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
-        }
-        label_amb = st.radio(
-            "Selecione o tipo:",
-            list(opcoes_amb.keys()),
-            index=1,
-            help=(
-                "Canteiro → todo cargo recebe pacote completo (Audiometria, ECG, Espirometria, RX).\n"
-                "Escritório → cargo admin recebe só Exame Clínico + Acuidade Visual.\n"
-                "Misto → sistema detecta por GHE automaticamente."
-            ),
-            horizontal=True,
-        )
-        tipo_ambiente = opcoes_amb[label_amb]
+        st.markdown("---")
+        st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
+        opcoes_amb = {
+            "🏗️ Canteiro de Obras / Obra":                "canteiro",
+            "🏢 Escritório Corporativo":                  "escritorio",
+            "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
+        }
+        label_amb = st.radio(
+            "Selecione o tipo:",
+            list(opcoes_amb.keys()),
+            index=1,
+            help=(
+                "Canteiro → todo cargo recebe pacote completo (Audiometria, ECG, Espirometria, RX).\n"
+                "Escritório → cargo admin recebe só Exame Clínico + Acuidade Visual.\n"
+                "Misto → sistema detecta por GHE automaticamente."
+            ),
+            horizontal=True,
+        )
+        tipo_ambiente = opcoes_amb[label_amb]
 
-        # ── Indicador de auditoria automática ─────────────────────────────────
-        st.markdown("---")
-        if bases_disponiveis:
-            st.caption(
-                f"🔍 **Auditoria automática ativa** — base será detectada pelo nome do PDF. "
-                f"Bases disponíveis: `{'` · `'.join(bases_disponiveis)}`"
-            )
-        else:
-            st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
+        # ── Indicador de auditoria automática ─────────────────────────────────
+        st.markdown("---")
+        if bases_disponiveis:
+            st.caption(
+                f"🔍 **Auditoria automática ativa** — base será detectada pelo nome do PDF. "
+                f"Bases disponíveis: `{'` · `'.join(bases_disponiveis)}`"
+            )
+        else:
+            st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
 
-        st.session_state["pcmso_cabecalho"] = {
-            "razao_social":    razao_social,
-            "cnpj":            cnpj,
-            "medico_rt":       medico_rt,
-            "vig_ini":         vig_ini.strftime("%d/%m/%Y"),
-            "vig_fim":         vig_fim.strftime("%d/%m/%Y"),
-            "responsavel_tec": resp_tec,
-            "obra":            obra,
-        }
-        st.session_state["tipo_ambiente"] = tipo_ambiente
+        st.session_state["pcmso_cabecalho"] = {
+            "razao_social":    razao_social,
+            "cnpj":            cnpj,
+            "medico_rt":       medico_rt,
+            "vig_ini":         vig_ini.strftime("%d/%m/%Y"),
+            "vig_fim":         vig_fim.strftime("%d/%m/%Y"),
+            "responsavel_tec": resp_tec,
+            "obra":            obra,
+        }
+        st.session_state["tipo_ambiente"] = tipo_ambiente
 
-    pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
-    if pdf_file:
-        st.session_state["nome_pdf_atual"] = pdf_file.name
+    pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
+    if pdf_file:
+        st.session_state["nome_pdf_atual"] = pdf_file.name
 
-    if st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True):
-        if not pdf_file:
-            st.error("Faca upload do PDF do PGR antes de continuar.")
-            st.stop()
+    if st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True):
+        if not pdf_file:
+            st.error("Faca upload do PDF do PGR antes de continuar.")
+            st.stop()
 
-        # ── Detecta base de auditoria automaticamente ─────────────────────────
-        nome_pdf = st.session_state.get("nome_pdf_atual", "")
-        base_sel = selecionar_base_automatica(nome_pdf)
-        if base_sel:
-            st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
-        else:
-            st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
+        # ── Detecta base de auditoria automaticamente ─────────────────────────
+        nome_pdf = st.session_state.get("nome_pdf_atual", "")
+        base_sel = selecionar_base_automatica(nome_pdf)
+        if base_sel:
+            st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
+        else:
+            st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
 
-        # ── Extração de texto ──────────────────────────────────────────────────
-        with st.spinner("Extraindo texto do PDF..."):
-            texto_pgr = extrair_texto_pdf(pdf_file)
-        st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
+        # ── Extração de texto ──────────────────────────────────────────────────
+        with st.spinner("Extraindo texto do PDF..."):
+            texto_pgr = extrair_texto_pdf(pdf_file)
+        st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
 
-        with st.expander("DEBUG: Primeiras 100 linhas do PDF"):
-            for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
-                st.text(f"{i:3}: {linha}")
+        with st.expander("DEBUG: Primeiras 100 linhas do PDF"):
+            for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
+                st.text(f"{i:3}: {linha}")
 
-        # ── Extração de GHEs ───────────────────────────────────────────────────
-        with st.spinner("Processando GHEs..."):
-            dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
+        # ── Extração de GHEs ───────────────────────────────────────────────────
+        with st.spinner("Processando GHEs..."):
+            dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
-        if fonte == "local":
-            st.success("Dados extraidos localmente — sem consumo de IA!")
-        elif fonte == "ia":
-            st.info("Dados extraidos via IA (Gemini).")
-        else:
-            st.warning("Extracao parcial — revise os resultados.")
+        if fonte == "local":
+            st.success("Dados extraidos localmente — sem consumo de IA!")
+        elif fonte == "ia":
+            st.info("Dados extraidos via IA (Gemini).")
+        else:
+            st.warning("Extracao parcial — revise os resultados.")
 
-        if not dados_ghe:
-            st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
-            st.stop()
+        if not dados_ghe:
+            st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
+            st.stop()
 
-        with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
-            for g in dados_ghe[:3]:
-                st.json(g)
+        with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
+            for g in dados_ghe[:3]:
+                st.json(g)
 
-        # ── Geração do PCMSO ───────────────────────────────────────────────────
-        # ── INTEGRAÇÃO FISPQ (A Mágica) ────────────────────────────────────────
-        resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
-        if resultados_fispq:
-            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados na memória! Injetando no PGR...")
-            dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
-        else:
-            dados_ghe_enriquecido = dados_ghe
+        # ── Geração do PCMSO ───────────────────────────────────────────────────
+        # ── INTEGRAÇÃO FISPQ (A Mágica) ────────────────────────────────────────
+        resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
+        if resultados_fispq:
+            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados na memória! Injetando no PGR...")
+            dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
+        else:
+            dados_ghe_enriquecido = dados_ghe
 
-        # ── Geração do PCMSO ───────────────────────────────────────────────────
-        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
-        with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
-            try:
-                # Mudamos a variável aqui para passar os dados enriquecidos com a FISPQ
-                df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
-            except Exception as e:
-                st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
-                st.code(traceback.format_exc(), language="python")
-                st.stop()
+        # ── Geração do PCMSO ───────────────────────────────────────────────────
+        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
+        with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
+            try:
+                # Mudamos a variável aqui para passar os dados enriquecidos com a FISPQ
+                df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
+            except Exception as e:
+                st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
 
-        # ── VERIFICAÇÃO DE SUCESSO ─────────────────────────────────────────────
-        if df_pcmso.empty:
-            st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
-            st.stop()
+        if df_pcmso.empty:
+            st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
+            st.stop()
 
-        st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
+        st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
+        st.dataframe(df_pcmso, use_container_width=True)
 
-        # ── Auditoria automática ───────────────────────────────────────────────
-        if base_sel and banco_matrizes:
-            try:
-                from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
+        # ── Auditoria automática ───────────────────────────────────────────────
+        if base_sel and banco_matrizes:
+            try:
+                from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
 
-                # ✅ Converte DataFrame → dict no formato esperado pelo auditor
-                dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
+                # ✅ Converte DataFrame → dict no formato esperado pelo auditor
+                dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
 
-                with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
-                    resultado_auditoria = auditar_pcmso(
-                        dados_para_auditoria,
-                        banco_matrizes,   # ✅ banco completo (contém "obras_referencia")
-                        obra_id=base_sel, # ✅ ex: "vistamerica_2025"
-                    )
-                    relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
+                with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
+                    resultado_auditoria = auditar_pcmso(
+                        dados_para_auditoria,
+                        banco_matrizes,   # ✅ banco completo (contém "obras_referencia")
+                        obra_id=base_sel, # ✅ ex: "vistamerica_2025"
+                    )
+                    relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
 
-                if resultado_auditoria.get("ok"):
-                    st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
-                else:
-                    n = resultado_auditoria["total_divergencias"]
-                    st.warning(f"⚠️ Auditoria concluída — {n} divergência(s) detectada(s).")
+                if resultado_auditoria.get("ok"):
+                    st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
+                else:
+                    n = resultado_auditoria["total_divergencias"]
+                    st.warning(f"⚠️ Auditoria concluída — {n} divergência(s) detectada(s).")
 
-                with st.expander("📋 Relatório da Auditoria", expanded=True):
-                    st.code(relatorio_txt, language="text")
+                with st.expander("📋 Relatório da Auditoria", expanded=True):
+                    st.code(relatorio_txt, language="text")
 
-            except Exception as e:
-                st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
-                st.code(traceback.format_exc(), language="python")
+            except Exception as e:
+                st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
 
-        st.markdown("---")
-        # =======================================================================
-        # 1. ÁREA DE TRIAGEM MÉDICA (STAGING AREA)
-        # =======================================================================
-        st.markdown("### 👩‍⚕️ Triagem Médica (Revisão Interativa)")
-        st.info("A IA gerou a matriz abaixo. Você pode editar qualquer célula (periodicidade, exames) antes de gerar o Word oficial.")
+        # ── Geração dos arquivos de saída ──────────────────────────────────────
+        cabecalho_atual = st.session_state["pcmso_cabecalho"]
 
-        # O Editor Interativo
-        df_editado = st.data_editor(
-            df_pcmso,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="editor_matriz_pcmso",
-            height=450
-        )
+        try:
+            html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
+        except Exception as e:
+            st.error(f"❌ Erro em gerar_html_pcmso(): {type(e).__name__}: {e}")
+            st.code(traceback.format_exc(), language="python")
+            st.stop()
 
-        st.markdown("---")
-        
-        # =======================================================================
-        # 2. BOTÃO DE APROVAÇÃO E GERAÇÃO FINAL
-        # =======================================================================
-        if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
-            cabecalho_atual = st.session_state["pcmso_cabecalho"]
-            razao_social = cabecalho_atual.get("razao_social", "PCMSO")
+        with st.spinner("Gerando DOCX..."):
+            try:
+                bytes_docx = gerar_docx_rq61(df_pcmso, cabecalho=cabecalho_atual)
+            except Exception as e:
+                st.error(f"❌ Erro em gerar_docx_pcmso(): {type(e).__name__}: {e}")
+                st.code(traceback.format_exc(), language="python")
+                st.stop()
 
-            with st.spinner("Gerando documentos finais com suas edições..."):
-                try:
-                    # Usamos o DF EDITADO para gerar os arquivos
-                    html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
-                    bytes_docx = gerar_docx_rq61(df_editado, cabecalho=cabecalho_atual)
-                    
-                    st.success("Documentos gerados com sucesso!")
-                    
-                    nome_arquivo = razao_social.replace(" ", "_")[:30]
-                    c1, c2 = st.columns(2)
-                    c1.download_button("📄 Baixar HTML", html_pcmso.encode("utf-8"), f"PCMSO_{nome_arquivo}.html", "text/html", use_container_width=True)
-                    c2.download_button("📝 Baixar DOCX", bytes_docx, f"PCMSO_{nome_arquivo}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
-                    
-                    # Salva no histórico a versão definitiva revisada pelo médico
-                    nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
-                    salvar_historico(nome_proj, html_pcmso)
-                
-                except Exception as e:
-                    st.error(f"Erro na geração final: {e}")
-                    st.code(traceback.format_exc(), language="python")
+        nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
+
+        st.markdown("### ⬇️ Baixar PCMSO")
+        col_html, col_docx = st.columns(2)
+        with col_html:
+            st.download_button(
+                label="📄 Baixar PCMSO (.html)",
+                data=html_pcmso.encode("utf-8"),
+                file_name=f"PCMSO_{nome_arquivo}.html",
+                mime="text/html",
+                use_container_width=True,
+            )
+        with col_docx:
+            st.download_button(
+                label="📝 Baixar PCMSO (.docx)",
+                data=bytes_docx,
+                file_name=f"PCMSO_{nome_arquivo}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+
+        with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
+            components.html(html_pcmso, height=600, scrolling=True)
+
+        if razao_social and medico_rt:
+            nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
+            salvar_historico(nome_proj, html_pcmso)
+            st.success("Laudo salvo no historico!")
+        else:
+            st.warning("Preencha Razao Social e Medico RT para salvar no historico.")
