@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.6 — Auditoria automática corrigida (obras_referencia + conversão df→dict)
+app.py v5.7 — Triagem Médica (Human-in-the-Loop) implementada
 """
 import json
 import os
@@ -19,7 +19,7 @@ from config.db import (
 from modules.modulo_pcmso import (
     extrair_texto_pdf,
     extrair_pgr_com_fallback,
-    enriquecer_pgr_com_fispq,  # <--- ADICIONE ESTA LINHA AQUI
+    enriquecer_pgr_com_fispq, 
     processar_pcmso,
     gerar_html_pcmso,
     gerar_docx_rq61,
@@ -362,12 +362,12 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.code(traceback.format_exc(), language="python")
                 st.stop()
 
+        # ── VERIFICAÇÃO DE SUCESSO ─────────────────────────────────────────────
         if df_pcmso.empty:
             st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
             st.stop()
 
-        st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames.")
-        st.dataframe(df_pcmso, use_container_width=True)
+        st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
 
         # ── Auditoria automática ───────────────────────────────────────────────
         if base_sel and banco_matrizes:
@@ -398,51 +398,48 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
 
-        # ── Geração dos arquivos de saída ──────────────────────────────────────
-        cabecalho_atual = st.session_state["pcmso_cabecalho"]
+        st.markdown("---")
+        # =======================================================================
+        # 1. ÁREA DE TRIAGEM MÉDICA (STAGING AREA)
+        # =======================================================================
+        st.markdown("### 👩‍⚕️ Triagem Médica (Revisão Interativa)")
+        st.info("A IA gerou a matriz abaixo. Você pode editar qualquer célula (periodicidade, exames) antes de gerar o Word oficial.")
 
-        try:
-            html_pcmso = gerar_html_pcmso(df_pcmso, cabecalho=cabecalho_atual)
-        except Exception as e:
-            st.error(f"❌ Erro em gerar_html_pcmso(): {type(e).__name__}: {e}")
-            st.code(traceback.format_exc(), language="python")
-            st.stop()
+        # O Editor Interativo
+        df_editado = st.data_editor(
+            df_pcmso,
+            num_rows="dynamic",
+            use_container_width=True,
+            key="editor_matriz_pcmso",
+            height=450
+        )
 
-        with st.spinner("Gerando DOCX..."):
-            try:
-                bytes_docx = gerar_docx_rq61(df_pcmso, cabecalho=cabecalho_atual)
-            except Exception as e:
-                st.error(f"❌ Erro em gerar_docx_pcmso(): {type(e).__name__}: {e}")
-                st.code(traceback.format_exc(), language="python")
-                st.stop()
+        st.markdown("---")
+        
+        # =======================================================================
+        # 2. BOTÃO DE APROVAÇÃO E GERAÇÃO FINAL
+        # =======================================================================
+        if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
+            cabecalho_atual = st.session_state["pcmso_cabecalho"]
+            razao_social = cabecalho_atual.get("razao_social", "PCMSO")
 
-        nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
-
-        st.markdown("### ⬇️ Baixar PCMSO")
-        col_html, col_docx = st.columns(2)
-        with col_html:
-            st.download_button(
-                label="📄 Baixar PCMSO (.html)",
-                data=html_pcmso.encode("utf-8"),
-                file_name=f"PCMSO_{nome_arquivo}.html",
-                mime="text/html",
-                use_container_width=True,
-            )
-        with col_docx:
-            st.download_button(
-                label="📝 Baixar PCMSO (.docx)",
-                data=bytes_docx,
-                file_name=f"PCMSO_{nome_arquivo}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-            )
-
-        with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
-            components.html(html_pcmso, height=600, scrolling=True)
-
-        if razao_social and medico_rt:
-            nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
-            salvar_historico(nome_proj, html_pcmso)
-            st.success("Laudo salvo no historico!")
-        else:
-            st.warning("Preencha Razao Social e Medico RT para salvar no historico.")
+            with st.spinner("Gerando documentos finais com suas edições..."):
+                try:
+                    # Usamos o DF EDITADO para gerar os arquivos
+                    html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
+                    bytes_docx = gerar_docx_rq61(df_editado, cabecalho=cabecalho_atual)
+                    
+                    st.success("Documentos gerados com sucesso!")
+                    
+                    nome_arquivo = razao_social.replace(" ", "_")[:30]
+                    c1, c2 = st.columns(2)
+                    c1.download_button("📄 Baixar HTML", html_pcmso.encode("utf-8"), f"PCMSO_{nome_arquivo}.html", "text/html", use_container_width=True)
+                    c2.download_button("📝 Baixar DOCX", bytes_docx, f"PCMSO_{nome_arquivo}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+                    
+                    # Salva no histórico a versão definitiva revisada pelo médico
+                    nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
+                    salvar_historico(nome_proj, html_pcmso)
+                
+                except Exception as e:
+                    st.error(f"Erro na geração final: {e}")
+                    st.code(traceback.format_exc(), language="python")
