@@ -22,7 +22,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '6.0 (Universal)'
+VERSAO_MODULO_PCMSO = '6.1 (Universal)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -87,14 +87,25 @@ _MAPA_AGENTES = {
     'METANOL': 'METANOL', 'CHUMBO': 'CHUMBO', 'MANGANES': 'MANGANES', 'MANGANÊS': 'MANGANES',
     'CROMO': 'CROMO', 'CADMIO': 'CADMIO', 'CÁDMIO': 'CADMIO', 'ARSENICO': 'ARSENICO',
     'ARSÊNIO': 'ARSENICO', 'COBALTO': 'COBALTO', 'FLUOR': 'FLUOR', 'FLÚOR': 'FLUOR',
-    'SOLDA': 'SOLDA', 'MONOXIDO': 'MONOXIDO DE CARBONO', 'MONÓXIDO': 'MONOXIDO DE CARBONO',
-    'POLICORTE': 'POLICORTE', 'DIESEL': 'COMBUSTIVEL', 'GASOLINA': 'COMBUSTIVEL',
+    'SOLDA': 'SOLDA', 'POLICORTE': 'POLICORTE',
+    # CORREÇÃO 1: MONOXIDO removido do _MAPA_AGENTES.
+    # Carboxiemoglobina é gerada APENAS via SOLDA/POLICORTE (conforme Matriz Dra. Patrícia 06.2025).
+    # Manter MONOXIDO aqui causava vazamento: o PGR menciona monóxido em texto genérico
+    # da obra e contaminava TODOS os GHEs com Carboxiemoglobina indevida.
+    'DIESEL': 'COMBUSTIVEL', 'GASOLINA': 'COMBUSTIVEL',
     'COMBUSTIVEL': 'COMBUSTIVEL', 'COMBUSTÍVEL': 'COMBUSTIVEL', 'SILICA': 'SILICA', 'SÍLICA': 'SILICA',
     'QUARTZO': 'SILICA', 'POEIRA MINERAL': 'POEIRA MINERAL', 'POEIRAS MINERAIS': 'POEIRA MINERAL',
     'CIMENTO': 'CIMENTO', 'ASBESTO': 'ASBESTO', 'AMIANTO': 'ASBESTO', 'FUMO METALICO': 'FUMOS METALICOS',
     'FUMO METÁLICO': 'FUMOS METALICOS', 'MADEIRA': 'MADEIRA', 'TINTA': 'TINTA',
     'IMPERMEAB': 'IMPERMEABILIZACAO', 'MASCARA': 'MASCARA RESPIRATORIA', 'MÁSCARA': 'MASCARA RESPIRATORIA',
-    'ALTURA': 'QUEDA DE ALTURA', 'CONFINADO': 'ESPACO CONFINADO', 'ELETRICO': 'RISCO ELETRICO',
+    # CORREÇÃO 2: 'ALTURA' substituída por 'TRABALHO EM ALTURA' (frase composta).
+    # A chave isolada 'ALTURA' batia em qualquer linha do PGR que contivesse a palavra
+    # (ex: "risco de queda de altura no canteiro"), contaminando GHEs que não têm
+    # NR-35 real. Com a frase composta, só GHEs que explicitam "TRABALHO EM ALTURA"
+    # ativam o Kit Operacional e a Avaliação Psicossocial.
+    'TRABALHO EM ALTURA': 'QUEDA DE ALTURA',
+    'TRABALHO EM ALTURA NR': 'QUEDA DE ALTURA',
+    'CONFINADO': 'ESPACO CONFINADO', 'ELETRICO': 'RISCO ELETRICO',
     'ELÉTRIC': 'RISCO ELETRICO', 'BIOLOGICO': 'AGENTE BIOLOGICO', 'BIOLÓGICO': 'AGENTE BIOLOGICO',
     'ESGOTO': 'ESGOTO', 'EFLUENTE': 'ESGOTO', 'MOTORISTA': 'MOTORISTA',
     'METILETILCETONA': 'METIL-ETIL-CETONA',
@@ -269,10 +280,19 @@ def extrair_pgr_local(texto):
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual['cargos']:
                     ghe_atual['cargos'].append(cargo)
                     break
+        # Busca por frases compostas ANTES de tokens individuais para evitar falsos positivos
+        matched_frase = False
         for palavra, chave_risco in _MAPA_AGENTES.items():
-            if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
-                agentes_set.add(chave_risco)
-                ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+            if ' ' in palavra:  # frases compostas têm prioridade
+                if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
+                    agentes_set.add(chave_risco)
+                    ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+                    matched_frase = True
+        for palavra, chave_risco in _MAPA_AGENTES.items():
+            if ' ' not in palavra:  # tokens individuais só se nenhuma frase composta já bateu para esta chave
+                if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
+                    agentes_set.add(chave_risco)
+                    ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
         # Fuzzy matching: tenta normalizar palavras da linha que não bateram no _MAPA_AGENTES
         for token in lu.split():
             if len(token) < 3:
@@ -523,7 +543,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
 
         # ANÁLISE DE RISCOS DO GHE (A mágica que limpa o excesso de exames)
         texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
-        tem_altura_confinado = any(x in texto_riscos_ghe for x in ['ALTURA', 'CONFINADO', 'ESPACO CONFINADO'])
+        tem_altura_confinado = any(x in texto_riscos_ghe for x in ['QUEDA DE ALTURA', 'ESPACO CONFINADO'])
         tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
 
         for cargo in cargos:
