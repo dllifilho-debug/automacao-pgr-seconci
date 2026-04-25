@@ -624,6 +624,7 @@ def gerar_docx_rq61(df, cabecalho=None):
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt, RGBColor
+
     if not cabecalho: cabecalho = {}
     razao = cabecalho.get('razao_social', 'Empresa não informada')
     obra = cabecalho.get('obra', '---')
@@ -631,9 +632,13 @@ def gerar_docx_rq61(df, cabecalho=None):
     crm = cabecalho.get('crm', '')
     vig_i = cabecalho.get('vig_ini', '---')
     tipo = cabecalho.get('tipo_obra', 'Renovação')
-    VERDE_ESC = '084D22'
-    VERDE_MED = '1AA04B'
-    BRANCO = RGBColor(0xFF, 0xFF, 0xFF)
+
+    # ── CORREÇÃO 1: Paleta de cores alinhada ao template real RQ.61 Seconci-GO ──
+    AZUL_GHE  = '4472C4'   # fundo linha do GHE (azul médio)
+    CINZA_COL = 'D9D9D9'   # fundo cabeçalho FUNÇÃO / EXAMES SOLICITADOS
+    BRANCO    = RGBColor(0xFF, 0xFF, 0xFF)
+    PRETO     = RGBColor(0x00, 0x00, 0x00)
+
     def shd(cell, hex_color):
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
@@ -642,7 +647,8 @@ def gerar_docx_rq61(df, cabecalho=None):
         s.set(qn('w:color'), 'auto')
         s.set(qn('w:fill'), hex_color)
         tcPr.append(s)
-    def set_borders(cell, color='084D22'):
+
+    def set_borders(cell, color='000000'):
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
         tcBorders = OxmlElement('w:tcBorders')
@@ -654,6 +660,7 @@ def gerar_docx_rq61(df, cabecalho=None):
             border.set(qn('w:color'), color)
             tcBorders.append(border)
         tcPr.append(tcBorders)
+
     def txt(cell, text, bold=False, color=None, size=9, align=WD_ALIGN_PARAGRAPH.LEFT, italic=False):
         cell.text = ''
         p = cell.paragraphs[0]
@@ -664,6 +671,7 @@ def gerar_docx_rq61(df, cabecalho=None):
         r.font.size = Pt(size)
         if color:
             r.font.color.rgb = color
+
     def _fmt_exame_rq61(row):
         partes = []
         if str(row.get('ADM', '-')) == 'X':
@@ -682,64 +690,86 @@ def gerar_docx_rq61(df, cabecalho=None):
         if str(row.get('DEM', '-')) == 'X':
             partes.append('DEM')
         return f"{row['Exame']} ({', '.join(partes)})" if partes else str(row['Exame'])
+
     doc = Document()
     for sec in doc.sections:
         sec.top_margin = Cm(1.5)
         sec.bottom_margin = Cm(1.5)
         sec.left_margin = Cm(2.0)
         sec.right_margin = Cm(1.5)
+
+    # ── Cabeçalho do documento ──
     cab = doc.add_table(rows=4, cols=4)
     cab.style = 'Table Grid'
     cab.rows[0].cells[0].merge(cab.rows[0].cells[3])
-    shd(cab.rows[0].cells[0], VERDE_ESC)
+    shd(cab.rows[0].cells[0], '084D22')
     txt(cab.rows[0].cells[0], 'MATRIZ FUNÇÃO – EXAMES PCMSO', bold=True, color=BRANCO, size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
+
     cab.rows[1].cells[0].merge(cab.rows[1].cells[1])
     cab.rows[1].cells[2].merge(cab.rows[1].cells[3])
     txt(cab.rows[1].cells[0], f'Empresa: {razao}', bold=True, size=9)
     adendo_txt = f'Obra Nova (   )   {tipo} ( X )' if str(tipo).lower() == 'renovação' else 'Obra Nova ( X )   Renovação (   )'
     txt(cab.rows[1].cells[2], adendo_txt, size=9)
+
     cab.rows[2].cells[0].merge(cab.rows[2].cells[1])
     cab.rows[2].cells[2].merge(cab.rows[2].cells[3])
     txt(cab.rows[2].cells[0], f'Obra: {obra}', bold=True, size=9)
     txt(cab.rows[2].cells[2], f"Data: {datetime.now().strftime('%d/%m/%Y')}", bold=True, size=9)
+
     cab.rows[3].cells[0].merge(cab.rows[3].cells[3])
     crm_txt = f'  CRM-GO {crm}' if crm else ''
     txt(cab.rows[3].cells[0], f'Médico(a) Coordenador(a) do PCMSO: {medico}{crm_txt}', size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+
     doc.add_paragraph()
+
     ghe_grupos = {}
     for _, row in df.iterrows():
         ghe_grupos.setdefault(row['GHE / Setor'], {}).setdefault(row['Cargo'], []).append(row)
+
     for ghe_nome, cargos_dict in ghe_grupos.items():
         tbl = doc.add_table(rows=0, cols=2)
         tbl.style = 'Table Grid'
         tbl.columns[0].width = Cm(5.5)
         tbl.columns[1].width = Cm(12.0)
+
+        # ── Linha do GHE: azul médio (#4472C4) ──
         row_ghe = tbl.add_row()
         row_ghe.cells[0].merge(row_ghe.cells[1])
-        shd(row_ghe.cells[0], VERDE_ESC)
+        shd(row_ghe.cells[0], AZUL_GHE)
         set_borders(row_ghe.cells[0])
         txt(row_ghe.cells[0], ghe_nome.upper(), bold=True, color=BRANCO, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+        # ── CORREÇÃO 2: Cabeçalho FUNÇÃO/EXAMES: cinza (#D9D9D9) com texto preto ──
         row_h = tbl.add_row()
-        shd(row_h.cells[0], VERDE_MED)
-        shd(row_h.cells[1], VERDE_MED)
-        txt(row_h.cells[0], 'FUNÇÃO', bold=True, color=BRANCO, size=9)
-        txt(row_h.cells[1], 'EXAMES SOLICITADOS', bold=True, color=BRANCO, size=9)
+        shd(row_h.cells[0], CINZA_COL)
+        shd(row_h.cells[1], CINZA_COL)
+        set_borders(row_h.cells[0])
+        set_borders(row_h.cells[1])
+        txt(row_h.cells[0], 'FUNÇÃO', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+        txt(row_h.cells[1], 'EXAMES SOLICITADOS', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+        # ── CORREÇÃO 3: Todos os exames do cargo em uma única célula ──
         for cargo, rows_cargo in cargos_dict.items():
             exames_fmt = [_fmt_exame_rq61(r) for r in rows_cargo]
-            primeira = True
-            for exame_str in exames_fmt:
-                row_ex = tbl.add_row()
-                if primeira:
-                    txt(row_ex.cells[0], cargo, bold=True, size=9)
-                    primeira = False
-                else:
-                    row_ex.cells[0].text = ''
-                set_borders(row_ex.cells[0])
-                set_borders(row_ex.cells[1])
-                txt(row_ex.cells[1], exame_str, size=9)
+            row_ex = tbl.add_row()
+            set_borders(row_ex.cells[0])
+            set_borders(row_ex.cells[1])
+            txt(row_ex.cells[0], cargo, bold=True, size=9)
+            cell_exames = row_ex.cells[1]
+            cell_exames.text = ''
+            p = cell_exames.paragraphs[0]
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            for i, exame_str in enumerate(exames_fmt):
+                if i > 0:
+                    p.add_run('\n')
+                run = p.add_run(exame_str)
+                run.font.size = Pt(9)
+
         doc.add_paragraph()
+
     p = doc.add_paragraph(f"Responsável pelo preenchimento: {cabecalho.get('responsavel_tec', '---')}\nMédico(a) Responsável pela validação: {medico}{(' CRM-GO ' + crm) if crm else ''}\nData do PCMAT/PGR: {vig_i}")
     p.runs[0].font.size = Pt(8)
+
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
