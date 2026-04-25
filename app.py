@@ -1,6 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.10 — Fix: Aprovar Matriz persiste df_pcmso via session_state
+app.py v5.11 — Fix P2: remove df_pcmso_para_dict local, importa do auditor
+               Fix P3: selecionar_base_automatica emite warning no fallback
 """
 import json
 import os
@@ -154,6 +155,8 @@ if os.path.exists(banco_path):
 
 
 def selecionar_base_automatica(nome_arquivo: str) -> str | None:
+    """Detecta a base de auditoria pelo nome do arquivo PDF.
+    Emite warning se fallback para bases[0] (P3 fix)."""
     if not bases_disponiveis:
         return None
     import unicodedata
@@ -168,34 +171,13 @@ def selecionar_base_automatica(nome_arquivo: str) -> str | None:
         for palavra in base_norm.split():
             if len(palavra) > 4 and palavra in nome_norm:
                 return base
+    # Fallback: usa a primeira base, mas avisa o usuario
+    st.warning(
+        f"⚠️ Nenhuma base detectada no nome '{nome_arquivo}'. "
+        f"Usando base padrão: **{bases_disponiveis[0]}**. "
+        "Renomeie o PDF com o nome da obra para detecção automática."
+    )
     return bases_disponiveis[0]
-
-
-def df_pcmso_para_dict(df) -> dict:
-    resultado = {}
-    col_ghe   = next((c for c in df.columns if c.upper() in ("GHE", "GHE_ID", "ID_GHE")), None)
-    col_cargo = next((c for c in df.columns if c.upper() in ("CARGO", "FUNÇÃO", "FUNCAO", "CARGO_NOME")), None)
-    col_exame = next((c for c in df.columns if c.upper() in ("EXAME", "EXAME_NOME", "NOME_EXAME", "NOME")), None)
-    col_adm   = next((c for c in df.columns if c.upper() == "ADM"), None)
-    col_per   = next((c for c in df.columns if c.upper() in ("PER", "PERIODICIDADE")), None)
-    col_mro   = next((c for c in df.columns if c.upper() == "MRO"), None)
-    col_ret   = next((c for c in df.columns if c.upper() == "RET"), None)
-    col_dem   = next((c for c in df.columns if c.upper() == "DEM"), None)
-    for _, row in df.iterrows():
-        ghe   = str(row[col_ghe]).strip()   if col_ghe   else ""
-        cargo = str(row[col_cargo]).strip() if col_cargo else ""
-        exame = str(row[col_exame]).strip() if col_exame else ""
-        if not ghe or not cargo or not exame:
-            continue
-        resultado.setdefault(ghe, {}).setdefault(cargo, []).append({
-            "nome": exame,
-            "adm":  bool(row[col_adm])  if col_adm  else False,
-            "per":  str(row[col_per])   if col_per and row[col_per] else None,
-            "mro":  bool(row[col_mro])  if col_mro  else False,
-            "ret":  bool(row[col_ret])  if col_ret  else False,
-            "dem":  bool(row[col_dem])  if col_dem  else False,
-        })
-    return resultado
 
 
 # ── Roteamento ──────────────────────────────────────────────────────────────────
@@ -239,6 +221,14 @@ elif modulo == "Medicina: PGR - PCMSO":
         "Etapa 1 — Extracao Local (gratuita, instantanea). "
         "Etapa 2 — IA Gemini (fallback — acionada so se necessario)."
     )
+
+    # Indicador de agentes FISPQ carregados da etapa anterior
+    fispq_carregados = st.session_state.get("fispq_resultados_medicos", [])
+    if fispq_carregados:
+        st.success(
+            f"🧪 {len(fispq_carregados)} agente(s) da FISPQ em memória — "
+            "serão injetados automaticamente no PCMSO após a extração."
+        )
 
     with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
         col1, col2 = st.columns(2)
@@ -301,9 +291,9 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         nome_pdf = st.session_state.get("nome_pdf_atual", "")
         base_sel = selecionar_base_automatica(nome_pdf)
-        if base_sel:
+        if base_sel and not st.session_state.get("_base_fallback_warned"):
             st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
-        else:
+        elif not base_sel:
             st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
 
         with st.spinner("Extraindo texto do PDF..."):
@@ -356,7 +346,6 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
 
-        # ── FIX: persiste o df no session_state para o botão Aprovar enxergar ──
         st.session_state["df_pcmso_gerado"] = df_pcmso
         st.session_state["base_auditoria_atual"] = selecionar_base_automatica(
             st.session_state.get("nome_pdf_atual", "")
@@ -364,6 +353,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         if base_sel and banco_matrizes:
             try:
+                # FIX P2: usa pcmso_df_para_dict canonica do modulo auditor
                 from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
                 dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
                 with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
@@ -445,7 +435,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             else:
                 st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
 
-            # ── Passo 4: botão XML eSocial ─────────────────────────────────────────
             from modules.modulo_esocial_xml import render_botao_xml
             render_botao_xml(
                 df_editado,

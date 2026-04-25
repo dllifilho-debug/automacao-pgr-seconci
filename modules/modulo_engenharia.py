@@ -261,22 +261,21 @@ def render_engenharia():
                     if nome_arq in textos_pdfs:
                         texto = textos_pdfs[nome_arq]
 
-      # ── COLOQUE este bloco no lugar ────────────────────────────────────
                         from data.dicionario_cas import buscar_ou_descobrir_cas
 
                         for cas in set(re.findall(r'\b(\d{2,7}-\d{2}-\d)\b', texto)):
                             d = buscar_ou_descobrir_cas(cas, texto, CHAVE_API)
                             resultados_medicos.append({
-                            "GHE":                      nome_ghe,
-                            "Arquivo Origem":           nome_arq,
-                            "N CAS":                    cas,
-                            "Agente Quimico":           d["agente"],
-                            "Lim. Tolerancia (NR-15)":  d["nr15_lt"],
-                            "Nivel de Acao (NR-09)":    d["nr09_acao"],
-                            "IBE (NR-07)":              d["nr07_ibe"],
-                            "Dec 3048":                 d["dec_3048"],
-                            "eSocial":                  d["esocial_24"],
-                               })
+                                "GHE":                      nome_ghe,
+                                "Arquivo Origem":           nome_arq,
+                                "N CAS":                    cas,
+                                "Agente Quimico":           d["agente"],
+                                "Lim. Tolerancia (NR-15)":  d["nr15_lt"],
+                                "Nivel de Acao (NR-09)":    d["nr09_acao"],
+                                "IBE (NR-07)":              d["nr07_ibe"],
+                                "Dec 3048":                 d["dec_3048"],
+                                "eSocial":                  d["esocial_24"],
+                            })
 
                         for cod in set(re.findall(r'H\d{3}', texto)):
                             if cod in DICIONARIO_H:
@@ -316,6 +315,13 @@ def render_engenharia():
                 html_final = gerar_html_anexo(resultados_pgr, resultados_medicos)
                 st.success("Relatorio Consolidado Gerado!")
                 st.session_state["ultimo_html_eng"] = html_final
+                # ── FIX P1: expoe agentes medicos para o Modulo Medicina ──
+                st.session_state["fispq_resultados_medicos"] = resultados_medicos
+                n_agentes = len(resultados_medicos)
+                st.info(
+                    f"🧪 {n_agentes} agente(s) quimico(s)/fisico(s) salvos — "
+                    "abra o modulo **Medicina: PGR - PCMSO** para injetar no PCMSO."
+                )
             else:
                 st.warning("Nenhum dado processado. Verifique os PDFs e GHEs.")
 
