@@ -22,7 +22,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '6.3 (Universal)'
+VERSAO_MODULO_PCMSO = '6.4 (Universal)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -77,11 +77,10 @@ _LIXO_GHE = [
     r'digitacao de textos',
 ]
 
-# GHEs cujo NOME indica ambiente de limpeza/apoio sem risco de altura
-# Nesses GHEs o Servente NÃO recebe Psicossocial (confirmado PCMSO Dra. Patrícia)
-_NOMES_GHE_SEM_PSICOSSOCIAL = [
-    'LIMPEZA', 'BETONEIRA',
-]
+# Palavras no nome do GHE que indicam eletricista energizado (NR-10 pleno)
+_NOMES_GHE_ENERGIZADO = ['ENERGIZADO', 'NR-10', 'ELETRICA ENERGIZ']
+# Palavras no nome do GHE que indicam eletricista desenergizado (perfil base)
+_NOMES_GHE_DESENERGIZADO = ['DESENERGIZADO', 'ELETRICA DESENERGI']
 
 _MAPA_AGENTES = {
     'RUIDO': 'RUIDO', 'RUÍDO': 'RUIDO', 'VIBRAÇÃO CORPO': 'VIBRACAO CORPO INTEIRO',
@@ -90,8 +89,6 @@ _MAPA_AGENTES = {
     'METIL-ETIL': 'METIL-ETIL-CETONA',
     'TETRAHIDRO': 'TETRAHIDROFURANO', 'CICLOHEXAN': 'CICLOHEXANONA',
     'DICLOROMETANO': 'DICLOROMETANO', 'TRICLOROETILENO': 'TRICLOROETILENO', 'ESTIRENO': 'ESTIRENO',
-    # CORREÇÃO: 'HEXANO' isolado REMOVIDO — só bate em 'N-HEXANO' exato
-    # Evita falso positivo em texto genérico de PGR
     'N-HEXANO': 'N-HEXANO',
     'N HEXANO': 'N-HEXANO',
     'FENOL': 'FENOL', 'MERCURIO': 'MERCURIO', 'MERCÚRIO': 'MERCURIO',
@@ -114,14 +111,10 @@ _MAPA_AGENTES = {
     'ELÉTRIC': 'RISCO ELETRICO', 'BIOLOGICO': 'AGENTE BIOLOGICO', 'BIOLÓGICO': 'AGENTE BIOLOGICO',
     'ESGOTO': 'ESGOTO', 'EFLUENTE': 'ESGOTO', 'MOTORISTA': 'MOTORISTA',
     'METILETILCETONA': 'METIL-ETIL-CETONA',
-    'METILETILCETONA (MEK)': 'METIL-ETIL-CETONA',
     'MEK': 'METIL-ETIL-CETONA',
     'TRICLOROETILENO': 'TRICLOROETILENO',
     'TRICLOROETENO': 'TRICLOROETILENO',
     'TRICLOROETANO': '1,1,1-TRICLOROETANO',
-    # CORREÇÃO: CETONASTER → ativa ACETONA (proxy do pacote Cetonaster)
-    # Cetonaster = Acetona + MEK + Ciclohexanona + THF
-    # O Encanador/Servente de hidrossanitárias usa Cetonaster como solvente
     'CETONASTER': 'ACETONA',
 }
 
@@ -260,10 +253,10 @@ def _ghe_e_canteiro_misto(nome_ghe, riscos):
     texto_r = ' '.join(normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos)
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
 
-def _ghe_tem_psicossocial_base(nome_ghe):
-    """GHEs cujo nome indica ambiente sem NR-35 implícita (limpeza, betoneira) — não recebem Psicossocial base."""
+def _ghe_e_energizado(nome_ghe):
+    """Retorna True se o nome do GHE indica instalação elétrica ENERGIZADA (NR-10 pleno)."""
     norm = normalizar_texto(nome_ghe)
-    return not any(excl in norm for excl in _NOMES_GHE_SEM_PSICOSSOCIAL)
+    return any(p in norm for p in _NOMES_GHE_ENERGIZADO)
 
 def extrair_texto_pdf(uploaded_file):
     texto = []
@@ -360,13 +353,14 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     cargo_upper = cargo_norm.upper()
 
     texto_riscos = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
-    # TINTA excluída dos químicos pesados
     _QUIMICOS_PESADOS = ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'QUIMICO']
     tem_quimico = any(q in texto_riscos for q in _QUIMICOS_PESADOS)
 
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR', 'ENCANADOR']):
+        if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR', 'ENCANADOR', 'SERRALHEIRO', 'MONTADOR', 'MECANICO']):
+            ex['per'] = '6'
+        elif 'ENERGIZADO' in cargo_upper:
             ex['per'] = '6'
         elif not ex.get('per'):
             ex['per'] = '12'
@@ -379,10 +373,7 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
             elif nome == 'Espirometria': ex['per'] = '24'
             elif nome == 'RX de Tórax OIT':
                 tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'ASBESTO'])
-                tem_fumos_solda = any(x in cargo_upper for x in ['SERRALHEIRO', 'SOLDADOR'])
                 if tem_poeira_pesada or any(x in cargo_upper for x in ['PEDREIRO', 'BETONEIRA']):
-                    ex['per'] = '12'
-                elif tem_fumos_solda:
                     ex['per'] = '12'
                 else:
                     ex['per'] = '60'
@@ -520,42 +511,41 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
         tem_altura_confinado = any(x in texto_riscos_ghe for x in ['QUEDA DE ALTURA', 'ESPACO CONFINADO'])
         tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
-        # Flag para Psicossocial base de canteiro (exceto GHEs de limpeza/betoneira)
-        ghe_permite_psico_base = _ghe_tem_psicossocial_base(nome_ghe)
+        # Detecta se o GHE é de eletricidade ENERGIZADA para sobrescrever perfil ELETRICISTA
+        ghe_energizado = _ghe_e_energizado(nome_ghe)
 
         for cargo in cargos:
             cargo_norm = normalizar_cargo(cargo)
+            cargo_efetivo = cargo_norm
+
+            # Se o GHE é energizado e o cargo é ELETRICISTA (base), sobe para ENERGIZADO
+            if ghe_energizado and 'ELETRICISTA' in cargo_norm and 'ENERGIZADO' not in cargo_norm:
+                cargo_efetivo = cargo_norm + ' ENERGIZADO'
+
             exames = {}
 
             clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
-            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm, riscos))
+            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_efetivo, riscos))
 
             e_cargo_adm = any(adm in cargo_norm for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO'])
             if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
                 e_cargo_adm = True
 
-            # CORREÇÃO: OPERADOR DE BETONEIRA reconhecido como operador de máquina
-            operador_maquina = any(x in cargo_norm for x in ['OPERADOR', 'MOTORISTA', 'GUINDASTE', 'GRUA', 'EMPILHADEIRA', 'BETONEIRA'])
+            operador_maquina = any(x in cargo_norm for x in ['OPERADOR DE GRUA', 'OPERADOR DE CREMALHEIRA', 'MOTORISTA', 'GUINDASTE', 'EMPILHADEIRA'])
 
             if e_canteiro and not e_cargo_adm:
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm, riscos))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_efetivo, riscos))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_efetivo, riscos))
+                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_efetivo, riscos))
 
                 if tem_altura_confinado or tem_eletricidade or operador_maquina:
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
 
-                # CORREÇÃO v6.3: Psicossocial agora é exame BASE de canteiro
-                # A Dra. Patrícia coloca em todos os GHEs de canteiro (NR-35 implícita da obra)
-                # Exceções: GHEs de LIMPEZA e BETONEIRA (confirmado no PCMSO)
-                if ghe_permite_psico_base:
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Avaliação Psicossocial', motivo='NR-35 Base Canteiro'), cargo_norm, riscos))
-
-            _aplicar_funcao_matriz(exames, cargo_norm, riscos)
-            _aplicar_riscos_matriz(exames, riscos, cargo_norm)
+            _aplicar_funcao_matriz(exames, cargo_efetivo, riscos)
+            _aplicar_riscos_matriz(exames, riscos, cargo_efetivo)
 
             rows_cargo = []
             for ex_info in exames.values():

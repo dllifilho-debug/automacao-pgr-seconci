@@ -82,7 +82,7 @@ PALAVRAS_EXCLUIR_CARGO = [
 ]
 
 DICIONARIO_CARGOS = {
-    # ── ADMINISTRATIVO ────────────────────────────────────────────
+    # ADMINISTRATIVO
     "GERENTE ADMINISTRATIVO":              "ADMINISTRATIVO",
     "ASSISTENTE ADMINISTRATIVO":           "ADMINISTRATIVO",
     "AUXILIAR ADMINISTRATIVO":             "ADMINISTRATIVO",
@@ -98,7 +98,7 @@ DICIONARIO_CARGOS = {
     "AUXILIAR SERVICOS GERAIS":            "ADMINISTRATIVO",
     "AUXILIAR DE LIMPEZA":                 "ADMINISTRATIVO",
     "ZELADOR":                             "ADMINISTRATIVO",
-    # ── PRODUÇÃO GERAL (canteiro sem perfil específico) ───────────
+    # PRODUÇÃO GERAL
     "PEDREIRO":                            "PRODUCAO_GERAL",
     "MEIO OFICIAL DE PEDREIRO":            "PRODUCAO_GERAL",
     "SERVENTE":                            "PRODUCAO_GERAL",
@@ -116,49 +116,40 @@ DICIONARIO_CARGOS = {
     "VIGIA":                               "PRODUCAO_GERAL",
     "PORTEIRO":                            "PRODUCAO_GERAL",
     "OPERADOR DE MAQUINAS":                "PRODUCAO_GERAL",
-    # ── PERFIS COM GABARITO PRÓPRIO ───────────────────────────────
+    # PERFIS COM GABARITO PRÓPRIO
     "PINTOR":                              "PINTOR",
     "MEIO OFICIAL DE PINTOR":              "PINTOR",
     "ENCARREGADO DE PINTOR":               "PINTOR",
-    # Serralheiro
     "SERRALHEIRO":                         "SERRALHEIRO",
     "MEIO OFICIAL DE SERRALHEIRO":         "SERRALHEIRO",
     "SOLDADOR":                            "SERRALHEIRO",
-    # Impermeabilizador
     "IMPERMEABILIZADOR":                   "IMPERMEABILIZADOR",
     "ENCARREGADO DE IMPERMEABILIZACAO":    "IMPERMEABILIZADOR",
-    # Eletricista
+    # Eletricista — distinção energizado/desenergizado feita via nome do GHE no modulo_pcmso.py
+    # ELETRICISTA INDUSTRIAL → sempre energizado (NR-10)
+    "ELETRICISTA INDUSTRIAL":              "ELETRICISTA_ENERGIZADO",
     "ELETRICISTA":                         "ELETRICISTA",
-    "ELETRICISTA INDUSTRIAL":              "ELETRICISTA",
     "MEIO OFICIAL DE ELETRICISTA":         "ELETRICISTA",
-    # Encanador
     "ENCANADOR":                           "ENCANADOR",
     "MEIO OFICIAL DE ENCANADOR":           "ENCANADOR",
-    # Operadores
     "OPERADOR DE GRUA":                    "OPERADOR_GRUA",
     "OPERADOR DE CREMALHEIRA":             "OPERADOR_GRUA",
     "OPERADOR DE BETONEIRA":               "OPERADOR_BETONEIRA",
-    # Motorista
     "MOTORISTA":                           "MOTORISTA",
-    # Engenheiro / Estagiário de Eng.
     "ENGENHEIRO":                          "ENGENHEIRO",
     "ENGENHEIRO CIVIL":                    "ENGENHEIRO",
     "AUXILIAR DE ENGENHARIA CIVIL":        "ENGENHEIRO",
     "ESTAGIARIO DE ENGENHARIA":            "ENGENHEIRO",
     "ESTAGIARIO DE ENGENHARIA CIVIL":      "ENGENHEIRO",
-    # Técnico / Estagiário SST
     "TECNICO DE SEGURANCA DO TRABALHO":    "TECNICO_SST",
     "ESTAGIARIO DE SEGURANCA DO TRABALHO": "TECNICO_SST",
-    # Mestre de Obra
     "MESTRE DE OBRA":                      "MESTRE_OBRA",
     "MESTRE DE OBRAS":                     "MESTRE_OBRA",
-    # Encarregado geral / por especialidade
     "ENCARREGADO":                         "ENCARREGADO_GERAL",
     "ENCARREGADO DE PEDREIRO":             "ENCARREGADO_GERAL",
     "ENCARREGADO DE ELETRICISTA":          "ENCARREGADO_GERAL",
     "ENCARREGADO DE ENCANADOR":            "ENCARREGADO_GERAL",
     "ENCARREGADO DE REJUNTE":              "ENCARREGADO_GERAL",
-    # Gesseiro
     "GESSEIRO":                            "GESSEIRO",
 }
 
