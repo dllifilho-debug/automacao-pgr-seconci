@@ -22,7 +22,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '6.1 (Universal)'
+VERSAO_MODULO_PCMSO = '6.2 (Universal)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -56,7 +56,7 @@ _PALAVRAS_CANTEIRO = [
     'EDIFICIO', 'BLOCO', 'TORRE', 'HETRIN', 'VIADUTO', 'PONTE', 'SHOPPING',
     'CONDOMINIO', 'EMPREENDIMENTO', 'MONTAGEM', 'INSTALACAO', 'CAMPO',
     'PRODUCAO', 'CREMALHEIRA', 'GRUA', 'ARMACAO', 'BETONEIRA', 'CARPINTARIA',
-    'LIMPEZA', 'ELETRICA', 'PINTURA', 'GESSO', 'HIDROSSANITARIAS', 'SERRALHERIA', 
+    'LIMPEZA', 'ELETRICA', 'PINTURA', 'GESSO', 'HIDROSSANITARIAS', 'SERRALHERIA',
     'SINALIZACAO', 'MANUTENCAO', 'IMPERMEABILIZACAO', 'ESTRUTURA'
 ]
 
@@ -88,21 +88,17 @@ _MAPA_AGENTES = {
     'CROMO': 'CROMO', 'CADMIO': 'CADMIO', 'CÁDMIO': 'CADMIO', 'ARSENICO': 'ARSENICO',
     'ARSÊNIO': 'ARSENICO', 'COBALTO': 'COBALTO', 'FLUOR': 'FLUOR', 'FLÚOR': 'FLUOR',
     'SOLDA': 'SOLDA', 'POLICORTE': 'POLICORTE',
-    # CORREÇÃO 1: MONOXIDO removido do _MAPA_AGENTES.
-    # Carboxiemoglobina é gerada APENAS via SOLDA/POLICORTE (conforme Matriz Dra. Patrícia 06.2025).
-    # Manter MONOXIDO aqui causava vazamento: o PGR menciona monóxido em texto genérico
-    # da obra e contaminava TODOS os GHEs com Carboxiemoglobina indevida.
     'DIESEL': 'COMBUSTIVEL', 'GASOLINA': 'COMBUSTIVEL',
-    'COMBUSTIVEL': 'COMBUSTIVEL', 'COMBUSTÍVEL': 'COMBUSTIVEL', 'SILICA': 'SILICA', 'SÍLICA': 'SILICA',
+    'COMBUSTIVEL': 'COMBUSTIVEL', 'COMBUSTÍVEL': 'COMBUSTIVEL',
+    'SILICA': 'SILICA', 'SÍLICA': 'SILICA',
     'QUARTZO': 'SILICA', 'POEIRA MINERAL': 'POEIRA MINERAL', 'POEIRAS MINERAIS': 'POEIRA MINERAL',
-    'CIMENTO': 'CIMENTO', 'ASBESTO': 'ASBESTO', 'AMIANTO': 'ASBESTO', 'FUMO METALICO': 'FUMOS METALICOS',
-    'FUMO METÁLICO': 'FUMOS METALICOS', 'MADEIRA': 'MADEIRA', 'TINTA': 'TINTA',
-    'IMPERMEAB': 'IMPERMEABILIZACAO', 'MASCARA': 'MASCARA RESPIRATORIA', 'MÁSCARA': 'MASCARA RESPIRATORIA',
-    # CORREÇÃO 2: 'ALTURA' substituída por 'TRABALHO EM ALTURA' (frase composta).
-    # A chave isolada 'ALTURA' batia em qualquer linha do PGR que contivesse a palavra
-    # (ex: "risco de queda de altura no canteiro"), contaminando GHEs que não têm
-    # NR-35 real. Com a frase composta, só GHEs que explicitam "TRABALHO EM ALTURA"
-    # ativam o Kit Operacional e a Avaliação Psicossocial.
+    'CIMENTO': 'CIMENTO', 'ASBESTO': 'ASBESTO', 'AMIANTO': 'ASBESTO',
+    'FUMO METALICO': 'FUMOS METALICOS', 'FUMO METÁLICO': 'FUMOS METALICOS',
+    'MADEIRA': 'MADEIRA', 'TINTA': 'TINTA',
+    'IMPERMEAB': 'IMPERMEABILIZACAO',
+    'MASCARA': 'MASCARA RESPIRATORIA', 'MÁSCARA': 'MASCARA RESPIRATORIA',
+    # CORREÇÃO 2: 'ALTURA' isolada substituída por frase composta.
+    # 'TRABALHO EM ALTURA' só aparece em GHEs com NR-35 real.
     'TRABALHO EM ALTURA': 'QUEDA DE ALTURA',
     'TRABALHO EM ALTURA NR': 'QUEDA DE ALTURA',
     'CONFINADO': 'ESPACO CONFINADO', 'ELETRICO': 'RISCO ELETRICO',
@@ -112,13 +108,9 @@ _MAPA_AGENTES = {
     'METILETILCETONA (MEK)': 'METIL-ETIL-CETONA',
     'MEK': 'METIL-ETIL-CETONA',
     'N-HEXANO': 'N-HEXANO',
-    'TOLUENO': 'TOLUENO',
-    'XILENO': 'XILENO',
-    # MANTENHA A INTEGRIDADE QUÍMICA
     'TRICLOROETILENO': 'TRICLOROETILENO',
-    'TRICLOROETENO': 'TRICLOROETILENO', # Tricloroeteno é sinônimo direto de Tricloroetileno
+    'TRICLOROETENO': 'TRICLOROETILENO',
     'TRICLOROETANO': '1,1,1-TRICLOROETANO',
-    'METILETILCETONA': 'METIL-ETIL-CETONA',
 }
 
 _RE_GHE = re.compile(r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)', re.IGNORECASE)
@@ -135,6 +127,7 @@ _PALAVRAS_CARGO_AIHA = [
     'GERENTE', 'DIRETOR', 'SERVICOS GERAIS', 'FISCAL', 'INSPETOR', 'PROJETISTA', 'DESENHISTA',
 ]
 
+# CORREÇÃO 6: Aliases de exames — unificação de nomes divergentes
 _EXAME_ALIAS = {
     'EXAME CLINICO ANAMNESE EXAME FISICO': 'Exame Clinico',
     'EXAME CLINICO': 'Exame Clinico',
@@ -156,21 +149,29 @@ _EXAME_ALIAS = {
     'AC TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
     'ACIDO TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
     'ACETONA NA URINA': 'Acetona na urina',
+    # CORREÇÃO 6a: Metil-Etil-Cetona — todos os aliases apontam para o mesmo nome
     'METIL ETIL CETONA MEK NA URINA': 'Metil-Etil-Cetona',
     'METIL ETIL CETONA NA URINA': 'Metil-Etil-Cetona',
     'METIL ETIL CETONA': 'Metil-Etil-Cetona',
-    'METILETILCETONA NA URINA': 'Metiletilcetona na urina',
+    'METILETILCETONA NA URINA': 'Metil-Etil-Cetona',
+    'METIL-ETIL-CETONA NA URINA': 'Metil-Etil-Cetona',
+    'MEK NA URINA': 'Metil-Etil-Cetona',
     'CICLOHEXANOL H NA URINA': 'Ciclohexanol na urina',
     'CICLOHEXANOL NA URINA': 'Ciclohexanol na urina',
     'TETRAHIDROFURNANO NA URINA': 'Tetrahidrofurnano na urina',
+    'TETRAHIDROFURANO NA URINA': 'Tetrahidrofurnano na urina',
     'MANGANES NO SANGUE': 'Manganês sanguíneo',
     'MANGANES SANGUINEO': 'Manganês sanguíneo',
     'CARBOXIHEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
     'CARBOXIEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
     'CARBOXIHEMOGLOBINA': 'Carboxiemoglobina',
+    # CORREÇÃO 6b: Contagem de Reticulócitos — alias adicionado
     'CONTAGEM DE RETICULOCITOS': 'Contagem de Reticulócitos',
+    'RETICULOCITOS': 'Contagem de Reticulócitos',
+    'CONTAGEM DE RETICULÓCITOS': 'Contagem de Reticulócitos',
     'ACIDO TRANS TRANS MUCONICO NA URINA': 'Ácido trans-trans mucônico',
     'ACIDO TRANS TRANS MUCONICO': 'Ácido trans-trans mucônico',
+    # CORREÇÃO 6c: Avaliação Psicossocial — periodicidade fixada (12M) via alias
     'AVALIACAO PSICOSSOCIAL NR 35': 'Avaliação Psicossocial',
     'AVALIACAO PSICOSSOCIAL': 'Avaliação Psicossocial',
     'ORTOCRESOL NA URINA': 'Ortocresol na urina',
@@ -280,20 +281,17 @@ def extrair_pgr_local(texto):
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual['cargos']:
                     ghe_atual['cargos'].append(cargo)
                     break
-        # Busca por frases compostas ANTES de tokens individuais para evitar falsos positivos
-        matched_frase = False
+        # Frases compostas têm prioridade sobre tokens individuais
         for palavra, chave_risco in _MAPA_AGENTES.items():
-            if ' ' in palavra:  # frases compostas têm prioridade
+            if ' ' in palavra:
                 if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
                     agentes_set.add(chave_risco)
                     ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
-                    matched_frase = True
         for palavra, chave_risco in _MAPA_AGENTES.items():
-            if ' ' not in palavra:  # tokens individuais só se nenhuma frase composta já bateu para esta chave
+            if ' ' not in palavra:
                 if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
                     agentes_set.add(chave_risco)
                     ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
-        # Fuzzy matching: tenta normalizar palavras da linha que não bateram no _MAPA_AGENTES
         for token in lu.split():
             if len(token) < 3:
                 continue
@@ -315,7 +313,6 @@ def _deduplicar_ghes(ghes):
         if not nome_ghe:
             resultado.append(ghe)
             continue
-            
         if nome_ghe not in vistos:
             vistos[nome_ghe] = len(resultado)
             resultado.append(ghe)
@@ -324,7 +321,6 @@ def _deduplicar_ghes(ghes):
             for c in ghe.get('cargos', []):
                 if c not in resultado[idx]['cargos']:
                     resultado[idx]['cargos'].append(c)
-            
             riscos_existentes = {r['nome_agente'] for r in resultado[idx]['riscos_mapeados']}
             for r in ghe.get('riscos_mapeados', []):
                 if r['nome_agente'] not in riscos_existentes:
@@ -346,70 +342,68 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
 
 def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     """
-    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci,
-    agora com Inteligência Baseada em Riscos.
+    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci.
+    CORREÇÃO 4: tem_quimico agora exclui TINTA — tinta não justifica
+    Hemograma semestral nem Exame Clínico semestral.
     """
     if riscos is None: riscos = []
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
-    
     cargo_upper = cargo_norm.upper()
 
-    # Concatena todos os riscos para busca inteligente de palavras-chave
     texto_riscos = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
-    tem_quimico = any(q in texto_riscos for q in ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'TINTA', 'QUIMICO'])
+    # CORREÇÃO 4: TINTA excluída dos químicos pesados — não justifica Hemograma/Clínico semestral
+    _QUIMICOS_PESADOS = ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'QUIMICO']
+    tem_quimico = any(q in texto_riscos for q in _QUIMICOS_PESADOS)
 
-    # 1. Base mínima e Regra de 6 Meses para Químicos Pesados
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        
-        # Reduz para 6 meses se houver risco químico mapeado ou função de pintura/impermeabilização
         if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
             ex['per'] = '6'
-        elif not ex.get('per'): 
+        elif not ex.get('per'):
             ex['per'] = '12'
 
-    # 2. Exames Pulmonares e Auditivos
     elif nome in ['Audiometria', 'Espirometria', 'RX de Tórax OIT']:
         ex['adm'], ex['mro'], ex['dem'] = True, True, True
-        ex['rt'] = False  # Retorno ao trabalho é False para complementares
-        
+        ex['rt'] = False
         if not ex.get('per'):
             if nome == 'Audiometria': ex['per'] = '12'
             elif nome == 'Espirometria': ex['per'] = '24'
             elif nome == 'RX de Tórax OIT':
-                # Regra Inteligente: Sílica/Cimento no GHE = 12 meses. Restante = 60 meses.
-                tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'CIMENTO', 'ASBESTO', 'POEIRA MINERAL'])
+                # Apenas SILICA pura e ASBESTO justificam 12M; restante = 60M
+                tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'ASBESTO'])
                 if tem_poeira_pesada or any(x in cargo_upper for x in ['PEDREIRO', 'BETONEIRA']):
                     ex['per'] = '12'
                 else:
                     ex['per'] = '60'
 
-    # 3. Sangue e Kit Operacional
     elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
         ex['adm'], ex['mro'] = True, True
-        ex['rt'], ex['dem'] = False, False 
-        
-        # Exceção: Hemograma para químicos tem validade menor e exige demissional
-        if nome in ['Hemograma', 'Hemograma Completo'] and (tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR'])):
+        ex['rt'], ex['dem'] = False, False
+        # CORREÇÃO 4: Hemograma semestral só com QUÍMICO PESADO real (não TINTA)
+        if nome in ['Hemograma', 'Hemograma Completo'] and tem_quimico and any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
             ex['per'] = '6'
             ex['dem'] = True
-        elif not ex.get('per'): 
+        elif not ex.get('per'):
             ex['per'] = '12'
-            
-    # 4. Sangue e Urina Tóxicos (Restrições NR-7) - Mantendo a blindagem de 6 meses
-    elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 
-                  'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 
-                  'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 
+
+    elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona',
+                  'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina',
+                  'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina',
                   'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = False, False, False, False
-        if not ex.get('per'): ex['per'] = '6' 
+        if not ex.get('per'): ex['per'] = '6'
 
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
 
-    # 5. Exceções de Cargo
+    # CORREÇÃO 6c: Avaliação Psicossocial — garantir periodicidade 12M sempre
+    elif nome == 'Avaliação Psicossocial':
+        ex['adm'], ex['mro'] = True, True
+        ex['rt'], ex['dem'] = False, False
+        ex['per'] = '12'
+
     if cargo_upper in ['OPERADOR DE GRUA', 'GRUEIRO']:
         if nome == 'Audiometria':
             ex['per'] = None
@@ -420,6 +414,8 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
 
 def _aplicar_funcao_matriz(exames, cargo_norm, riscos):
     for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
+        if not lista_ex:
+            continue
         if _match_funcao_matriz(cargo_norm, funcao):
             for ex in lista_ex:
                 exame = _novo_exame(
@@ -427,7 +423,6 @@ def _aplicar_funcao_matriz(exames, cargo_norm, riscos):
                     mro=ex.get('mro', True), rt=ex.get('rt', False), dem=ex.get('dem', False),
                     obs=ex.get('obs', ''), motivo=f'Matriz de Função: {funcao.title()}',
                 )
-                # Passando 'riscos' para a inteligência de validação
                 adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
 
 def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
@@ -435,96 +430,71 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     for risco in riscos:
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
         cas_r = str(risco.get('cas', '')).strip()
-        
-        # ====================================================================
-        # NOVO MOTOR CAS-DRIVEN: Aciona exames com base no número exato!
-        # ====================================================================
-        
-        # Tricloroetileno (79-01-6) e 1,1,1-Tricloroetano (71-55-6)
+
+        # Motor CAS-driven
         if cas_r in ['79-01-6', '71-55-6'] or chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
             exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
-            continue 
-            
-        # n-Hexano (110-54-3)
+            continue
         elif cas_r == '110-54-3' or chave_r in ['N-HEXANO', 'HEXANO']:
             exame = _novo_exame('2,5 Hexanodiona na Urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
-            
-        # Tolueno (108-88-3)
         elif cas_r == '108-88-3' or chave_r == 'TOLUENO':
             exame = _novo_exame('Ortocresol na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
-            
-        # ====================================================================
 
         if chave_r in CHAVES_BIOLOGICAS_MATRIZ and not bio_real:
             continue
-            
+
         regra = MATRIZ_RISCO_EXAME.get(chave_r)
         if not regra:
             continue
-            
+
         exame = _novo_exame(
             regra['exame'], adm=regra.get('adm', True), per=regra.get('per'), mro=regra.get('mro', True),
             rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
             motivo=f"Risco Mapeado: {chave_r.title()}",
         )
-        # Passando 'riscos' para a inteligência de validação
         adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
 
 def _ordenar_exames(rows):
-    ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG', 'Anti-HBs + HBsAg + Anti-HCV', 'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
+    ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG',
+             'Anti-HBs + HBsAg + Anti-HCV', 'Ácido tricloroacético na urina', 'Acetona na urina',
+             'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina',
+             'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos',
+             'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina',
+             'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
     peso = {nome: i for i, nome in enumerate(ordem)}
     return sorted(rows, key=lambda r: (peso.get(_nome_oficial_exame(r['Exame']), 999), _norm(r['Exame'])))
 
-# =====================================================================
-# 1. COLE A FUNÇÃO NOVA AQUI (ACIMA DO PROCESSAR_PCMSO)
-# =====================================================================
 def enriquecer_pgr_com_fispq(dados_pgr, resultados_medicos_fispq):
-    """
-    Cruza os GHEs do PGR com os agentes químicos descobertos pelo Módulo de FISPQ
-    e injeta os riscos químicos ocultos para gerar os exames de sangue/urina.
-    """
     if not resultados_medicos_fispq:
         return dados_pgr
-        
     for ghe_pgr in dados_pgr:
         nome_ghe_pgr = normalizar_texto(ghe_pgr.get('ghe', ''))
-        
-        # Procura os agentes da FISPQ que foram mapeados para este GHE
         agentes_para_injetar = []
         for item_fispq in resultados_medicos_fispq:
             nome_ghe_fispq = normalizar_texto(item_fispq.get('GHE', ''))
-            
-            # Se o GHE da FISPQ bater com o GHE do PGR
             if nome_ghe_fispq in nome_ghe_pgr or nome_ghe_pgr in nome_ghe_fispq:
                 agentes_para_injetar.append(item_fispq)
-        
-        # Injeta os riscos no GHE do PGR
         riscos_existentes = {normalizar_texto(r['nome_agente']) for r in ghe_pgr.get('riscos_mapeados', [])}
-        
-        # Modificamos a captura para pegar o dicionário inteiro do Módulo de Engenharia
         for item in agentes_para_injetar:
             agente = item.get('Agente Quimico', '')
-            cas = item.get('N CAS', '') # <--- AGORA ESTAMOS PEGANDO O CAS!
+            cas = item.get('N CAS', '')
             agente_norm = normalizar_texto(agente)
-            
             if agente_norm not in riscos_existentes:
                 ghe_pgr['riscos_mapeados'].append({
-                    'nome_agente': agente, 
-                    'cas': cas, # <--- INJETAMOS O CAS DENTRO DO PGR
+                    'nome_agente': agente,
+                    'cas': cas,
                     'perigo_especifico': f'Mapeado via FISPQ (CAS: {cas})'
                 })
                 riscos_existentes.add(agente_norm)
-                
     return dados_pgr
 
 def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     linhas = []
-
     for ghe in dados_pgr:
         nome_ghe_raw = ghe.get('ghe', 'Sem GHE')
         nome_ghe = _limpar_nome_ghe(str(nome_ghe_raw))
@@ -541,8 +511,8 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         else:
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
 
-        # ANÁLISE DE RISCOS DO GHE (A mágica que limpa o excesso de exames)
         texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
+        # CORREÇÃO 2: Verifica QUEDA DE ALTURA e ESPACO CONFINADO (valores normalizados pós-mapeamento)
         tem_altura_confinado = any(x in texto_riscos_ghe for x in ['QUEDA DE ALTURA', 'ESPACO CONFINADO'])
         tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
 
@@ -550,7 +520,6 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             cargo_norm = normalizar_cargo(cargo)
             exames = {}
 
-            # 1. Base: Todo mundo ganha o Clínico Universal
             clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
             adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_norm, riscos))
 
@@ -558,37 +527,30 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
                 e_cargo_adm = True
 
-            # Verifica se o cargo é de operação de máquina pesada
             operador_maquina = any(x in cargo_norm for x in ['OPERADOR', 'MOTORISTA', 'GUINDASTE', 'GRUA', 'EMPILHADEIRA'])
 
             if e_canteiro and not e_cargo_adm:
-                # Kit Básico Respiratório / Auditivo
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm, riscos))
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_norm, riscos))
-                
-                # KIT OPERACIONAL (Aplicado APENAS se houver os riscos críticos ou for operador)
+
                 if tem_altura_confinado or tem_eletricidade or operador_maquina:
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
 
-                # AVALIAÇÃO PSICOSSOCIAL (Aplicada APENAS para Altura ou Espaço Confinado)
                 if tem_altura_confinado:
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Avaliação Psicossocial', motivo='NR-35 / NR-33'), cargo_norm, riscos))
 
-            # 3 e 4. Cruzamento com as Matrizes e FISPQ
             _aplicar_funcao_matriz(exames, cargo_norm, riscos)
             _aplicar_riscos_matriz(exames, riscos, cargo_norm)
 
-            # Preparar as linhas finais
             rows_cargo = []
             for ex_info in exames.values():
                 nome_exame = _nome_oficial_exame(ex_info.get('exame', ''))
                 rt = bool(ex_info.get('rt', False))
                 dem = bool(ex_info.get('dem', False))
-
                 rows_cargo.append({
                     'GHE / Setor': nome_ghe,
                     'Cargo': cargo,
@@ -600,7 +562,6 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                     'DEM': _flag(dem),
                     'Justificativa': ex_info.get('motivo', ''),
                 })
-
             linhas.extend(_ordenar_exames(rows_cargo))
 
     return pd.DataFrame(linhas)
@@ -653,9 +614,8 @@ def gerar_docx_rq61(df, cabecalho=None):
     vig_i = cabecalho.get('vig_ini', '---')
     tipo = cabecalho.get('tipo_obra', 'Renovação')
 
-    # ── CORREÇÃO 1: Paleta de cores alinhada ao template real RQ.61 Seconci-GO ──
-    AZUL_GHE  = '4472C4'   # fundo linha do GHE (azul médio)
-    CINZA_COL = 'D9D9D9'   # fundo cabeçalho FUNÇÃO / EXAMES SOLICITADOS
+    AZUL_GHE  = '4472C4'
+    CINZA_COL = 'D9D9D9'
     BRANCO    = RGBColor(0xFF, 0xFF, 0xFF)
     PRETO     = RGBColor(0x00, 0x00, 0x00)
 
@@ -718,7 +678,6 @@ def gerar_docx_rq61(df, cabecalho=None):
         sec.left_margin = Cm(2.0)
         sec.right_margin = Cm(1.5)
 
-    # ── Cabeçalho do documento ──
     cab = doc.add_table(rows=4, cols=4)
     cab.style = 'Table Grid'
     cab.rows[0].cells[0].merge(cab.rows[0].cells[3])
@@ -752,14 +711,12 @@ def gerar_docx_rq61(df, cabecalho=None):
         tbl.columns[0].width = Cm(5.5)
         tbl.columns[1].width = Cm(12.0)
 
-        # ── Linha do GHE: azul médio (#4472C4) ──
         row_ghe = tbl.add_row()
         row_ghe.cells[0].merge(row_ghe.cells[1])
         shd(row_ghe.cells[0], AZUL_GHE)
         set_borders(row_ghe.cells[0])
         txt(row_ghe.cells[0], ghe_nome.upper(), bold=True, color=BRANCO, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-        # ── CORREÇÃO 2: Cabeçalho FUNÇÃO/EXAMES: cinza (#D9D9D9) com texto preto ──
         row_h = tbl.add_row()
         shd(row_h.cells[0], CINZA_COL)
         shd(row_h.cells[1], CINZA_COL)
@@ -768,7 +725,6 @@ def gerar_docx_rq61(df, cabecalho=None):
         txt(row_h.cells[0], 'FUNÇÃO', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
         txt(row_h.cells[1], 'EXAMES SOLICITADOS', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
 
-        # ── CORREÇÃO 3: Todos os exames do cargo em uma única célula ──
         for cargo, rows_cargo in cargos_dict.items():
             exames_fmt = [_fmt_exame_rq61(r) for r in rows_cargo]
             row_ex = tbl.add_row()
