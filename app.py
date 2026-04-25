@@ -1,6 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.9 — Passo 4: Exportação XML eSocial S-2240
+app.py v5.10 — Fix: Aprovar Matriz persiste df_pcmso via session_state
 """
 import json
 import os
@@ -356,6 +356,12 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
 
+        # ── FIX: persiste o df no session_state para o botão Aprovar enxergar ──
+        st.session_state["df_pcmso_gerado"] = df_pcmso
+        st.session_state["base_auditoria_atual"] = selecionar_base_automatica(
+            st.session_state.get("nome_pdf_atual", "")
+        )
+
         if base_sel and banco_matrizes:
             try:
                 from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
@@ -376,6 +382,8 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
 
+    # ── Triagem e Aprovação — FORA do bloco Extrair, persiste entre reruns ──
+    if "df_pcmso_gerado" in st.session_state:
         st.markdown("---")
         st.markdown("### 👩‍⚕️ Triagem Médica (Revisão da Inteligência)")
         st.info(
@@ -385,7 +393,7 @@ elif modulo == "Medicina: PGR - PCMSO":
         )
 
         df_editado = st.data_editor(
-            df_pcmso,
+            st.session_state["df_pcmso_gerado"],
             num_rows="dynamic",
             use_container_width=True,
             key="editor_matriz_pcmso",
@@ -396,6 +404,8 @@ elif modulo == "Medicina: PGR - PCMSO":
 
         if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
             cabecalho_atual = st.session_state["pcmso_cabecalho"]
+            razao_social = cabecalho_atual.get("razao_social", "")
+            medico_rt = cabecalho_atual.get("medico_rt", "")
             with st.spinner("Consolidando correções e gerando laudos oficiais..."):
                 try:
                     html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
