@@ -6,7 +6,7 @@
     ]
   },
   "PRODUCAO_GERAL": {
-    "riscos_base": ["Poeira Mineral", "Ruído", "Acidentes"],
+    "riscos_base": ["Poeira Mineral", "Ruído", "Acidentes", "NR-35 Genérica"],
     "exames": [
       {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
@@ -14,8 +14,9 @@
       {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
-      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true}
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
     ]
   },
   "PINTOR": {
@@ -27,10 +28,12 @@
       {"nome": "Hemograma Completo", "adm": true, "per": "6", "mro": true, "ret": false, "dem": true},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
       {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acetona na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
       {"nome": "Ácido Trans-trans Mucônico", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
-      {"nome": "Contagem de Reticulócitos", "adm": true, "per": "6", "mro": true, "ret": false, "dem": true},
+      {"nome": "Contagem de Reticulócitos", "adm": true, "per": "6", "mro": true, "ret": false, "dem": false},
       {"nome": "Ácido Metil-hipúrico na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
       {"nome": "Ortocresol na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false}
     ]
@@ -38,50 +41,62 @@
   "SERRALHEIRO": {
     "riscos_base": ["Fumos Metálicos", "Manganês", "Ruído"],
     "exames": [
-      {"nome": "Exame Clínico", "adm": true, "per": "6", "mro": true, "ret": true, "dem": true},
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
-      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
-      {"nome": "RX de Tórax OIT", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
       {"nome": "Carboxihemoglobina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
       {"nome": "Manganês Sanguíneo", "adm": true, "per": "6", "mro": true, "ret": false, "dem": false}
     ]
   },
   "IMPERMEABILIZADOR": {
-    "riscos_base": ["Fumos Asfálticos", "Monóxido de Carbono", "Calor"],
+    "riscos_base": ["Fumos Asfálticos", "Monóxido de Carbono", "Benzeno"],
     "exames": [
       {"nome": "Exame Clínico", "adm": true, "per": "6", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
       {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
-      {"nome": "Hemograma Completo", "adm": true, "per": "6", "mro": true, "ret": false, "dem": true},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
-      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
-      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
       {"nome": "Ácido Trans-trans Mucônico", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
-      {"nome": "Contagem de Reticulócitos", "adm": true, "per": "6", "mro": true, "ret": false, "dem": true},
-      {"nome": "Carboxihemoglobina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
-      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false}
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true}
     ]
   },
   "OPERADOR_GRUA": {
     "riscos_base": ["Trabalho em Altura", "Vibração Corpo Inteiro", "Ruído"],
     "exames": [
       {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": null, "mro": true, "ret": false, "dem": false},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "RX de coluna lombo-sacra", "adm": true, "per": null, "mro": true, "ret": false, "dem": false}
+    ]
+  },
+  "OPERADOR_BETONEIRA": {
+    "riscos_base": ["Ruído", "Poeira de Cimento", "Vibração"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
       {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
-      {"nome": "RX de Coluna Lombo-sacra", "adm": true, "per": null, "mro": true, "ret": false, "dem": false},
-      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false}
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true}
     ]
   },
   "ELETRICISTA": {
-    "riscos_base": ["Choque Elétrico", "Trabalho em Altura"],
+    "riscos_base": ["Choque Elétrico", "Trabalho em Altura", "NR-10"],
     "exames": [
       {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
@@ -89,12 +104,34 @@
       {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
-      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true}
+      {"nome": "RX de coluna lombo-sacra", "adm": true, "per": "24", "mro": true, "ret": false, "dem": false},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
     ]
   },
   "ENCANADOR": {
-    "riscos_base": ["Químicos Diversos", "Ruído"],
+    "riscos_base": ["Solventes Cetonaster", "Ruído", "NR-35"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "6", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Acetona na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
+      {"nome": "Metil-Etil-Cetona", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
+      {"nome": "Ciclohexanol na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
+      {"nome": "Tetrahidrofurnano na urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
+      {"nome": "2,5 Hexanodiona na Urina", "adm": false, "per": "6", "mro": false, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "EPF (Coproparasitológico) + Anti-HBs", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "ENCARREGADO_GERAL": {
+    "riscos_base": ["NR-35", "Supervisão de equipes", "Agente Biológico"],
     "exames": [
       {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
       {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
@@ -102,8 +139,78 @@
       {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "EPF (Coproparasitológico) + Anti-HBs", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
       {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
-      {"nome": "RX de Tórax OIT", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true}
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "ENGENHEIRO": {
+    "riscos_base": ["NR-35", "Circula em obra"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "TECNICO_SST": {
+    "riscos_base": ["NR-35", "Circula em toda a obra"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "MESTRE_OBRA": {
+    "riscos_base": ["NR-35", "Supervisão", "Agente Biológico"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "EPF (Coproparasitológico) + Anti-HBs", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "GESSEIRO": {
+    "riscos_base": ["Poeira de Gesso", "NR-35"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": false, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Avaliação Psicossocial", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Espirometria", "adm": true, "per": "24", "mro": true, "ret": false, "dem": true},
+      {"nome": "RX de Tórax OIT", "adm": true, "per": "60", "mro": true, "ret": false, "dem": true}
+    ]
+  },
+  "MOTORISTA": {
+    "riscos_base": ["Acidente de Trânsito", "Ruído"],
+    "exames": [
+      {"nome": "Exame Clínico", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Audiometria", "adm": true, "per": "12", "mro": true, "ret": true, "dem": true},
+      {"nome": "Acuidade Visual", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Hemograma Completo", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "Glicemia em Jejum", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false},
+      {"nome": "ECG", "adm": true, "per": "12", "mro": true, "ret": false, "dem": false}
     ]
   }
 }

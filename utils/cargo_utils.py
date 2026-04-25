@@ -22,6 +22,7 @@ MAPA_CARGOS_CONHECIDOS = [
     "ENGENHEIRO CIVIL",
     "ENGENHEIRO",
     "ESTAGIARIO DE ENGENHARIA",
+    "ESTAGIARIO DE ENGENHARIA CIVIL",
     "TECNICO DE SEGURANCA DO TRABALHO",
     "ESTAGIARIO DE SEGURANCA DO TRABALHO",
     # ── Canteiro — Operadores / Condutores ────────────────────────
@@ -48,6 +49,7 @@ MAPA_CARGOS_CONHECIDOS = [
     "SERRALHEIRO",
     "MEIO OFICIAL DE SERRALHEIRO",
     "PINTOR",
+    "MEIO OFICIAL DE PINTOR",
     "GESSEIRO",
     "ENCANADOR",
     "MEIO OFICIAL DE ENCANADOR",
@@ -80,7 +82,7 @@ PALAVRAS_EXCLUIR_CARGO = [
 ]
 
 DICIONARIO_CARGOS = {
-    # ADMINISTRATIVO
+    # ── ADMINISTRATIVO ────────────────────────────────────────────
     "GERENTE ADMINISTRATIVO":              "ADMINISTRATIVO",
     "ASSISTENTE ADMINISTRATIVO":           "ADMINISTRATIVO",
     "AUXILIAR ADMINISTRATIVO":             "ADMINISTRATIVO",
@@ -96,7 +98,7 @@ DICIONARIO_CARGOS = {
     "AUXILIAR SERVICOS GERAIS":            "ADMINISTRATIVO",
     "AUXILIAR DE LIMPEZA":                 "ADMINISTRATIVO",
     "ZELADOR":                             "ADMINISTRATIVO",
-    # PRODUÇÃO GERAL
+    # ── PRODUÇÃO GERAL (canteiro sem perfil específico) ───────────
     "PEDREIRO":                            "PRODUCAO_GERAL",
     "MEIO OFICIAL DE PEDREIRO":            "PRODUCAO_GERAL",
     "SERVENTE":                            "PRODUCAO_GERAL",
@@ -107,52 +109,57 @@ DICIONARIO_CARGOS = {
     "MEIO OFICIAL DE ARMADOR":             "PRODUCAO_GERAL",
     "CARPINTEIRO":                         "PRODUCAO_GERAL",
     "MEIO OFICIAL DE CARPINTEIRO":         "PRODUCAO_GERAL",
-    "GESSEIRO":                            "PRODUCAO_GERAL",
     "SINALEIRO":                           "PRODUCAO_GERAL",
     "MONTADOR":                            "PRODUCAO_GERAL",
     "MECANICO DE MANUTENCAO":              "PRODUCAO_GERAL",
     "ALMOXARIFE":                          "PRODUCAO_GERAL",
     "VIGIA":                               "PRODUCAO_GERAL",
     "PORTEIRO":                            "PRODUCAO_GERAL",
-    "ENGENHEIRO":                          "PRODUCAO_GERAL",
-    "ENGENHEIRO CIVIL":                    "PRODUCAO_GERAL",
-    "AUXILIAR DE ENGENHARIA CIVIL":        "PRODUCAO_GERAL",
-    "ESTAGIARIO DE ENGENHARIA":            "PRODUCAO_GERAL",
-    "ESTAGIARIO DE SEGURANCA DO TRABALHO": "PRODUCAO_GERAL",
-    "TECNICO DE SEGURANCA DO TRABALHO":    "PRODUCAO_GERAL",
-    "MESTRE DE OBRA":                      "PRODUCAO_GERAL",
-    "MESTRE DE OBRAS":                     "PRODUCAO_GERAL",
-    "ENCARREGADO":                         "PRODUCAO_GERAL",
-    "ENCARREGADO DE PEDREIRO":             "PRODUCAO_GERAL",
-    "ENCARREGADO DE ELETRICISTA":          "PRODUCAO_GERAL",
-    "ENCARREGADO DE ENCANADOR":            "PRODUCAO_GERAL",
-    "ENCARREGADO DE REJUNTE":              "PRODUCAO_GERAL",
     "OPERADOR DE MAQUINAS":                "PRODUCAO_GERAL",
-    # PINTOR
+    # ── PERFIS COM GABARITO PRÓPRIO ───────────────────────────────
     "PINTOR":                              "PINTOR",
     "MEIO OFICIAL DE PINTOR":              "PINTOR",
     "ENCARREGADO DE PINTOR":               "PINTOR",
-    # SERRALHEIRO
+    # Serralheiro
     "SERRALHEIRO":                         "SERRALHEIRO",
     "MEIO OFICIAL DE SERRALHEIRO":         "SERRALHEIRO",
     "SOLDADOR":                            "SERRALHEIRO",
-    # IMPERMEABILIZADOR
+    # Impermeabilizador
     "IMPERMEABILIZADOR":                   "IMPERMEABILIZADOR",
     "ENCARREGADO DE IMPERMEABILIZACAO":    "IMPERMEABILIZADOR",
-    # ELETRICISTA
+    # Eletricista
     "ELETRICISTA":                         "ELETRICISTA",
     "ELETRICISTA INDUSTRIAL":              "ELETRICISTA",
     "MEIO OFICIAL DE ELETRICISTA":         "ELETRICISTA",
-    # ENCANADOR
+    # Encanador
     "ENCANADOR":                           "ENCANADOR",
     "MEIO OFICIAL DE ENCANADOR":           "ENCANADOR",
-    # OPERADOR DE GRUA
+    # Operadores
     "OPERADOR DE GRUA":                    "OPERADOR_GRUA",
     "OPERADOR DE CREMALHEIRA":             "OPERADOR_GRUA",
-    # OPERADOR DE BETONEIRA
     "OPERADOR DE BETONEIRA":               "OPERADOR_BETONEIRA",
-    # MOTORISTA
+    # Motorista
     "MOTORISTA":                           "MOTORISTA",
+    # Engenheiro / Estagiário de Eng.
+    "ENGENHEIRO":                          "ENGENHEIRO",
+    "ENGENHEIRO CIVIL":                    "ENGENHEIRO",
+    "AUXILIAR DE ENGENHARIA CIVIL":        "ENGENHEIRO",
+    "ESTAGIARIO DE ENGENHARIA":            "ENGENHEIRO",
+    "ESTAGIARIO DE ENGENHARIA CIVIL":      "ENGENHEIRO",
+    # Técnico / Estagiário SST
+    "TECNICO DE SEGURANCA DO TRABALHO":    "TECNICO_SST",
+    "ESTAGIARIO DE SEGURANCA DO TRABALHO": "TECNICO_SST",
+    # Mestre de Obra
+    "MESTRE DE OBRA":                      "MESTRE_OBRA",
+    "MESTRE DE OBRAS":                     "MESTRE_OBRA",
+    # Encarregado geral / por especialidade
+    "ENCARREGADO":                         "ENCARREGADO_GERAL",
+    "ENCARREGADO DE PEDREIRO":             "ENCARREGADO_GERAL",
+    "ENCARREGADO DE ELETRICISTA":          "ENCARREGADO_GERAL",
+    "ENCARREGADO DE ENCANADOR":            "ENCARREGADO_GERAL",
+    "ENCARREGADO DE REJUNTE":              "ENCARREGADO_GERAL",
+    # Gesseiro
+    "GESSEIRO":                            "GESSEIRO",
 }
 
 

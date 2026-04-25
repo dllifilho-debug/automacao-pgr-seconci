@@ -22,7 +22,7 @@ try:
 except FileNotFoundError:
     _BANCO_MATRIZES_V2 = {}
 
-VERSAO_MODULO_PCMSO = '6.2 (Universal)'
+VERSAO_MODULO_PCMSO = '6.3 (Universal)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -77,13 +77,24 @@ _LIXO_GHE = [
     r'digitacao de textos',
 ]
 
+# GHEs cujo NOME indica ambiente de limpeza/apoio sem risco de altura
+# Nesses GHEs o Servente NÃO recebe Psicossocial (confirmado PCMSO Dra. Patrícia)
+_NOMES_GHE_SEM_PSICOSSOCIAL = [
+    'LIMPEZA', 'BETONEIRA',
+]
+
 _MAPA_AGENTES = {
     'RUIDO': 'RUIDO', 'RUÍDO': 'RUIDO', 'VIBRAÇÃO CORPO': 'VIBRACAO CORPO INTEIRO',
     'VIBRACAO CORPO': 'VIBRACAO CORPO INTEIRO', 'VIBRAÇÃO': 'VIBRACAO', 'VIBRACAO': 'VIBRACAO',
     'BENZENO': 'BENZENO', 'TOLUENO': 'TOLUENO', 'XILENO': 'XILENO', 'ACETONA': 'ACETONA',
-    'METIL-ETIL': 'METIL-ETIL-CETONA', 'TETRAHIDRO': 'TETRAHIDROFURANO', 'CICLOHEXAN': 'CICLOHEXANONA',
+    'METIL-ETIL': 'METIL-ETIL-CETONA',
+    'TETRAHIDRO': 'TETRAHIDROFURANO', 'CICLOHEXAN': 'CICLOHEXANONA',
     'DICLOROMETANO': 'DICLOROMETANO', 'TRICLOROETILENO': 'TRICLOROETILENO', 'ESTIRENO': 'ESTIRENO',
-    'HEXANO': 'N-HEXANO', 'FENOL': 'FENOL', 'MERCURIO': 'MERCURIO', 'MERCÚRIO': 'MERCURIO',
+    # CORREÇÃO: 'HEXANO' isolado REMOVIDO — só bate em 'N-HEXANO' exato
+    # Evita falso positivo em texto genérico de PGR
+    'N-HEXANO': 'N-HEXANO',
+    'N HEXANO': 'N-HEXANO',
+    'FENOL': 'FENOL', 'MERCURIO': 'MERCURIO', 'MERCÚRIO': 'MERCURIO',
     'METANOL': 'METANOL', 'CHUMBO': 'CHUMBO', 'MANGANES': 'MANGANES', 'MANGANÊS': 'MANGANES',
     'CROMO': 'CROMO', 'CADMIO': 'CADMIO', 'CÁDMIO': 'CADMIO', 'ARSENICO': 'ARSENICO',
     'ARSÊNIO': 'ARSENICO', 'COBALTO': 'COBALTO', 'FLUOR': 'FLUOR', 'FLÚOR': 'FLUOR',
@@ -97,8 +108,6 @@ _MAPA_AGENTES = {
     'MADEIRA': 'MADEIRA', 'TINTA': 'TINTA',
     'IMPERMEAB': 'IMPERMEABILIZACAO',
     'MASCARA': 'MASCARA RESPIRATORIA', 'MÁSCARA': 'MASCARA RESPIRATORIA',
-    # CORREÇÃO 2: 'ALTURA' isolada substituída por frase composta.
-    # 'TRABALHO EM ALTURA' só aparece em GHEs com NR-35 real.
     'TRABALHO EM ALTURA': 'QUEDA DE ALTURA',
     'TRABALHO EM ALTURA NR': 'QUEDA DE ALTURA',
     'CONFINADO': 'ESPACO CONFINADO', 'ELETRICO': 'RISCO ELETRICO',
@@ -107,10 +116,13 @@ _MAPA_AGENTES = {
     'METILETILCETONA': 'METIL-ETIL-CETONA',
     'METILETILCETONA (MEK)': 'METIL-ETIL-CETONA',
     'MEK': 'METIL-ETIL-CETONA',
-    'N-HEXANO': 'N-HEXANO',
     'TRICLOROETILENO': 'TRICLOROETILENO',
     'TRICLOROETENO': 'TRICLOROETILENO',
     'TRICLOROETANO': '1,1,1-TRICLOROETANO',
+    # CORREÇÃO: CETONASTER → ativa ACETONA (proxy do pacote Cetonaster)
+    # Cetonaster = Acetona + MEK + Ciclohexanona + THF
+    # O Encanador/Servente de hidrossanitárias usa Cetonaster como solvente
+    'CETONASTER': 'ACETONA',
 }
 
 _RE_GHE = re.compile(r'(?:GHE[\s:\.\-]*\d|GRUPO\s+HOMOGENEO|LOCAL\s+DE\s+TRABALHO\s*:\s*\w|SETOR\s*:\s*\w)', re.IGNORECASE)
@@ -127,7 +139,6 @@ _PALAVRAS_CARGO_AIHA = [
     'GERENTE', 'DIRETOR', 'SERVICOS GERAIS', 'FISCAL', 'INSPETOR', 'PROJETISTA', 'DESENHISTA',
 ]
 
-# CORREÇÃO 6: Aliases de exames — unificação de nomes divergentes
 _EXAME_ALIAS = {
     'EXAME CLINICO ANAMNESE EXAME FISICO': 'Exame Clinico',
     'EXAME CLINICO': 'Exame Clinico',
@@ -149,7 +160,6 @@ _EXAME_ALIAS = {
     'AC TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
     'ACIDO TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
     'ACETONA NA URINA': 'Acetona na urina',
-    # CORREÇÃO 6a: Metil-Etil-Cetona — todos os aliases apontam para o mesmo nome
     'METIL ETIL CETONA MEK NA URINA': 'Metil-Etil-Cetona',
     'METIL ETIL CETONA NA URINA': 'Metil-Etil-Cetona',
     'METIL ETIL CETONA': 'Metil-Etil-Cetona',
@@ -165,13 +175,11 @@ _EXAME_ALIAS = {
     'CARBOXIHEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
     'CARBOXIEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
     'CARBOXIHEMOGLOBINA': 'Carboxiemoglobina',
-    # CORREÇÃO 6b: Contagem de Reticulócitos — alias adicionado
     'CONTAGEM DE RETICULOCITOS': 'Contagem de Reticulócitos',
     'RETICULOCITOS': 'Contagem de Reticulócitos',
     'CONTAGEM DE RETICULÓCITOS': 'Contagem de Reticulócitos',
     'ACIDO TRANS TRANS MUCONICO NA URINA': 'Ácido trans-trans mucônico',
     'ACIDO TRANS TRANS MUCONICO': 'Ácido trans-trans mucônico',
-    # CORREÇÃO 6c: Avaliação Psicossocial — periodicidade fixada (12M) via alias
     'AVALIACAO PSICOSSOCIAL NR 35': 'Avaliação Psicossocial',
     'AVALIACAO PSICOSSOCIAL': 'Avaliação Psicossocial',
     'ORTOCRESOL NA URINA': 'Ortocresol na urina',
@@ -252,6 +260,11 @@ def _ghe_e_canteiro_misto(nome_ghe, riscos):
     texto_r = ' '.join(normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos)
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
 
+def _ghe_tem_psicossocial_base(nome_ghe):
+    """GHEs cujo nome indica ambiente sem NR-35 implícita (limpeza, betoneira) — não recebem Psicossocial base."""
+    norm = normalizar_texto(nome_ghe)
+    return not any(excl in norm for excl in _NOMES_GHE_SEM_PSICOSSOCIAL)
+
 def extrair_texto_pdf(uploaded_file):
     texto = []
     with pdfplumber.open(io.BytesIO(uploaded_file.read())) as pdf:
@@ -281,7 +294,6 @@ def extrair_pgr_local(texto):
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual['cargos']:
                     ghe_atual['cargos'].append(cargo)
                     break
-        # Frases compostas têm prioridade sobre tokens individuais
         for palavra, chave_risco in _MAPA_AGENTES.items():
             if ' ' in palavra:
                 if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
@@ -341,11 +353,6 @@ def _match_funcao_matriz(cargo_upper, funcao_matriz):
     return alvo == cargo_n or alvo in cargo_n or cargo_n in alvo
 
 def _forcar_regras_universais(ex, cargo_norm, riscos=None):
-    """
-    Garante as flags e periodicidades corretas da NR-7 e Matriz Seconci.
-    CORREÇÃO 4: tem_quimico agora exclui TINTA — tinta não justifica
-    Hemograma semestral nem Exame Clínico semestral.
-    """
     if riscos is None: riscos = []
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
@@ -353,13 +360,13 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     cargo_upper = cargo_norm.upper()
 
     texto_riscos = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
-    # CORREÇÃO 4: TINTA excluída dos químicos pesados — não justifica Hemograma/Clínico semestral
+    # TINTA excluída dos químicos pesados
     _QUIMICOS_PESADOS = ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'QUIMICO']
     tem_quimico = any(q in texto_riscos for q in _QUIMICOS_PESADOS)
 
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
-        if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
+        if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR', 'ENCANADOR']):
             ex['per'] = '6'
         elif not ex.get('per'):
             ex['per'] = '12'
@@ -371,9 +378,11 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
             if nome == 'Audiometria': ex['per'] = '12'
             elif nome == 'Espirometria': ex['per'] = '24'
             elif nome == 'RX de Tórax OIT':
-                # Apenas SILICA pura e ASBESTO justificam 12M; restante = 60M
                 tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'ASBESTO'])
+                tem_fumos_solda = any(x in cargo_upper for x in ['SERRALHEIRO', 'SOLDADOR'])
                 if tem_poeira_pesada or any(x in cargo_upper for x in ['PEDREIRO', 'BETONEIRA']):
+                    ex['per'] = '12'
+                elif tem_fumos_solda:
                     ex['per'] = '12'
                 else:
                     ex['per'] = '60'
@@ -381,7 +390,6 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
         ex['adm'], ex['mro'] = True, True
         ex['rt'], ex['dem'] = False, False
-        # CORREÇÃO 4: Hemograma semestral só com QUÍMICO PESADO real (não TINTA)
         if nome in ['Hemograma', 'Hemograma Completo'] and tem_quimico and any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
             ex['per'] = '6'
             ex['dem'] = True
@@ -398,7 +406,6 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
 
-    # CORREÇÃO 6c: Avaliação Psicossocial — garantir periodicidade 12M sempre
     elif nome == 'Avaliação Psicossocial':
         ex['adm'], ex['mro'] = True, True
         ex['rt'], ex['dem'] = False, False
@@ -431,7 +438,6 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
         cas_r = str(risco.get('cas', '')).strip()
 
-        # Motor CAS-driven
         if cas_r in ['79-01-6', '71-55-6'] or chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
             exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
@@ -512,9 +518,10 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
 
         texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
-        # CORREÇÃO 2: Verifica QUEDA DE ALTURA e ESPACO CONFINADO (valores normalizados pós-mapeamento)
         tem_altura_confinado = any(x in texto_riscos_ghe for x in ['QUEDA DE ALTURA', 'ESPACO CONFINADO'])
         tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
+        # Flag para Psicossocial base de canteiro (exceto GHEs de limpeza/betoneira)
+        ghe_permite_psico_base = _ghe_tem_psicossocial_base(nome_ghe)
 
         for cargo in cargos:
             cargo_norm = normalizar_cargo(cargo)
@@ -527,7 +534,8 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
             if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
                 e_cargo_adm = True
 
-            operador_maquina = any(x in cargo_norm for x in ['OPERADOR', 'MOTORISTA', 'GUINDASTE', 'GRUA', 'EMPILHADEIRA'])
+            # CORREÇÃO: OPERADOR DE BETONEIRA reconhecido como operador de máquina
+            operador_maquina = any(x in cargo_norm for x in ['OPERADOR', 'MOTORISTA', 'GUINDASTE', 'GRUA', 'EMPILHADEIRA', 'BETONEIRA'])
 
             if e_canteiro and not e_cargo_adm:
                 adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_norm, riscos))
@@ -540,8 +548,11 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
                     adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_norm, riscos))
 
-                if tem_altura_confinado:
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Avaliação Psicossocial', motivo='NR-35 / NR-33'), cargo_norm, riscos))
+                # CORREÇÃO v6.3: Psicossocial agora é exame BASE de canteiro
+                # A Dra. Patrícia coloca em todos os GHEs de canteiro (NR-35 implícita da obra)
+                # Exceções: GHEs de LIMPEZA e BETONEIRA (confirmado no PCMSO)
+                if ghe_permite_psico_base:
+                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Avaliação Psicossocial', motivo='NR-35 Base Canteiro'), cargo_norm, riscos))
 
             _aplicar_funcao_matriz(exames, cargo_norm, riscos)
             _aplicar_riscos_matriz(exames, riscos, cargo_norm)
