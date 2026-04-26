@@ -1,7 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.14 — style: CSS cards v2 — border-left verde (#084D22) nos metric-containers
-               + stDataFrame com border-radius e box-shadow
+app.py v5.15 — feat: banco de matrizes vira referencia tecnica por cargo
+               enriquece GHEs ANTES de processar_pcmso, sem depender do nome do arquivo
 """
 import json
 import os
@@ -35,43 +35,24 @@ st.set_page_config(
 # ── CSS CUSTOMIZADO ────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-  /* Layout geral */
   .block-container{padding-top:1.4rem;padding-bottom:2rem;max-width:1400px;}
-
-  /* 1. Ocultar menu hamburguer, rodape e header padrao do Streamlit */
   #MainMenu {visibility: hidden;}
   footer    {visibility: hidden;}
   header    {visibility: hidden;}
-
-  /* Fundo e sidebar */
   [data-testid="stAppViewContainer"]{background:#F0F2F5;}
   [data-testid="stSidebar"]{background:#F7F9FB;border-right:1px solid #E4E8EE;}
   [data-testid="stSidebar"] *{color:#1A1D23;}
-
-  /* Upload */
   [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;border-radius:16px;background:#FBFFFC;padding:1rem;}
-
-  /* Botoes */
   .stButton>button{background:linear-gradient(135deg,#084D22,#0E6B31);color:white;border-radius:10px;border:none;box-shadow:0 8px 18px rgba(8,77,34,.16);transition:all .2s ease;font-weight:700;padding:.62rem 1rem;}
   .stButton>button:hover{background:linear-gradient(135deg,#0E6B31,#1AA04B);transform:translateY(-1px);}
   .stDownloadButton>button{border-radius:10px;font-weight:700;}
-
-  /* Tipografia */
   h1,h2,h3{color:#084D22!important;letter-spacing:-0.02em;}
-
-  /* Alertas */
   .stAlert{border-radius:12px;border:1px solid #E6EBF1;box-shadow:0 4px 10px rgba(15,23,42,.04);}
-
-  /* Cards kaiju */
   .kaiju-card{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1.2rem 1.2rem;box-shadow:0 10px 30px rgba(15,23,42,.06);margin-bottom:1rem;}
   .kaiju-card-title{font-size:.92rem;font-weight:700;color:#5B6472;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;}
-
-  /* Hero banner */
   .kaiju-hero{background:linear-gradient(135deg,#084D22 0%,#1AA04B 100%);border-radius:22px;padding:1.3rem 1.4rem;color:white;box-shadow:0 18px 40px rgba(8,77,34,.20);margin-bottom:1rem;}
   .kaiju-hero h2{color:white!important;margin:0 0 .25rem 0;}
   .kaiju-hero p{margin:0;opacity:.96;font-size:0.98rem;}
-
-  /* 2. Cards de métricas — fundo branco + borda esquerda verde Seconci */
   div[data-testid="metric-container"] {
     background-color: #ffffff;
     border: 1px solid #e0e0e0;
@@ -81,23 +62,16 @@ st.markdown("""
     border-left: 5px solid #084D22;
   }
   div[data-testid="metric-container"] label{font-weight:700;color:#5B6472;}
-
-  /* 3. Tabela de dados com sombra e cantos arredondados */
   div[data-testid="stDataFrame"] {
     border-radius: 8px;
     box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
   }
-
-  /* Painel de auditoria */
   .audit-panel{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1rem 1.1rem;box-shadow:0 10px 28px rgba(15,23,42,.05);}
-
-  /* Abas */
   .stTabs [data-baseweb="tab-list"]{gap:.5rem;}
   .stTabs [data-baseweb="tab"]{background:#EAF3ED;border-radius:10px;padding:.55rem .95rem;font-weight:700;}
   .stTabs [aria-selected="true"]{background:#084D22!important;color:white!important;}
 </style>
 """, unsafe_allow_html=True)
-# ────────────────────────────────────────────────────────────────────────
 
 
 def card_inicio(titulo: str, texto: str):
@@ -125,7 +99,7 @@ def render_auditoria_metrics(resultado_auditoria: dict):
     c4.metric("Cargos sem match", cargo_faltando)
 
 
-# ── Autenticação ──────────────────────────────────────────────────────────────
+# ── Autenticação ───────────────────────────────────────────────────────────────
 def check_password():
     def validar_login():
         usr_digitado = st.session_state["username_input"]
@@ -171,7 +145,7 @@ if not check_password():
     st.stop()
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Sidebar ────────────────────────────────────────────────────────────────────
 for logo in ("logo.png", "logo.jpg"):
     if os.path.exists(logo):
         st.sidebar.image(logo, width=220)
@@ -219,39 +193,21 @@ else:
     st.sidebar.write("Nenhum projeto salvo ainda.")
 
 
-# ── Banco de matrizes ───────────────────────────────────────────────────────────
+# ── Banco de matrizes ──────────────────────────────────────────────────────────
 banco_path = os.path.join("data", "banco_matrizes_v1_1.json")
 banco_matrizes = {}
-bases_disponiveis = []
 
 if os.path.exists(banco_path):
     try:
         with open(banco_path, "r", encoding="utf-8") as f:
             banco_matrizes = json.load(f)
-        bases_disponiveis = list(banco_matrizes.get("obras_referencia", {}).keys())
     except Exception as e:
         st.sidebar.warning(f"Banco de matrizes não carregado: {e}")
 
-
-def selecionar_base_automatica(nome_arquivo: str) -> str | None:
-    if not bases_disponiveis:
-        return None
-    import unicodedata
-    def strip_acc(s):
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', s)
-            if unicodedata.category(c) != 'Mn'
-        )
-    nome_norm = strip_acc(nome_arquivo).upper().replace("-", " ").replace("_", " ")
-    for base in bases_disponiveis:
-        base_norm = strip_acc(base).upper().replace("_", " ")
-        for palavra in base_norm.split():
-            if len(palavra) > 4 and palavra in nome_norm:
-                return base
-    return bases_disponiveis[0]
+_banco_ativo = bool(banco_matrizes)
 
 
-# ── Roteamento ──────────────────────────────────────────────────────────────────
+# ── Roteamento ─────────────────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
     components.html(historico_html, height=700, scrolling=True)
@@ -295,7 +251,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
     tab1, tab2, tab3 = st.tabs([
         "📂 Passo 1: Upload e Extração",
-        "🔍 Passo 2: Auditoria Clínica",
+        "🔍 Passo 2: Conferência de Cargos",
         "✅ Passo 3: Aprovação e Download",
     ])
 
@@ -309,6 +265,12 @@ elif modulo == "Medicina: PGR - PCMSO":
         if fispq_carregados:
             st.success(
                 f"🧪 {len(fispq_carregados)} agente(s) da FISPQ em memória — serão injetados automaticamente no PCMSO após a extração."
+            )
+
+        if _banco_ativo:
+            st.info(
+                "📚 Banco de matrizes técnicas ativo — os exames de cada cargo serão preenchidos "
+                "automaticamente com base no padrão validado, **independente do nome do arquivo**."
             )
 
         with st.container():
@@ -343,13 +305,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                 ),
             )
             tipo_ambiente = opcoes_amb[label_amb]
-            st.markdown("---")
-            if bases_disponiveis:
-                st.caption(
-                    f"🔍 Auditoria automática ativa — base detectada pelo nome do PDF. Bases disponíveis: `{'` · `'.join(bases_disponiveis)}`"
-                )
-            else:
-                st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
             st.markdown("</div>", unsafe_allow_html=True)
 
         st.session_state["pcmso_cabecalho"] = {
@@ -383,37 +338,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error("Faca upload do PDF do PGR antes de continuar.")
                 st.stop()
 
-            nome_pdf = st.session_state.get("nome_pdf_atual", "")
-            base_sel = selecionar_base_automatica(nome_pdf)
-
-            palavras_base = set()
-            for base in bases_disponiveis:
-                import unicodedata
-                def strip_acc(s):
-                    return ''.join(
-                        c for c in unicodedata.normalize('NFD', s)
-                        if unicodedata.category(c) != 'Mn'
-                    )
-                for p in strip_acc(base).upper().replace("_", " ").split():
-                    if len(p) > 4:
-                        palavras_base.add(p)
-            nome_norm_check = ''.join(
-                c for c in unicodedata.normalize('NFD', nome_pdf)
-                if unicodedata.category(c) != 'Mn'
-            ).upper().replace("-", " ").replace("_", " ")
-            detectado_exato = any(p in nome_norm_check for p in palavras_base)
-
-            if base_sel and detectado_exato:
-                st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
-            elif base_sel and not detectado_exato:
-                st.warning(
-                    f"⚠️ Nenhuma base detectada no nome '{nome_pdf}'. "
-                    f"Usando base padrão: **{base_sel}**. "
-                    "Renomeie o PDF com o nome da obra para detecção automática."
-                )
-            else:
-                st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
-
             with st.spinner("Extraindo texto do PDF..."):
                 texto_pgr = extrair_texto_pdf(pdf_file)
             st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
@@ -422,7 +346,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
                     st.text(f"{i:3}: {linha}")
 
-            with st.spinner("Processando GHEs..."):
+            with st.spinner("Identificando GHEs e cargos..."):
                 dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
             st.session_state["dados_ghe_processados"] = dados_ghe
@@ -438,17 +362,36 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
                 st.stop()
 
+            # ── PASSO 1: enriquece com FISPQ (agentes químicos) ──────────────
             resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
             if resultados_fispq:
                 st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
-                dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
-            else:
-                dados_ghe_enriquecido = dados_ghe
+                dados_ghe = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
 
+            # ── PASSO 2: enriquece com banco de matrizes técnicas por CARGO ──
+            if _banco_ativo:
+                from modules.modulo_auditor_v1_1 import enriquecer_ghe_com_banco
+                with st.spinner("Aplicando padrão técnico de exames por cargo..."):
+                    dados_ghe, rel_banco = enriquecer_ghe_com_banco(dados_ghe, banco_matrizes)
+
+                n_enr = len(rel_banco['cargos_enriquecidos'])
+                n_man = len(rel_banco['cargos_mantidos'])
+                if n_enr:
+                    st.success(
+                        f"✅ {n_enr} cargo(s) preenchidos com padrão técnico do banco: "
+                        f"{', '.join(dict.fromkeys(rel_banco['cargos_enriquecidos']))}"
+                    )
+                if n_man:
+                    st.warning(
+                        f"⚠️ {n_man} cargo(s) não encontrados no banco — exames extraídos do PGR mantidos: "
+                        f"{', '.join(dict.fromkeys(rel_banco['cargos_mantidos']))}"
+                    )
+
+            # ── PASSO 3: gera matriz PCMSO ────────────────────────────────────
             tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
             with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
                 try:
-                    df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
+                    df_pcmso = processar_pcmso(dados_ghe, tipo_ambiente=tipo_amb)
                 except Exception as e:
                     st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
                     st.code(traceback.format_exc(), language="python")
@@ -458,50 +401,31 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
                 st.stop()
 
-            st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
+            st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames. Revise no Passo 2.")
             st.session_state["df_pcmso_gerado"] = df_pcmso
-            st.session_state["base_auditoria_atual"] = base_sel
-            st.session_state["resultado_auditoria"] = None
-            st.session_state["relatorio_auditoria_txt"] = None
-
-            if base_sel and banco_matrizes:
-                try:
-                    from modules.modulo_auditor_v1_1 import (
-                        auditar_pcmso, pcmso_df_para_dict,
-                        formatar_relatorio_auditoria, obra_tem_matriz
-                    )
-                    tem_historico = obra_tem_matriz(banco_matrizes, base_sel)
-                    if not tem_historico:
-                        st.warning(
-                            f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. "
-                            "Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
-                        )
-                    else:
-                        dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
-                        resultado_auditoria = auditar_pcmso(dados_para_auditoria, banco_matrizes, obra_id=base_sel)
-                        relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
-                        st.session_state["resultado_auditoria"] = resultado_auditoria
-                        st.session_state["relatorio_auditoria_txt"] = relatorio_txt
-                except Exception as e:
-                    st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
-                    st.code(traceback.format_exc(), language="python")
+            st.session_state["relatorio_banco"] = rel_banco if _banco_ativo else None
 
     with tab2:
         st.markdown("<div class='audit-panel'>", unsafe_allow_html=True)
-        st.markdown("### Painel de Auditoria Clínica")
-        resultado_auditoria = st.session_state.get("resultado_auditoria")
-        relatorio_txt = st.session_state.get("relatorio_auditoria_txt")
+        st.markdown("### Conferência de Cargos e Exames")
 
-        if resultado_auditoria:
-            if resultado_auditoria.get("ok"):
-                st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
-            else:
-                st.warning(f"⚠️ {resultado_auditoria.get('total_divergencias', 0)} divergência(s) detectada(s) — revise antes de aprovar.")
-            render_auditoria_metrics(resultado_auditoria)
-            with st.expander("📋 Relatório da Auditoria", expanded=True):
-                st.code(relatorio_txt or "Sem relatório disponível.", language="text")
+        rel_banco = st.session_state.get("relatorio_banco")
+        if rel_banco:
+            enr = list(dict.fromkeys(rel_banco.get('cargos_enriquecidos', [])))
+            man = list(dict.fromkeys(rel_banco.get('cargos_mantidos', [])))
+            c1, c2 = st.columns(2)
+            c1.metric("✅ Cargos com padrão técnico aplicado", len(enr))
+            c2.metric("⚠️ Cargos mantidos do PGR", len(man))
+            if enr:
+                with st.expander("Cargos preenchidos pelo banco de matrizes", expanded=True):
+                    for c in enr:
+                        st.markdown(f"- ✅ {c}")
+            if man:
+                with st.expander("Cargos não encontrados no banco (mantidos do PGR)"):
+                    for c in man:
+                        st.markdown(f"- ⚠️ {c} — considere adicionar ao banco de matrizes")
         elif "df_pcmso_gerado" in st.session_state:
-            st.info("Matriz gerada, mas sem auditoria validada no histórico para esta obra.")
+            st.info("Matriz gerada sem banco de matrizes ativo. Revise os exames manualmente no Passo 3.")
         else:
             st.info("Extraia um PGR no Passo 1 para preencher este painel.")
         st.markdown("</div>", unsafe_allow_html=True)

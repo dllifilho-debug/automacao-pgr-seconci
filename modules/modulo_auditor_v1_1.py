@@ -11,7 +11,6 @@ def _strip(texto):
 
 
 def norm(texto):
-    # remove acentos, hifens, pontos e multiplos espacos
     s = _strip(texto).upper().strip()
     s = re.sub(r'[\-\.\'\`]', ' ', s)
     return re.sub(r'\s+', ' ', s).strip()
@@ -20,82 +19,60 @@ def norm(texto):
 def normalizar_exame(nome):
     s = norm(nome)
     mapa = {
-        # Clinico
         'EXAME CLINICO': 'Exame Clinico',
         'EXAME CLINICO SEMESTRAL': 'Exame Clinico',
-        # Audiometria
         'AUDIOMETRIA': 'Audiometria',
         'AUDIOMETRIA TONAL': 'Audiometria',
         'AUDIOMETRIA TONAL PTA': 'Audiometria',
-        # Acuidade
         'ACUIDADE VISUAL': 'Acuidade Visual',
         'AVALIACAO OFTALMOLOGICA': 'Acuidade Visual',
-        # Hemograma
         'HEMOGRAMA': 'Hemograma',
         'HEMOGRAMA COMPLETO': 'Hemograma',
-        # Glicemia
         'GLICEMIA EM JEJUM': 'Glicemia em Jejum',
         'GLICEMIA DE JEJUM': 'Glicemia em Jejum',
-        # ECG
         'ECG': 'ECG',
         'ELETROCARDIOGRAMA': 'ECG',
         'ELETROCARDIOGRAMA ECG': 'ECG',
-        # Espirometria
         'ESPIROMETRIA': 'Espirometria',
         'ESPIROMETRIA (SOMENTE)': 'Espirometria',
-        # RX Torax
         'RX DE TORAX OIT': 'RX de Tórax OIT',
         'RX TORAX OIT': 'RX de Tórax OIT',
         'RAIO X TORAX OIT': 'RX de Tórax OIT',
         'RX DE TORAX': 'RX de Tórax OIT',
-        # RX Coluna
         'RX DE COLUNA LOMBO SACRA': 'RX de coluna lombo-sacra',
         'RX COLUNA LOMBO SACRA': 'RX de coluna lombo-sacra',
         'RAIO X COLUNA LOMBO SACRA': 'RX de coluna lombo-sacra',
-        # Psicossocial
         'AVALIACAO PSICOSSOCIAL': 'Avaliação Psicossocial',
         'AVALIACAO PSICOSSOCIAL NR 35': 'Avaliação Psicossocial',
-        # Carboxiemoglobina — aceita ambas as grafias
         'CARBOXIEMOGLOBINA': 'Carboxiemoglobina',
         'CARBOXIHEMOGLOBINA': 'Carboxiemoglobina',
         'CARBOXIHEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
         'CARBOXIEMOGLOBINA NO SANGUE': 'Carboxiemoglobina',
-        # Manganes
         'MANGANES SANGUINEO': 'Manganês sanguíneo',
         'MANGANES NO SANGUE': 'Manganês sanguíneo',
-        # Reticulocitos
         'CONTAGEM DE RETICULOCITOS': 'Contagem de Reticulócitos',
         'RETICULOCITOS': 'Contagem de Reticulócitos',
-        # Acido muconico — varias grafias
         'ACIDO TRANS TRANS MUCONICO': 'Ácido trans-trans mucônico',
         'ACIDO TRANS TRANS MUCONICO NA URINA': 'Ácido trans-trans mucônico',
         'AC TRANS TRANS MUCONICO NA URINA': 'Ácido trans-trans mucônico',
         'AC TRANS TRANS MUCONICO': 'Ácido trans-trans mucônico',
-        # Acido tricloroacetico
         'ACIDO TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
         'AC TRICLOROACETICO NA URINA': 'Ácido tricloroacético na urina',
         'ACIDO TRICLOROACETICO': 'Ácido tricloroacético na urina',
-        # Acetona
         'ACETONA NA URINA': 'Acetona na urina',
-        # Ortocresol
         'ORTOCRESOL NA URINA': 'Ortocresol na urina',
-        # MEK — todas as variantes com e sem hifen
         'METIL ETIL CETONA': 'Metil-Etil-Cetona',
         'METIL ETIL CETONA NA URINA': 'Metil-Etil-Cetona',
         'METILETILCETONA NA URINA': 'Metil-Etil-Cetona',
         'MEK NA URINA': 'Metil-Etil-Cetona',
         'METIL ETIL CETONA (MEK) NA URINA': 'Metil-Etil-Cetona',
-        # Acido metil hipurico
         'ACIDO METIL HIPURICO NA URINA': 'Ác. Metil-hipúrico na urina',
         'AC METIL HIPURICO NA URINA': 'Ác. Metil-hipúrico na urina',
         'AC  METIL HIPURICO NA URINA': 'Ác. Metil-hipúrico na urina',
-        # Ciclohexanol
         'CICLOHEXANOL NA URINA': 'Ciclohexanol na urina',
         'CICLOHEXANOL H NA URINA': 'Ciclohexanol na urina',
-        # Tetrahidrofurano
         'TETRAHIDROFURNANO NA URINA': 'Tetrahidrofurnano na urina',
         'TETRAHIDROFURANO NA URINA': 'Tetrahidrofurnano na urina',
-        # EPF
         'EPF (COPROPARASITOLOGICO) + ANTI HBS': 'EPF (Coproparasitológico) + Anti-HBs',
         'EPF COPROPARASITOLOGICO + ANTI HBS': 'EPF (Coproparasitológico) + Anti-HBs',
     }
@@ -103,10 +80,9 @@ def normalizar_exame(nome):
 
 
 def normalizar_cargo(nome):
-    """Normaliza nome de cargo para comparacao — NAO colapsa cargos distintos."""
+    """Normaliza nome de cargo para comparacao."""
     s = norm(nome)
     aliases = {
-        # variantes de escrita para o mesmo cargo canônico
         'MESTRE DE OBRA': 'Mestre de Obra',
         'MESTRE DE OBRAS': 'Mestre de Obra',
         'OPERADOR DE BETONEIRA': 'Operador de Betoneira',
@@ -168,7 +144,6 @@ def _norm_bool(v):
 
 
 def _norm_per(v):
-    """Extrai numero inteiro de periodicidade. Retorna None se ausente ou nao numerico."""
     if v is None:
         return None
     s = str(v).strip().upper()
@@ -205,23 +180,95 @@ def _lista_de_exames(payload):
     return []
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# NOVA FUNÇÃO PRINCIPAL: busca padrão técnico por cargo, independente de obra
+# ─────────────────────────────────────────────────────────────────────────────
+
+def buscar_exames_por_cargo(nome_cargo: str, banco: dict) -> list[dict] | None:
+    """
+    Varre TODAS as obras do banco e retorna o pacote de exames mais completo
+    encontrado para o cargo informado.
+
+    Lógica de seleção:
+    - Normaliza o nome do cargo e busca match exato em todos os GHEs de todas as obras.
+    - Quando o mesmo cargo aparece em mais de uma entrada, escolhe o pacote
+      com MAIS exames (critério de segurança — mais completo = mais seguro).
+    - Retorna lista de dicts {nome, adm, per, mro, ret, dem} ou None se não achar.
+    """
+    cargo_norm = normalizar_cargo(nome_cargo)
+    melhor: list[dict] | None = None
+
+    for obra in banco.get('obras_referencia', {}).values():
+        for ghe in obra.values():
+            for cargo_ref, exames_ref in ghe.get('cargos', {}).items():
+                if normalizar_cargo(cargo_ref) == cargo_norm:
+                    candidato = list(exames_ref)  # já são dicts do JSON
+                    if melhor is None or len(candidato) > len(melhor):
+                        melhor = candidato
+
+    return melhor
+
+
+def enriquecer_ghe_com_banco(
+    dados_ghe: list[dict],
+    banco: dict,
+) -> tuple[list[dict], dict]:
+    """
+    Para cada cargo em dados_ghe, consulta o banco de matrizes e:
+    - Se encontrar o cargo: substitui (ou complementa) os exames pelo padrão técnico.
+    - Se NÃO encontrar: mantém os exames extraídos do PGR sem alteração.
+
+    Retorna:
+        (dados_ghe_enriquecido, relatorio)
+        relatorio = {
+            'cargos_enriquecidos': [...],
+            'cargos_mantidos':    [...],   # não achados no banco
+        }
+    """
+    cargos_enriquecidos = []
+    cargos_mantidos = []
+    resultado = []
+
+    for ghe in dados_ghe:
+        novo_ghe = dict(ghe)
+        novo_cargos = []
+        for cargo_item in ghe.get('cargos', []):
+            nome_cargo = cargo_item.get('nome', '')
+            exames_banco = buscar_exames_por_cargo(nome_cargo, banco)
+            if exames_banco:
+                # usa exatamente o padrão técnico do banco
+                novo_cargo = dict(cargo_item)
+                novo_cargo['exames'] = exames_banco
+                novo_cargos.append(novo_cargo)
+                cargos_enriquecidos.append(nome_cargo)
+            else:
+                # mantém o que foi extraído do PGR
+                novo_cargos.append(cargo_item)
+                cargos_mantidos.append(nome_cargo)
+        novo_ghe['cargos'] = novo_cargos
+        resultado.append(novo_ghe)
+
+    relatorio = {
+        'cargos_enriquecidos': cargos_enriquecidos,
+        'cargos_mantidos': cargos_mantidos,
+    }
+    return resultado, relatorio
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Funções legadas mantidas para compatibilidade
+# ─────────────────────────────────────────────────────────────────────────────
+
 def pcmso_df_para_dict(df) -> dict:
-    """
-    Converte o DataFrame retornado por processar_pcmso() no formato
-    esperado por auditar_pcmso().
-    """
     resultado = {}
     for _, row in df.iterrows():
         ghe_raw = str(row.get('GHE / Setor', '')).strip()
         cargo   = str(row.get('Cargo', '')).strip()
         exame   = str(row.get('Exame', '')).strip()
-
         if not ghe_raw or not cargo or not exame:
             continue
-
         m = re.search(r'GHE\s*(\d{1,2})', ghe_raw, re.IGNORECASE)
         ghe_key = f"GHE {int(m.group(1)):02d}" if m else ghe_raw
-
         resultado.setdefault(ghe_key, {})
         resultado[ghe_key].setdefault(cargo, [])
         resultado[ghe_key][cargo].append({
@@ -232,7 +279,6 @@ def pcmso_df_para_dict(df) -> dict:
             'ret':  row.get('RT',  '-'),
             'dem':  row.get('DEM', '-'),
         })
-
     return resultado
 
 
@@ -246,7 +292,6 @@ def auditar_pcmso(dados_pcmso, banco, obra_id=None):
     for obra_key, ghes in obras.items():
         for ghe_id, ghe_ref in ghes.items():
             saida_ghe = dados_pcmso.get(ghe_id) or dados_pcmso.get(ghe_id.replace(' ', '')) or {}
-            # normaliza chaves de cargo na saída gerada
             cargos_saida = {normalizar_cargo(k): v for k, v in (saida_ghe or {}).items()}
 
             for cargo_ref, exames_ref in ghe_ref.get('cargos', {}).items():
@@ -315,8 +360,8 @@ def formatar_relatorio_auditoria(resultado):
         for d in resultado['divergencias']:
             linhas.append(f"  [{d['obra']}] {d['ghe']} | {d['cargo']} | {d['tipo']} | {d['detalhe']}")
     return '\n'.join(linhas)
-    
+
+
 def obra_tem_matriz(banco: dict, obra_id: str) -> bool:
-    """Retorna True se a obra tem matriz validada no banco v1_1."""
     obras = banco.get("obras_referencia", {})
     return obra_id in obras and bool(obras[obra_id])
