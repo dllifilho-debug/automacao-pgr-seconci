@@ -180,84 +180,77 @@ def _lista_de_exames(payload):
     return []
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# NOVA FUNÇÃO PRINCIPAL: busca padrão técnico por cargo, independente de obra
-# ─────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────────────
+# REFERENCIA TECNICA POR CARGO — independente do nome do arquivo
+# ───────────────────────────────────────────────────────────────────────────
 
-def buscar_exames_por_cargo(nome_cargo: str, banco: dict) -> list[dict] | None:
+def buscar_exames_por_cargo(nome_cargo: str, banco: dict) -> list | None:
     """
     Varre TODAS as obras do banco e retorna o pacote de exames mais completo
-    encontrado para o cargo informado.
-
-    Lógica de seleção:
-    - Normaliza o nome do cargo e busca match exato em todos os GHEs de todas as obras.
-    - Quando o mesmo cargo aparece em mais de uma entrada, escolhe o pacote
-      com MAIS exames (critério de segurança — mais completo = mais seguro).
-    - Retorna lista de dicts {nome, adm, per, mro, ret, dem} ou None se não achar.
+    encontrado para o cargo informado (criterio: mais exames = mais seguro).
+    Retorna lista de dicts do JSON ou None se nao encontrar.
     """
     cargo_norm = normalizar_cargo(nome_cargo)
-    melhor: list[dict] | None = None
+    melhor = None
 
     for obra in banco.get('obras_referencia', {}).values():
         for ghe in obra.values():
             for cargo_ref, exames_ref in ghe.get('cargos', {}).items():
                 if normalizar_cargo(cargo_ref) == cargo_norm:
-                    candidato = list(exames_ref)  # já são dicts do JSON
+                    candidato = list(exames_ref)
                     if melhor is None or len(candidato) > len(melhor):
                         melhor = candidato
 
     return melhor
 
 
-def enriquecer_ghe_com_banco(
-    dados_ghe: list[dict],
-    banco: dict,
-) -> tuple[list[dict], dict]:
+def enriquecer_ghe_com_banco(dados_ghe: list, banco: dict) -> tuple:
     """
-    Para cada cargo em dados_ghe, consulta o banco de matrizes e:
-    - Se encontrar o cargo: substitui (ou complementa) os exames pelo padrão técnico.
-    - Se NÃO encontrar: mantém os exames extraídos do PGR sem alteração.
+    Recebe dados_ghe no formato produzido por extrair_pgr_local():
+        [{'ghe': str, 'cargos': [str, str, ...], 'riscos_mapeados': [...]}, ...]
 
-    Retorna:
-        (dados_ghe_enriquecido, relatorio)
-        relatorio = {
-            'cargos_enriquecidos': [...],
-            'cargos_mantidos':    [...],   # não achados no banco
-        }
+    Para cada cargo (string), consulta o banco de matrizes:
+    - Encontrou: guarda o pacote tecnico em session_state para uso posterior
+      (nao altera a lista de strings — processar_pcmso continua funcionando).
+    - Nao encontrou: registra para aviso ao usuario.
+
+    Retorna (dados_ghe_original, relatorio) onde relatorio contem:
+        'cargos_enriquecidos': lista de nomes com padrao tecnico disponivel
+        'cargos_mantidos':     lista de nomes sem correspondencia no banco
+        'mapa_exames_banco':   {nome_cargo_normalizado: [lista_exames_do_banco]}
     """
     cargos_enriquecidos = []
     cargos_mantidos = []
-    resultado = []
+    mapa_exames_banco = {}
 
     for ghe in dados_ghe:
-        novo_ghe = dict(ghe)
-        novo_cargos = []
-        for cargo_item in ghe.get('cargos', []):
-            nome_cargo = cargo_item.get('nome', '')
+        for cargo in ghe.get('cargos', []):
+            # cargo e sempre uma string aqui
+            nome_cargo = str(cargo)
+            cargo_norm = normalizar_cargo(nome_cargo)
+
+            if cargo_norm in mapa_exames_banco or cargo_norm in [normalizar_cargo(c) for c in cargos_mantidos]:
+                continue  # ja processado
+
             exames_banco = buscar_exames_por_cargo(nome_cargo, banco)
             if exames_banco:
-                # usa exatamente o padrão técnico do banco
-                novo_cargo = dict(cargo_item)
-                novo_cargo['exames'] = exames_banco
-                novo_cargos.append(novo_cargo)
+                mapa_exames_banco[cargo_norm] = exames_banco
                 cargos_enriquecidos.append(nome_cargo)
             else:
-                # mantém o que foi extraído do PGR
-                novo_cargos.append(cargo_item)
                 cargos_mantidos.append(nome_cargo)
-        novo_ghe['cargos'] = novo_cargos
-        resultado.append(novo_ghe)
 
     relatorio = {
         'cargos_enriquecidos': cargos_enriquecidos,
         'cargos_mantidos': cargos_mantidos,
+        'mapa_exames_banco': mapa_exames_banco,
     }
-    return resultado, relatorio
+    # Retorna dados_ghe SEM modificacao — processar_pcmso usa cargos como strings
+    return dados_ghe, relatorio
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Funções legadas mantidas para compatibilidade
-# ─────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────────────
+# Funcoes legadas mantidas para compatibilidade
+# ───────────────────────────────────────────────────────────────────────────
 
 def pcmso_df_para_dict(df) -> dict:
     resultado = {}
