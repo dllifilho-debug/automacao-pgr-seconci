@@ -315,3 +315,8 @@ def formatar_relatorio_auditoria(resultado):
         for d in resultado['divergencias']:
             linhas.append(f"  [{d['obra']}] {d['ghe']} | {d['cargo']} | {d['tipo']} | {d['detalhe']}")
     return '\n'.join(linhas)
+    
+    def obra_tem_matriz(banco: dict, obra_id: str) -> bool:
+    """Retorna True se a obra tem matriz validada no banco v1_1."""
+    obras = banco.get("obras_referencia", {})
+    return obra_id in obras and bool(obras[obra_id])
