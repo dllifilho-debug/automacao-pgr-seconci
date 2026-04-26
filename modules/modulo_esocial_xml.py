@@ -18,7 +18,6 @@ from xml.etree.ElementTree import (
 
 
 # ── Mapa: nome do exame → código tabela 24 eSocial ────────────────────────
-# Fonte: Tabela 24 - Exames Médicos (eSocial Manual de Orientação v2.5)
 _COD_EXAME: dict[str, str] = {
     "Exame Clinico":                      "0001",
     "Audiometria":                        "0002",
@@ -46,7 +45,6 @@ _COD_EXAME: dict[str, str] = {
     "Avaliação Psicossocial":            "0099",
 }
 
-# Mapa: período (meses) → código periodicidade eSocial
 _COD_PERIODICIDADE: dict[str, str] = {
     "6M":  "6",
     "12M": "12",
@@ -55,7 +53,6 @@ _COD_PERIODICIDADE: dict[str, str] = {
     "60M": "60",
 }
 
-# Mapa: nome do agente → código da tabela 23 eSocial (Agentes Nocivos)
 _COD_AGENTE: dict[str, str] = {
     "RUIDO":                  "01.01.001",
     "VIBRACAO CORPO INTEIRO": "01.02.001",
@@ -85,7 +82,6 @@ _COD_AGENTE: dict[str, str] = {
 }
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
 def _sem_acentos(texto: str) -> str:
     return unicodedata.normalize('NFKD', str(texto)).encode('ascii', 'ignore').decode('ascii')
 
@@ -96,24 +92,20 @@ def _norm(texto: str) -> str:
 
 
 def _cod_exame(nome_exame: str) -> str:
-    """Retorna o código da tabela 24 ou '9999' (Outro) se não mapeado."""
     return _COD_EXAME.get(nome_exame.strip(), "9999")
 
 
 def _cod_agente(nome_agente: str) -> str | None:
-    """Retorna o código da tabela 23 ou None se não mapeado."""
     chave = _norm(nome_agente)
     return _COD_AGENTE.get(chave)
 
 
 def _per_codigo(per_str: str) -> str:
-    """Converte '12M' → '12', '6M' → '6', etc."""
     per = str(per_str).strip().upper()
     return _COD_PERIODICIDADE.get(per, per.replace('M', ''))
 
 
 def _flag_xml(val) -> str:
-    """Converte 'X' / True → 'S', '-' / False → 'N'"""
     if isinstance(val, bool):
         return 'S' if val else 'N'
     return 'S' if str(val).strip().upper() in ('X', 'S', 'SIM', 'TRUE', '1') else 'N'
@@ -123,53 +115,32 @@ def _cnpj_limpo(cnpj: str) -> str:
     return re.sub(r'\D', '', str(cnpj or ''))[:14].zfill(14)
 
 
-# ── Gerador principal ──────────────────────────────────────────────────────────
 def gerar_xml_s2240(df, cabecalho: dict, dados_pgr: list | None = None) -> bytes:
-    """
-    Gera o XML do evento S-2240 (Condições Ambientais do Trabalho).
-
-    Parâmetros:
-        df          — DataFrame retornado por processar_pcmso()
-        cabecalho   — dict com razao_social, cnpj, medico_rt, vig_ini, obra etc.
-        dados_pgr   — lista de GHEs do PGR (opcional, para preencher agentes nocivos)
-
-    Retorna:
-        bytes com o XML codificado em UTF-8.
-    """
     cnpj = _cnpj_limpo(cabecalho.get('cnpj', ''))
-    razao = cabecalho.get('razao_social', 'Empresa')
     dt_vig = cabecalho.get('vig_ini', date.today().strftime('%d/%m/%Y'))
-    # Converte dd/mm/aaaa → aaaa-mm-dd
     try:
         dt_inicio = datetime.strptime(dt_vig, '%d/%m/%Y').strftime('%Y-%m-%d')
     except ValueError:
         dt_inicio = date.today().isoformat()
 
-    # ── Raiz do documento ─────────────────────────────────────────────────
     root = Element('eSocial', xmlns='http://www.esocial.gov.br/schema/evt/evtCAT/v_S_01_02_00')
-
-    # evtCondAmb
     evt = SubElement(root, 'evtCondAmb', Id=f'ID1{cnpj}{datetime.now().strftime("%Y%m%d%H%M%S")}0001')
 
-    # ideEvento
     ide_evt = SubElement(evt, 'ideEvento')
-    SubElement(ide_evt, 'indRetif').text = '1'          # 1 = original
+    SubElement(ide_evt, 'indRetif').text = '1'
     SubElement(ide_evt, 'nrRec').text = ''
-    SubElement(ide_evt, 'tpAmb').text = '2'             # 2 = produção restrita
-    SubElement(ide_evt, 'procEmi').text = '1'           # 1 = aplicação do empregador
+    SubElement(ide_evt, 'tpAmb').text = '2'
+    SubElement(ide_evt, 'procEmi').text = '1'
     SubElement(ide_evt, 'verProc').text = '1.0'
 
-    # ideEmpregador
     ide_emp = SubElement(evt, 'ideEmpregador')
-    SubElement(ide_emp, 'tpInsc').text = '1'            # 1 = CNPJ
+    SubElement(ide_emp, 'tpInsc').text = '1'
     SubElement(ide_emp, 'nrInsc').text = cnpj
 
-    # infoCondAmb
     info = SubElement(evt, 'infoCondAmb')
     SubElement(info, 'dtVigencia').text = dt_inicio
     SubElement(info, 'cnpjRespReg').text = cnpj
 
-    # ── Agrupa DataFrame por GHE e Cargo ─────────────────────────────────────
     col_ghe   = _achar_coluna(df, ('GHE / Setor', 'GHE', 'GHE_ID'))
     col_cargo = _achar_coluna(df, ('Cargo', 'CARGO', 'Funcão'))
     col_exame = _achar_coluna(df, ('Exame', 'EXAME'))
@@ -179,7 +150,6 @@ def gerar_xml_s2240(df, cabecalho: dict, dados_pgr: list | None = None) -> bytes
     col_rt    = _achar_coluna(df, ('RT',))
     col_dem   = _achar_coluna(df, ('DEM',))
 
-    # Índice de agentes por GHE (do dados_pgr, se disponível)
     agentes_por_ghe: dict[str, list] = {}
     if dados_pgr:
         for ghe_item in dados_pgr:
@@ -192,15 +162,12 @@ def gerar_xml_s2240(df, cabecalho: dict, dados_pgr: list | None = None) -> bytes
         cargo = str(row[col_cargo]).strip() if col_cargo else 'Cargo'
         ghe_grupos.setdefault(ghe, {}).setdefault(cargo, []).append(row)
 
-    # ── Gera um <ambiente> por GHE ────────────────────────────────────────────
     for seq_ghe, (nome_ghe, cargos_dict) in enumerate(ghe_grupos.items(), start=1):
-
         amb = SubElement(info, 'ambiente')
         SubElement(amb, 'seqAmbiente').text = str(seq_ghe)
         SubElement(amb, 'dscSetor').text    = nome_ghe[:100]
         SubElement(amb, 'dtIniCondicao').text = dt_inicio
 
-        # Agentes nocivos do GHE
         agentes_ghe = agentes_por_ghe.get(nome_ghe, [])
         for agente in agentes_ghe:
             nome_ag = str(agente.get('nome_agente', '')).strip()
@@ -210,20 +177,17 @@ def gerar_xml_s2240(df, cabecalho: dict, dados_pgr: list | None = None) -> bytes
             ag_el = SubElement(amb, 'agNocivo')
             SubElement(ag_el, 'codAgNoc').text = cod_ag
             SubElement(ag_el, 'dscAgNoc').text = nome_ag[:100]
-            SubElement(ag_el, 'tpAval').text   = '2'   # 2 = qualitativo
+            SubElement(ag_el, 'tpAval').text   = '2'
 
-        # Cargos / funções
         for seq_cargo, (nome_cargo, rows) in enumerate(cargos_dict.items(), start=1):
             func_el = SubElement(amb, 'funcaoAtividade')
             SubElement(func_el, 'codFuncao').text = str(seq_cargo).zfill(4)
             SubElement(func_el, 'dscFuncao').text = nome_cargo[:100]
 
-            # Exames por cargo
             for seq_exame, row in enumerate(rows, start=1):
                 nome_ex = str(row[col_exame]).strip() if col_exame else ''
                 if not nome_ex:
                     continue
-
                 cod_ex = _cod_exame(nome_ex)
                 per_val = str(row[col_per]).strip() if col_per else '-'
 
@@ -239,31 +203,24 @@ def gerar_xml_s2240(df, cabecalho: dict, dados_pgr: list | None = None) -> bytes
                 SubElement(exame_el, 'indRetTrab').text  = _flag_xml(row[col_rt])   if col_rt   else 'N'
                 SubElement(exame_el, 'indDem').text      = _flag_xml(row[col_dem])  if col_dem  else 'N'
 
-    # ── Serializa com indentação ─────────────────────────────────────────────────
     indent(root, space='  ')
     xml_bytes = b'<?xml version="1.0" encoding="UTF-8"?>\n' + tostring(root, encoding='unicode').encode('utf-8')
     return xml_bytes
 
 
 def _achar_coluna(df, candidatos: tuple) -> str | None:
-    """Retorna o nome da primeira coluna do df que bate com algum candidato."""
     for c in candidatos:
         if c in df.columns:
             return c
     return None
 
 
-# ── Render Streamlit (widget autossuficiente) ────────────────────────────────
+# ── Render Streamlit ─────────────────────────────────────────────────────────
 def render_botao_xml(df, cabecalho: dict, dados_pgr: list | None = None, key_prefix: str = ""):
     """
-    Renderiza o botão de exportação XML eSocial S-2240.
-    Pode ser chamado de qualquer módulo após a aprovação da matriz.
-
-    Parâmetros:
-        df          — DataFrame aprovado (editado ou não)
-        cabecalho   — dict com dados da empresa
-        dados_pgr   — lista de GHEs com riscos (opcional, enriquece os agentes no XML)
-        key_prefix  — prefixo para evitar conflito de chaves Streamlit
+    Renderiza a seção de exportação XML eSocial S-2240.
+    O XML é gerado e armazenado em session_state para que o botão de download
+    persista entre rerenders sem sumir.
     """
     import streamlit as st
 
@@ -294,26 +251,34 @@ def render_botao_xml(df, cabecalho: dict, dados_pgr: list | None = None, key_pre
         st.warning("⚠️ CNPJ não informado ou inválido. O XML será gerado com CNPJ zerado — preencha antes de importar no eSocial.")
 
     nome_arq = (cabecalho.get('razao_social') or 'PCMSO').replace(' ', '_')[:30]
+    _key_xml = f"{key_prefix}_xml_s2240_bytes"
 
+    # Botão para (re)gerar — sempre disponível
     if st.button(
-        "📄 Gerar e Baixar XML S-2240",
-        key=f"{key_prefix}_btn_xml_esocial",
+        "📄 Gerar XML S-2240",
+        key=f"{key_prefix}_btn_gerar_xml",
         use_container_width=True,
     ):
         try:
             xml_bytes = gerar_xml_s2240(df, cabecalho, dados_pgr=dados_pgr)
-            st.download_button(
-                label="⬇️ Baixar XML eSocial S-2240",
-                data=xml_bytes,
-                file_name=f"S2240_{nome_arq}.xml",
-                mime="application/xml",
-                key=f"{key_prefix}_dl_xml_esocial",
-                use_container_width=True,
-            )
-            with st.expander("👁️ Preview do XML gerado", expanded=False):
-                st.code(xml_bytes.decode('utf-8')[:4000], language='xml')
+            st.session_state[_key_xml] = xml_bytes
             st.success("✅ XML S-2240 gerado com sucesso!")
         except Exception as e:
             import traceback
             st.error(f"❌ Erro ao gerar XML: {type(e).__name__}: {e}")
             st.code(traceback.format_exc(), language='python')
+            st.session_state.pop(_key_xml, None)
+
+    # Botão de download persiste enquanto o XML estiver no session_state
+    if _key_xml in st.session_state:
+        xml_bytes = st.session_state[_key_xml]
+        st.download_button(
+            label="⬇️ Baixar XML eSocial S-2240",
+            data=xml_bytes,
+            file_name=f"S2240_{nome_arq}.xml",
+            mime="application/xml",
+            key=f"{key_prefix}_dl_xml_esocial",
+            use_container_width=True,
+        )
+        with st.expander("👁️ Preview do XML gerado", expanded=False):
+            st.code(xml_bytes.decode('utf-8')[:4000], language='xml')
