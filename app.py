@@ -1,13 +1,14 @@
 """
 Automacao SST - Seconci GO
-app.py v5.15 — feat: banco de matrizes vira referencia tecnica por cargo
-               enriquece GHEs ANTES de processar_pcmso, sem depender do nome do arquivo
+app.py v5.16 — feat: inserir linha em posicao especifica na matriz
+               fix:  XML S-2240 persiste apos rerender
 """
 import json
 import os
 import traceback
 from datetime import date
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -32,7 +33,7 @@ st.set_page_config(
     page_icon=":shield:",
 )
 
-# ── CSS CUSTOMIZADO ────────────────────────────────────────────────────────────
+# ── CSS CUSTOMIZADO ──────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
   .block-container{padding-top:1.4rem;padding-bottom:2rem;max-width:1400px;}
@@ -99,7 +100,7 @@ def render_auditoria_metrics(resultado_auditoria: dict):
     c4.metric("Cargos sem match", cargo_faltando)
 
 
-# ── Autenticação ───────────────────────────────────────────────────────────────
+# ── Autenticação ──────────────────────────────────────────────────────────────────────────
 def check_password():
     def validar_login():
         usr_digitado = st.session_state["username_input"]
@@ -145,7 +146,7 @@ if not check_password():
     st.stop()
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ── Sidebar ──────────────────────────────────────────────────────────────────────────────
 for logo in ("logo.png", "logo.jpg"):
     if os.path.exists(logo):
         st.sidebar.image(logo, width=220)
@@ -193,7 +194,7 @@ else:
     st.sidebar.write("Nenhum projeto salvo ainda.")
 
 
-# ── Banco de matrizes ──────────────────────────────────────────────────────────
+# ── Banco de matrizes ────────────────────────────────────────────────────────────────────────
 banco_path = os.path.join("data", "banco_matrizes_v1_1.json")
 banco_matrizes = {}
 
@@ -207,7 +208,7 @@ if os.path.exists(banco_path):
 _banco_ativo = bool(banco_matrizes)
 
 
-# ── Roteamento ─────────────────────────────────────────────────────────────────
+# ── Roteamento ──────────────────────────────────────────────────────────────────────────────
 if historico_html:
     st.title("Laudo Carregado do Historico")
     components.html(historico_html, height=700, scrolling=True)
@@ -300,9 +301,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                 list(opcoes_amb.keys()),
                 index=1,
                 horizontal=True,
-                help=(
-                    "Canteiro → todo cargo recebe pacote completo. Escritório → cargo admin recebe Exame Clínico + Acuidade Visual. Misto → sistema detecta por GHE automaticamente."
-                ),
             )
             tipo_ambiente = opcoes_amb[label_amb]
             st.markdown("</div>", unsafe_allow_html=True)
@@ -362,13 +360,11 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
                 st.stop()
 
-            # ── PASSO 1: enriquece com FISPQ (agentes químicos) ──────────────
             resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
             if resultados_fispq:
                 st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
                 dados_ghe = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
 
-            # ── PASSO 2: enriquece com banco de matrizes técnicas por CARGO ──
             if _banco_ativo:
                 from modules.modulo_auditor_v1_1 import enriquecer_ghe_com_banco
                 with st.spinner("Aplicando padrão técnico de exames por cargo..."):
@@ -387,7 +383,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                         f"{', '.join(dict.fromkeys(rel_banco['cargos_mantidos']))}"
                     )
 
-            # ── PASSO 3: gera matriz PCMSO ────────────────────────────────────
             tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
             with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
                 try:
@@ -404,6 +399,8 @@ elif modulo == "Medicina: PGR - PCMSO":
             st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames. Revise no Passo 2.")
             st.session_state["df_pcmso_gerado"] = df_pcmso
             st.session_state["relatorio_banco"] = rel_banco if _banco_ativo else None
+            # Limpa XML anterior ao gerar novo PCMSO
+            st.session_state.pop("med_xml_s2240_bytes", None)
 
     with tab2:
         st.markdown("<div class='audit-panel'>", unsafe_allow_html=True)
@@ -435,9 +432,84 @@ elif modulo == "Medicina: PGR - PCMSO":
         st.markdown("### Aprovação e Download")
         if "df_pcmso_gerado" in st.session_state:
             st.info(
-                "Revise a matriz abaixo. Você pode corrigir nomes, alterar periodicidades, marcar ou desmarcar ADM/PER/DEM, excluir linhas e adicionar novos exames."
+                "Revise a matriz abaixo. Você pode corrigir nomes, alterar periodicidades, "
+                "marcar ou desmarcar ADM/PER/DEM, excluir linhas e adicionar novos exames."
             )
 
+            # ──────────────────────────────────────────────────────────────────────────────
+            # Inserir linha em posição específica
+            # ──────────────────────────────────────────────────────────────────────────────
+            df_atual = st.session_state["df_pcmso_gerado"].copy()
+            total_linhas = len(df_atual)
+            colunas_df = list(df_atual.columns)
+
+            with st.expander("➕ Inserir nova linha em posição específica", expanded=False):
+                st.caption(f"Matriz tem {total_linhas} linha(s). A nova linha será inserida ANTES da posição escolhida (1 = início, {total_linhas + 1} = final).")
+                col_pos, col_ghe_n, col_cargo_n, col_exame_n = st.columns([1, 2, 2, 3])
+                with col_pos:
+                    pos_inserir = st.number_input(
+                        "Posição",
+                        min_value=1,
+                        max_value=total_linhas + 1,
+                        value=total_linhas + 1,
+                        step=1,
+                        key="ins_posicao",
+                    )
+                with col_ghe_n:
+                    ghe_opcoes = list(df_atual["GHE / Setor"].unique()) if "GHE / Setor" in df_atual.columns else []
+                    ghe_novo = st.selectbox("GHE / Setor", options=ghe_opcoes + ["-- Novo --"], key="ins_ghe")
+                    if ghe_novo == "-- Novo --":
+                        ghe_novo = st.text_input("Nome do GHE", key="ins_ghe_custom")
+                with col_cargo_n:
+                    cargo_opcoes = list(df_atual["Cargo"].unique()) if "Cargo" in df_atual.columns else []
+                    cargo_novo = st.selectbox("Cargo", options=cargo_opcoes + ["-- Novo --"], key="ins_cargo")
+                    if cargo_novo == "-- Novo --":
+                        cargo_novo = st.text_input("Nome do Cargo", key="ins_cargo_custom")
+                with col_exame_n:
+                    exame_novo = st.text_input("Exame", key="ins_exame")
+
+                col_adm_n, col_per_n, col_mro_n, col_rt_n, col_dem_n, col_just_n = st.columns(6)
+                adm_novo  = col_adm_n.selectbox("ADM",  ["-", "X"], key="ins_adm")
+                per_novo  = col_per_n.text_input("PER",  value="12M", key="ins_per")
+                mro_novo  = col_mro_n.selectbox("MRO",  ["X", "-"], key="ins_mro")
+                rt_novo   = col_rt_n.selectbox("RT",   ["-", "X"], key="ins_rt")
+                dem_novo  = col_dem_n.selectbox("DEM",  ["-", "X"], key="ins_dem")
+                just_novo = col_just_n.text_input("Justificativa", value="Inserido manualmente", key="ins_just")
+
+                if st.button("➕ Confirmar inserção", key="btn_inserir_linha", use_container_width=True):
+                    if not exame_novo.strip():
+                        st.warning("Informe o nome do exame antes de inserir.")
+                    else:
+                        nova_linha = {
+                            "GHE / Setor": ghe_novo or "",
+                            "Cargo": cargo_novo or "",
+                            "Exame": exame_novo.strip(),
+                            "ADM": adm_novo,
+                            "PER": per_novo.upper().strip(),
+                            "MRO": mro_novo,
+                            "RT": rt_novo,
+                            "DEM": dem_novo,
+                            "Justificativa": just_novo,
+                        }
+                        # Garante que todas as colunas existam
+                        for col in colunas_df:
+                            if col not in nova_linha:
+                                nova_linha[col] = ""
+
+                        idx = int(pos_inserir) - 1  # base-0
+                        parte_antes = df_atual.iloc[:idx]
+                        parte_depois = df_atual.iloc[idx:]
+                        df_inserida = pd.concat(
+                            [parte_antes, pd.DataFrame([nova_linha]), parte_depois],
+                            ignore_index=True,
+                        )
+                        st.session_state["df_pcmso_gerado"] = df_inserida
+                        st.success(f"✅ Linha inserida na posição {int(pos_inserir)}: {exame_novo} — {cargo_novo}")
+                        st.rerun()
+
+            # ──────────────────────────────────────────────────────────────────────────────
+            # Editor principal da matriz
+            # ──────────────────────────────────────────────────────────────────────────────
             df_editado = st.data_editor(
                 st.session_state["df_pcmso_gerado"],
                 num_rows="dynamic",
@@ -446,12 +518,16 @@ elif modulo == "Medicina: PGR - PCMSO":
                 height=500,
             )
 
+            # Persiste edições do data_editor de volta ao session_state
+            if not df_editado.equals(st.session_state["df_pcmso_gerado"]):
+                st.session_state["df_pcmso_gerado"] = df_editado
+
             st.markdown("---")
 
             if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
                 cabecalho_atual = st.session_state["pcmso_cabecalho"]
-                razao_social = cabecalho_atual.get("razao_social", "")
-                medico_rt = cabecalho_atual.get("medico_rt", "")
+                razao_social_ap = cabecalho_atual.get("razao_social", "")
+                medico_rt_ap    = cabecalho_atual.get("medico_rt", "")
                 with st.spinner("Consolidando correções e gerando laudos oficiais..."):
                     try:
                         html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
@@ -461,43 +537,53 @@ elif modulo == "Medicina: PGR - PCMSO":
                         st.code(traceback.format_exc(), language="python")
                         st.stop()
 
-                nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
+                # Persiste documentos gerados no session_state
+                st.session_state["html_pcmso_aprovado"] = html_pcmso
+                st.session_state["bytes_docx_aprovado"] = bytes_docx
+                st.session_state["nome_arq_aprovado"] = (
+                    razao_social_ap.replace(" ", "_")[:30] if razao_social_ap else "PCMSO"
+                )
+
+                if razao_social_ap and medico_rt_ap:
+                    nome_proj = f"PCMSO - {razao_social_ap[:40]} ({date.today().strftime('%d/%m/%Y')})"
+                    salvar_historico(nome_proj, html_pcmso)
+                    st.success("✅ Laudo aprovado e salvo no histórico com sucesso!")
+                else:
+                    st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
+
+            # Botões de download — persistem no session_state após aprovação
+            if "html_pcmso_aprovado" in st.session_state:
+                nome_arq = st.session_state.get("nome_arq_aprovado", "PCMSO")
                 st.markdown("### ⬇️ Documentos Prontos para Download")
                 col_html, col_docx = st.columns(2)
                 with col_html:
                     st.download_button(
                         label="📄 Baixar PCMSO (.html)",
-                        data=html_pcmso.encode("utf-8"),
-                        file_name=f"PCMSO_{nome_arquivo}.html",
+                        data=st.session_state["html_pcmso_aprovado"].encode("utf-8"),
+                        file_name=f"PCMSO_{nome_arq}.html",
                         mime="text/html",
                         use_container_width=True,
                     )
                 with col_docx:
                     st.download_button(
                         label="📝 Baixar PCMSO (.docx)",
-                        data=bytes_docx,
-                        file_name=f"PCMSO_{nome_arquivo}.docx",
+                        data=st.session_state["bytes_docx_aprovado"],
+                        file_name=f"PCMSO_{nome_arq}.docx",
                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         use_container_width=True,
                     )
-
                 with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
-                    components.html(html_pcmso, height=600, scrolling=True)
+                    components.html(st.session_state["html_pcmso_aprovado"], height=600, scrolling=True)
 
-                if razao_social and medico_rt:
-                    nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
-                    salvar_historico(nome_proj, html_pcmso)
-                    st.success("Laudo aprovado e salvo no histórico com sucesso!")
-                else:
-                    st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
+            # XML eSocial — sempre visível após gerar PCMSO
+            from modules.modulo_esocial_xml import render_botao_xml
+            render_botao_xml(
+                df_editado,
+                st.session_state.get("pcmso_cabecalho", {}),
+                dados_pgr=st.session_state.get("dados_ghe_processados"),
+                key_prefix="med",
+            )
 
-                from modules.modulo_esocial_xml import render_botao_xml
-                render_botao_xml(
-                    df_editado,
-                    cabecalho_atual,
-                    dados_pgr=st.session_state.get("dados_ghe_processados"),
-                    key_prefix="med",
-                )
         else:
             st.info("A matriz aprovada aparecerá aqui após a extração do Passo 1.")
         st.markdown("</div>", unsafe_allow_html=True)
