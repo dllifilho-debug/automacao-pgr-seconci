@@ -1,7 +1,6 @@
 """
 Automacao SST - Seconci GO
-app.py v5.11 — Fix P2: remove df_pcmso_para_dict local, importa do auditor
-               Fix P3: selecionar_base_automatica emite warning no fallback
+app.py v5.12 — Visual upgrade: tema corporativo, cards, métricas e abas no módulo médico
 """
 import json
 import os
@@ -33,17 +32,54 @@ st.set_page_config(
 )
 
 st.markdown("""<style>
-  .block-container{padding-top:2rem;padding-bottom:2rem;}
-  .stButton>button{background-color:#084D22;color:white;border-radius:8px;
-    border:none;box-shadow:0 4px 6px rgba(0,0,0,.1);transition:all .3s;
-    font-weight:600;padding:.5rem 1rem;}
-  .stButton>button:hover{background-color:#1AA04B;transform:translateY(-2px);}
-  h1,h2,h3{color:#084D22!important;}
-  [data-testid="stSidebar"]{background:#F4F8F5;border-right:1px solid #E0ECE4;}
-  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;
-    border-radius:12px;background:#FAFFFA;}
-  .stAlert{border-radius:8px;border-left:5px solid #084D22;}
+  .block-container{padding-top:1.4rem;padding-bottom:2rem;max-width:1400px;}
+  #MainMenu, footer, header {visibility:hidden;}
+  [data-testid="stAppViewContainer"]{background:#F0F2F5;}
+  [data-testid="stSidebar"]{background:#F7F9FB;border-right:1px solid #E4E8EE;}
+  [data-testid="stSidebar"] *{color:#1A1D23;}
+  [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;border-radius:16px;background:#FBFFFC;padding:1rem;}
+  .stButton>button{background:linear-gradient(135deg,#084D22,#0E6B31);color:white;border-radius:10px;border:none;box-shadow:0 8px 18px rgba(8,77,34,.16);transition:all .2s ease;font-weight:700;padding:.62rem 1rem;}
+  .stButton>button:hover{background:linear-gradient(135deg,#0E6B31,#1AA04B);transform:translateY(-1px);}
+  .stDownloadButton>button{border-radius:10px;font-weight:700;}
+  h1,h2,h3{color:#084D22!important;letter-spacing:-0.02em;}
+  .stAlert{border-radius:12px;border:1px solid #E6EBF1;box-shadow:0 4px 10px rgba(15,23,42,.04);}
+  .kaiju-card{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1.2rem 1.2rem;box-shadow:0 10px 30px rgba(15,23,42,.06);margin-bottom:1rem;}
+  .kaiju-card-title{font-size:.92rem;font-weight:700;color:#5B6472;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;}
+  .kaiju-hero{background:linear-gradient(135deg,#084D22 0%,#1AA04B 100%);border-radius:22px;padding:1.3rem 1.4rem;color:white;box-shadow:0 18px 40px rgba(8,77,34,.20);margin-bottom:1rem;}
+  .kaiju-hero h2{color:white!important;margin:0 0 .25rem 0;}
+  .kaiju-hero p{margin:0;opacity:.96;font-size:0.98rem;}
+  div[data-testid="metric-container"]{background:#FFFFFF;border:1px solid #E6EBF1;padding:1rem;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.05);}
+  div[data-testid="metric-container"] label{font-weight:700;color:#5B6472;}
+  .audit-panel{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1rem 1.1rem;box-shadow:0 10px 28px rgba(15,23,42,.05);}
+  .stTabs [data-baseweb="tab-list"]{gap:.5rem;}
+  .stTabs [data-baseweb="tab"]{background:#EAF3ED;border-radius:10px;padding:.55rem .95rem;font-weight:700;}
+  .stTabs [aria-selected="true"]{background:#084D22!important;color:white!important;}
 </style>""", unsafe_allow_html=True)
+
+
+def card_inicio(titulo: str, texto: str):
+    st.markdown(
+        f"""
+        <div class="kaiju-card">
+            <div class="kaiju-card-title">{titulo}</div>
+            <div>{texto}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_auditoria_metrics(resultado_auditoria: dict):
+    total = int(resultado_auditoria.get("total_divergencias", 0))
+    faltando = len(resultado_auditoria.get("exames_faltando", []))
+    excedente = len(resultado_auditoria.get("exames_excedentes", []))
+    cargo_faltando = len(resultado_auditoria.get("cargo_faltando", []))
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Divergências", total)
+    c2.metric("Exames faltando", faltando)
+    c3.metric("Exames excedentes", excedente)
+    c4.metric("Cargos sem match", cargo_faltando)
 
 
 # ── Autenticação ──────────────────────────────────────────────────────────────
@@ -75,9 +111,9 @@ def check_password():
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         st.markdown("""
-            <div style='border:1px solid #1AA04B;padding:30px;
-                        border-radius:10px;background-color:#F8F9FA;
-                        box-shadow:0 4px 12px rgba(8,77,34,.1);'>
+            <div style='border:1px solid #DDE6E0;padding:30px;
+                        border-radius:18px;background-color:#FFFFFF;
+                        box-shadow:0 10px 24px rgba(8,77,34,.08);'>
         """, unsafe_allow_html=True)
         st.text_input("Usuário", key="username_input")
         st.text_input("Senha", type="password", key="password_input")
@@ -155,8 +191,6 @@ if os.path.exists(banco_path):
 
 
 def selecionar_base_automatica(nome_arquivo: str) -> str | None:
-    """Detecta a base de auditoria pelo nome do arquivo PDF.
-    Emite warning se fallback para bases[0] (P3 fix)."""
     if not bases_disponiveis:
         return None
     import unicodedata
@@ -171,7 +205,6 @@ def selecionar_base_automatica(nome_arquivo: str) -> str | None:
         for palavra in base_norm.split():
             if len(palavra) > 4 and palavra in nome_norm:
                 return base
-    # Fallback: usa a primeira base, mas avisa o usuario
     st.warning(
         f"⚠️ Nenhuma base detectada no nome '{nome_arquivo}'. "
         f"Usando base padrão: **{bases_disponiveis[0]}**. "
@@ -215,248 +248,274 @@ elif modulo == "Construtor Visual de GHEs":
         st.code(traceback.format_exc(), language="python")
 
 elif modulo == "Medicina: PGR - PCMSO":
-    st.title("Modulo Medico: Importador de PGR e Gerador de PCMSO")
-    st.info(
-        "Motor de extracao em 2 etapas: "
-        "Etapa 1 — Extracao Local (gratuita, instantanea). "
-        "Etapa 2 — IA Gemini (fallback — acionada so se necessario)."
-    )
+    st.markdown("""
+        <div class="kaiju-hero">
+            <h2>🩺 Módulo Médico — Importador de PGR e Gerador de PCMSO</h2>
+            <p>Fluxo guiado em 3 etapas: upload e extração, auditoria clínica e aprovação final.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # Indicador de agentes FISPQ carregados da etapa anterior
-    fispq_carregados = st.session_state.get("fispq_resultados_medicos", [])
-    if fispq_carregados:
-        st.success(
-            f"🧪 {len(fispq_carregados)} agente(s) da FISPQ em memória — "
-            "serão injetados automaticamente no PCMSO após a extração."
+    tab1, tab2, tab3 = st.tabs([
+        "📂 Passo 1: Upload e Extração",
+        "🔍 Passo 2: Auditoria Clínica",
+        "✅ Passo 3: Aprovação e Download",
+    ])
+
+    with tab1:
+        card_inicio(
+            "Motor de extração",
+            "Etapa 1 — Extração Local (gratuita e instantânea). Etapa 2 — IA Gemini (fallback somente se necessário).",
         )
 
-    with st.expander("Dados de Identificacao do PCMSO (NR-07 item 7.5.19.1)", expanded=True):
-        col1, col2 = st.columns(2)
-        cab = st.session_state.get("pcmso_cabecalho", {})
-        with col1:
-            razao_social = st.text_input("Razao Social da Empresa *",    value=cab.get("razao_social", ""))
-            cnpj         = st.text_input("CNPJ *",                       value=cab.get("cnpj", ""))
-            medico_rt    = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
-        with col2:
-            vig_ini  = st.date_input("Vigencia - Inicio", value=date.today())
-            vig_fim  = st.date_input("Vigencia - Fim",    value=date.today())
-            resp_tec = st.text_input("Tecnico SST Responsavel (opcional)", value=cab.get("responsavel_tec", ""))
-            obra     = st.text_input("Obra / Unidade (opcional)",          value=cab.get("obra", ""))
-        st.markdown("---")
-        st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
-        opcoes_amb = {
-            "🏗️ Canteiro de Obras / Obra":                "canteiro",
-            "🏢 Escritório Corporativo":                  "escritorio",
-            "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
-        }
-        label_amb = st.radio(
-            "Selecione o tipo:",
-            list(opcoes_amb.keys()),
-            index=1,
-            help=(
-                "Canteiro → todo cargo recebe pacote completo (Audiometria, ECG, Espirometria, RX).\n"
-                "Escritório → cargo admin recebe só Exame Clínico + Acuidade Visual.\n"
-                "Misto → sistema detecta por GHE automaticamente."
-            ),
-            horizontal=True,
-        )
-        tipo_ambiente = opcoes_amb[label_amb]
-        st.markdown("---")
-        if bases_disponiveis:
-            st.caption(
-                f"🔍 **Auditoria automática ativa** — base será detectada pelo nome do PDF. "
-                f"Bases disponíveis: `{'` · `'.join(bases_disponiveis)}`"
+        fispq_carregados = st.session_state.get("fispq_resultados_medicos", [])
+        if fispq_carregados:
+            st.success(
+                f"🧪 {len(fispq_carregados)} agente(s) da FISPQ em memória — serão injetados automaticamente no PCMSO após a extração."
             )
-        else:
-            st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
+
+        with st.container():
+            st.markdown("<div class='kaiju-card'>", unsafe_allow_html=True)
+            st.markdown("### Dados de Identificação do PCMSO")
+            st.caption("NR-07 item 7.5.19.1")
+            col1, col2 = st.columns(2)
+            cab = st.session_state.get("pcmso_cabecalho", {})
+            with col1:
+                razao_social = st.text_input("Razao Social da Empresa *", value=cab.get("razao_social", ""))
+                cnpj = st.text_input("CNPJ *", value=cab.get("cnpj", ""))
+                medico_rt = st.text_input("Medico Responsavel RT (Nome + CRM) *", value=cab.get("medico_rt", ""))
+            with col2:
+                vig_ini = st.date_input("Vigencia - Inicio", value=date.today())
+                vig_fim = st.date_input("Vigencia - Fim", value=date.today())
+                resp_tec = st.text_input("Tecnico SST Responsavel (opcional)", value=cab.get("responsavel_tec", ""))
+                obra = st.text_input("Obra / Unidade (opcional)", value=cab.get("obra", ""))
+            st.markdown("---")
+            st.markdown("**Tipo de Ambiente da Obra** *(define o pacote de exames)*")
+            opcoes_amb = {
+                "🏗️ Canteiro de Obras / Obra": "canteiro",
+                "🏢 Escritório Corporativo": "escritorio",
+                "🔀 Misto (Canteiro + Escritório no mesmo PGR)": "misto",
+            }
+            label_amb = st.radio(
+                "Selecione o tipo:",
+                list(opcoes_amb.keys()),
+                index=1,
+                horizontal=True,
+                help=(
+                    "Canteiro → todo cargo recebe pacote completo. Escritório → cargo admin recebe Exame Clínico + Acuidade Visual. Misto → sistema detecta por GHE automaticamente."
+                ),
+            )
+            tipo_ambiente = opcoes_amb[label_amb]
+            st.markdown("---")
+            if bases_disponiveis:
+                st.caption(
+                    f"🔍 Auditoria automática ativa — base detectada pelo nome do PDF. Bases disponíveis: `{'` · `'.join(bases_disponiveis)}`"
+                )
+            else:
+                st.caption("⚠️ Nenhuma base de auditoria encontrada — `banco_matrizes_v1_1.json` não localizado.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
         st.session_state["pcmso_cabecalho"] = {
-            "razao_social":    razao_social,
-            "cnpj":            cnpj,
-            "medico_rt":       medico_rt,
-            "vig_ini":         vig_ini.strftime("%d/%m/%Y"),
-            "vig_fim":         vig_fim.strftime("%d/%m/%Y"),
+            "razao_social": razao_social,
+            "cnpj": cnpj,
+            "medico_rt": medico_rt,
+            "vig_ini": vig_ini.strftime("%d/%m/%Y"),
+            "vig_fim": vig_fim.strftime("%d/%m/%Y"),
             "responsavel_tec": resp_tec,
-            "obra":            obra,
+            "obra": obra,
         }
         st.session_state["tipo_ambiente"] = tipo_ambiente
 
-    pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
-    if pdf_file:
-        st.session_state["nome_pdf_atual"] = pdf_file.name
+        st.markdown("<div class='kaiju-card'>", unsafe_allow_html=True)
+        pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
+        if pdf_file:
+            st.session_state["nome_pdf_atual"] = pdf_file.name
+        st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True, key="btn_extrair_pcmso")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True):
-        if not pdf_file:
-            st.error("Faca upload do PDF do PGR antes de continuar.")
-            st.stop()
+        if st.session_state.get("btn_extrair_pcmso"):
+            pass
 
-        nome_pdf = st.session_state.get("nome_pdf_atual", "")
-        base_sel = selecionar_base_automatica(nome_pdf)
-        if base_sel and not st.session_state.get("_base_fallback_warned"):
-            st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
-        elif not base_sel:
-            st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
+        if st.session_state.get("btn_extrair_pcmso") is None:
+            st.session_state["btn_extrair_pcmso"] = False
 
-        with st.spinner("Extraindo texto do PDF..."):
-            texto_pgr = extrair_texto_pdf(pdf_file)
-        st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
+        if st.session_state.get("btn_extrair_pcmso") or st.session_state.get("executar_extracao_manual"):
+            st.session_state["executar_extracao_manual"] = False
 
-        with st.expander("DEBUG: Primeiras 100 linhas do PDF"):
-            for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
-                st.text(f"{i:3}: {linha}")
-
-        with st.spinner("Processando GHEs..."):
-            dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
-
-        st.session_state["dados_ghe_processados"] = dados_ghe
-
-        if fonte == "local":
-            st.success("Dados extraidos localmente — sem consumo de IA!")
-        elif fonte == "ia":
-            st.info("Dados extraidos via IA (Gemini).")
-        else:
-            st.warning("Extracao parcial — revise os resultados.")
-
-        if not dados_ghe:
-            st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
-            st.stop()
-
-        with st.expander("DEBUG: Estrutura dos GHEs extraídos (primeiros 3)"):
-            for g in dados_ghe[:3]:
-                st.json(g)
-
-        resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
-        if resultados_fispq:
-            st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
-            dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
-        else:
-            dados_ghe_enriquecido = dados_ghe
-
-        tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
-        with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
-            try:
-                df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
-            except Exception as e:
-                st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
-                st.code(traceback.format_exc(), language="python")
+        if st.session_state.get("btn_extrair_pcmso"):
+            if not pdf_file:
+                st.error("Faca upload do PDF do PGR antes de continuar.")
                 st.stop()
 
-        if df_pcmso.empty:
-            st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
-            st.stop()
+            nome_pdf = st.session_state.get("nome_pdf_atual", "")
+            base_sel = selecionar_base_automatica(nome_pdf)
+            if base_sel:
+                st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
+            else:
+                st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
 
-        st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
+            with st.spinner("Extraindo texto do PDF..."):
+                texto_pgr = extrair_texto_pdf(pdf_file)
+            st.success(f"Texto extraido: {len(texto_pgr):,} caracteres em {pdf_file.name}")
 
-        st.session_state["df_pcmso_gerado"] = df_pcmso
-        st.session_state["base_auditoria_atual"] = selecionar_base_automatica(
-            st.session_state.get("nome_pdf_atual", "")
-        )
+            with st.expander("DEBUG: Primeiras 100 linhas do PDF"):
+                for i, linha in enumerate(texto_pgr.split("\n")[:100], 1):
+                    st.text(f"{i:3}: {linha}")
 
-        if base_sel and banco_matrizes:
-            try:
-                # FIX P2: usa pcmso_df_para_dict canonica do modulo auditor
-                from modules.modulo_auditor_v1_1 import (
-                    auditar_pcmso, pcmso_df_para_dict,
-                    formatar_relatorio_auditoria, obra_tem_matriz
-                )
+            with st.spinner("Processando GHEs..."):
+                dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
-                tem_historico = obra_tem_matriz(banco_matrizes, base_sel)
+            st.session_state["dados_ghe_processados"] = dados_ghe
 
-                if not tem_historico:
-                    # Não bloqueia — só avisa
-                    st.warning(
-                        f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. "
-                        "Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
-                    )
-                else:
-                    # Audita normalmente
-                    dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
-                    resultado_auditoria = auditar_pcmso(
-                        dados_para_auditoria, banco_matrizes, obra_id=base_sel
-                    )
-                    relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
+            if fonte == "local":
+                st.success("Dados extraidos localmente — sem consumo de IA!")
+            elif fonte == "ia":
+                st.info("Dados extraidos via IA (Gemini).")
+            else:
+                st.warning("Extracao parcial — revise os resultados.")
 
-                    if resultado_auditoria.get("ok"):
-                        st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
-                    else:
-                        n = resultado_auditoria["total_divergencias"]
-                        st.warning(f"⚠️ {n} divergência(s) detectada(s) — revise a tabela abaixo.")
+            if not dados_ghe:
+                st.error("Nenhum GHE identificado. Verifique se o PDF e um PGR valido.")
+                st.stop()
 
-                    with st.expander("📋 Relatório da Auditoria", expanded=True):
-                        st.code(relatorio_txt, language="text")
-                        
-            except Exception as e:
-                import traceback
-                st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
-                st.code(traceback.format_exc(), language="python")
+            resultados_fispq = st.session_state.get("fispq_resultados_medicos", [])
+            if resultados_fispq:
+                st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
+                dados_ghe_enriquecido = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
+            else:
+                dados_ghe_enriquecido = dados_ghe
 
-    # ── Triagem e Aprovação — FORA do bloco Extrair, persiste entre reruns ──
-    if "df_pcmso_gerado" in st.session_state:
-        st.markdown("---")
-        st.markdown("### 👩‍⚕️ Triagem Médica (Revisão da Inteligência)")
-        st.info(
-            "Revise a matriz abaixo. Você pode clicar em qualquer célula para corrigir nomes, "
-            "alterar periodicidades e marcar/desmarcar as opções ADM/PER/DEM. "
-            "Você também pode **excluir linhas** ou **adicionar novos exames** diretamente na tabela."
-        )
-
-        df_editado = st.data_editor(
-            st.session_state["df_pcmso_gerado"],
-            num_rows="dynamic",
-            use_container_width=True,
-            key="editor_matriz_pcmso",
-            height=500,
-        )
-
-        st.markdown("---")
-
-        if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
-            cabecalho_atual = st.session_state["pcmso_cabecalho"]
-            razao_social = cabecalho_atual.get("razao_social", "")
-            medico_rt = cabecalho_atual.get("medico_rt", "")
-            with st.spinner("Consolidando correções e gerando laudos oficiais..."):
+            tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
+            with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
                 try:
-                    html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
-                    bytes_docx = gerar_docx_rq61(df_editado, cabecalho=cabecalho_atual)
+                    df_pcmso = processar_pcmso(dados_ghe_enriquecido, tipo_ambiente=tipo_amb)
                 except Exception as e:
-                    import traceback
-                    st.error(f"❌ Erro na geração dos documentos: {type(e).__name__}: {e}")
+                    st.error(f"❌ Erro em processar_pcmso(): {type(e).__name__}: {e}")
                     st.code(traceback.format_exc(), language="python")
                     st.stop()
 
-            nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
-            st.markdown("### ⬇️ Documentos Prontos para Download")
-            col_html, col_docx = st.columns(2)
-            with col_html:
-                st.download_button(
-                    label="📄 Baixar PCMSO (.html)",
-                    data=html_pcmso.encode("utf-8"),
-                    file_name=f"PCMSO_{nome_arquivo}.html",
-                    mime="text/html",
-                    use_container_width=True,
-                )
-            with col_docx:
-                st.download_button(
-                    label="📝 Baixar PCMSO (.docx)",
-                    data=bytes_docx,
-                    file_name=f"PCMSO_{nome_arquivo}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True,
-                )
+            if df_pcmso.empty:
+                st.warning("PCMSO gerado vazio — nenhum cargo/exame identificado.")
+                st.stop()
 
-            with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
-                components.html(html_pcmso, height=600, scrolling=True)
+            st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
+            st.session_state["df_pcmso_gerado"] = df_pcmso
+            st.session_state["base_auditoria_atual"] = selecionar_base_automatica(st.session_state.get("nome_pdf_atual", ""))
+            st.session_state["resultado_auditoria"] = None
+            st.session_state["relatorio_auditoria_txt"] = None
 
-            if razao_social and medico_rt:
-                nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
-                salvar_historico(nome_proj, html_pcmso)
-                st.success("Laudo aprovado e salvo no histórico com sucesso!")
+            if base_sel and banco_matrizes:
+                try:
+                    from modules.modulo_auditor_v1_1 import (
+                        auditar_pcmso, pcmso_df_para_dict,
+                        formatar_relatorio_auditoria, obra_tem_matriz
+                    )
+
+                    tem_historico = obra_tem_matriz(banco_matrizes, base_sel)
+
+                    if not tem_historico:
+                        st.warning(
+                            f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
+                        )
+                    else:
+                        dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
+                        resultado_auditoria = auditar_pcmso(dados_para_auditoria, banco_matrizes, obra_id=base_sel)
+                        relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
+                        st.session_state["resultado_auditoria"] = resultado_auditoria
+                        st.session_state["relatorio_auditoria_txt"] = relatorio_txt
+                except Exception as e:
+                    st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
+                    st.code(traceback.format_exc(), language="python")
+
+            st.session_state["btn_extrair_pcmso"] = False
+
+    with tab2:
+        st.markdown("<div class='audit-panel'>", unsafe_allow_html=True)
+        st.markdown("### Painel de Auditoria Clínica")
+        resultado_auditoria = st.session_state.get("resultado_auditoria")
+        relatorio_txt = st.session_state.get("relatorio_auditoria_txt")
+
+        if resultado_auditoria:
+            if resultado_auditoria.get("ok"):
+                st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
             else:
-                st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
+                st.warning(f"⚠️ {resultado_auditoria.get('total_divergencias', 0)} divergência(s) detectada(s) — revise antes de aprovar.")
+            render_auditoria_metrics(resultado_auditoria)
+            with st.expander("📋 Relatório da Auditoria", expanded=True):
+                st.code(relatorio_txt or "Sem relatório disponível.", language="text")
+        elif "df_pcmso_gerado" in st.session_state:
+            st.info("Matriz gerada, mas sem auditoria validada no histórico para esta obra.")
+        else:
+            st.info("Extraia um PGR no Passo 1 para preencher este painel.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-            from modules.modulo_esocial_xml import render_botao_xml
-            render_botao_xml(
-                df_editado,
-                cabecalho_atual,
-                dados_pgr=st.session_state.get("dados_ghe_processados"),
-                key_prefix="med",
+    with tab3:
+        st.markdown("<div class='kaiju-card'>", unsafe_allow_html=True)
+        st.markdown("### Aprovação e Download")
+        if "df_pcmso_gerado" in st.session_state:
+            st.info(
+                "Revise a matriz abaixo. Você pode corrigir nomes, alterar periodicidades, marcar ou desmarcar ADM/PER/DEM, excluir linhas e adicionar novos exames."
             )
+
+            df_editado = st.data_editor(
+                st.session_state["df_pcmso_gerado"],
+                num_rows="dynamic",
+                use_container_width=True,
+                key="editor_matriz_pcmso",
+                height=500,
+            )
+
+            st.markdown("---")
+
+            if st.button("✅ Aprovar Matriz e Gerar Documentos", type="primary", use_container_width=True):
+                cabecalho_atual = st.session_state["pcmso_cabecalho"]
+                razao_social = cabecalho_atual.get("razao_social", "")
+                medico_rt = cabecalho_atual.get("medico_rt", "")
+                with st.spinner("Consolidando correções e gerando laudos oficiais..."):
+                    try:
+                        html_pcmso = gerar_html_pcmso(df_editado, cabecalho=cabecalho_atual)
+                        bytes_docx = gerar_docx_rq61(df_editado, cabecalho=cabecalho_atual)
+                    except Exception as e:
+                        st.error(f"❌ Erro na geração dos documentos: {type(e).__name__}: {e}")
+                        st.code(traceback.format_exc(), language="python")
+                        st.stop()
+
+                nome_arquivo = razao_social.replace(" ", "_")[:30] if razao_social else "PCMSO"
+                st.markdown("### ⬇️ Documentos Prontos para Download")
+                col_html, col_docx = st.columns(2)
+                with col_html:
+                    st.download_button(
+                        label="📄 Baixar PCMSO (.html)",
+                        data=html_pcmso.encode("utf-8"),
+                        file_name=f"PCMSO_{nome_arquivo}.html",
+                        mime="text/html",
+                        use_container_width=True,
+                    )
+                with col_docx:
+                    st.download_button(
+                        label="📝 Baixar PCMSO (.docx)",
+                        data=bytes_docx,
+                        file_name=f"PCMSO_{nome_arquivo}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                    )
+
+                with st.expander("👁️ Preview do PCMSO gerado", expanded=False):
+                    components.html(html_pcmso, height=600, scrolling=True)
+
+                if razao_social and medico_rt:
+                    nome_proj = f"PCMSO - {razao_social[:40]} ({date.today().strftime('%d/%m/%Y')})"
+                    salvar_historico(nome_proj, html_pcmso)
+                    st.success("Laudo aprovado e salvo no histórico com sucesso!")
+                else:
+                    st.warning("Preencha Razão Social e Médico RT para salvar no histórico.")
+
+                from modules.modulo_esocial_xml import render_botao_xml
+                render_botao_xml(
+                    df_editado,
+                    cabecalho_atual,
+                    dados_pgr=st.session_state.get("dados_ghe_processados"),
+                    key_prefix="med",
+                )
+        else:
+            st.info("A matriz aprovada aparecerá aqui após a extração do Passo 1.")
+        st.markdown("</div>", unsafe_allow_html=True)
