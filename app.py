@@ -354,20 +354,36 @@ elif modulo == "Medicina: PGR - PCMSO":
         if base_sel and banco_matrizes:
             try:
                 # FIX P2: usa pcmso_df_para_dict canonica do modulo auditor
-                from modules.modulo_auditor_v1_1 import auditar_pcmso, pcmso_df_para_dict, formatar_relatorio_auditoria
-                dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
-                with st.spinner(f"Auditando PCMSO contra base '{base_sel}'..."):
-                    resultado_auditoria = auditar_pcmso(
-                        dados_para_auditoria, banco_matrizes, obra_id=base_sel,
-                    )
-                    relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
-                if resultado_auditoria.get("ok"):
-                    st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
-                else:
-                    n = resultado_auditoria["total_divergencias"]
-                    st.warning(f"⚠️ Auditoria concluída — {n} divergência(s) detectada(s).")
-                with st.expander("📋 Relatório da Auditoria", expanded=True):
-                    st.code(relatorio_txt, language="text")
+                from modules.modulo_auditor_v1_1 import (
+    auditar_pcmso, pcmso_df_para_dict,
+    formatar_relatorio_auditoria, obra_tem_matriz
+)
+
+if base_sel and banco_matrizes:
+    tem_historico = obra_tem_matriz(banco_matrizes, base_sel)
+
+    if not tem_historico:
+        # Não bloqueia — só avisa
+        st.warning(
+            f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. "
+            "Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
+        )
+    else:
+        # Audita normalmente
+        dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
+        resultado_auditoria = auditar_pcmso(
+            dados_para_auditoria, banco_matrizes, obra_id=base_sel
+        )
+        relatorio_txt = formatar_relatorio_auditoria(resultado_auditoria)
+
+        if resultado_auditoria.get("ok"):
+            st.success("✅ Auditoria concluída — nenhuma divergência encontrada!")
+        else:
+            n = resultado_auditoria["total_divergencias"]
+            st.warning(f"⚠️ {n} divergência(s) detectada(s) — revise a tabela abaixo.")
+
+        with st.expander("📋 Relatório da Auditoria", expanded=True):
+            st.code(relatorio_txt, language="text")
             except Exception as e:
                 st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                 st.code(traceback.format_exc(), language="python")
