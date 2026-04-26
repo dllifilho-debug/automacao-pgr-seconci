@@ -15,13 +15,6 @@ from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 from utils.fuzzy_utils import normalizar_agente
 
-_BANCO_V2_PATH = os.path.join("data", "banco_matrizes_v2.json")
-try:
-    with open(_BANCO_V2_PATH, "r", encoding="utf-8") as _f:
-        _BANCO_MATRIZES_V2 = json.load(_f)
-except FileNotFoundError:
-    _BANCO_MATRIZES_V2 = {}
-
 VERSAO_MODULO_PCMSO = '6.4 (Universal)'
 
 _INVALIDOS_GHE = [
