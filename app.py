@@ -1,7 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.13 — fix: usa flag auxiliar _executar_extracao para evitar StreamlitAPIException
-               ao tentar setar session_state["btn_extrair_pcmso"] = False
+app.py v5.14 — style: CSS cards v2 — border-left verde (#084D22) nos metric-containers
+               + stDataFrame com border-radius e box-shadow
 """
 import json
 import os
@@ -32,30 +32,72 @@ st.set_page_config(
     page_icon=":shield:",
 )
 
-st.markdown("""<style>
+# ── CSS CUSTOMIZADO ────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  /* Layout geral */
   .block-container{padding-top:1.4rem;padding-bottom:2rem;max-width:1400px;}
-  #MainMenu, footer, header {visibility:hidden;}
+
+  /* 1. Ocultar menu hamburguer, rodape e header padrao do Streamlit */
+  #MainMenu {visibility: hidden;}
+  footer    {visibility: hidden;}
+  header    {visibility: hidden;}
+
+  /* Fundo e sidebar */
   [data-testid="stAppViewContainer"]{background:#F0F2F5;}
   [data-testid="stSidebar"]{background:#F7F9FB;border-right:1px solid #E4E8EE;}
   [data-testid="stSidebar"] *{color:#1A1D23;}
+
+  /* Upload */
   [data-testid="stFileUploadDropzone"]{border:2px dashed #1AA04B;border-radius:16px;background:#FBFFFC;padding:1rem;}
+
+  /* Botoes */
   .stButton>button{background:linear-gradient(135deg,#084D22,#0E6B31);color:white;border-radius:10px;border:none;box-shadow:0 8px 18px rgba(8,77,34,.16);transition:all .2s ease;font-weight:700;padding:.62rem 1rem;}
   .stButton>button:hover{background:linear-gradient(135deg,#0E6B31,#1AA04B);transform:translateY(-1px);}
   .stDownloadButton>button{border-radius:10px;font-weight:700;}
+
+  /* Tipografia */
   h1,h2,h3{color:#084D22!important;letter-spacing:-0.02em;}
+
+  /* Alertas */
   .stAlert{border-radius:12px;border:1px solid #E6EBF1;box-shadow:0 4px 10px rgba(15,23,42,.04);}
+
+  /* Cards kaiju */
   .kaiju-card{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1.2rem 1.2rem;box-shadow:0 10px 30px rgba(15,23,42,.06);margin-bottom:1rem;}
   .kaiju-card-title{font-size:.92rem;font-weight:700;color:#5B6472;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;}
+
+  /* Hero banner */
   .kaiju-hero{background:linear-gradient(135deg,#084D22 0%,#1AA04B 100%);border-radius:22px;padding:1.3rem 1.4rem;color:white;box-shadow:0 18px 40px rgba(8,77,34,.20);margin-bottom:1rem;}
   .kaiju-hero h2{color:white!important;margin:0 0 .25rem 0;}
   .kaiju-hero p{margin:0;opacity:.96;font-size:0.98rem;}
-  div[data-testid="metric-container"]{background:#FFFFFF;border:1px solid #E6EBF1;padding:1rem;border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.05);}
+
+  /* 2. Cards de métricas — fundo branco + borda esquerda verde Seconci */
+  div[data-testid="metric-container"] {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+    border-left: 5px solid #084D22;
+  }
   div[data-testid="metric-container"] label{font-weight:700;color:#5B6472;}
+
+  /* 3. Tabela de dados com sombra e cantos arredondados */
+  div[data-testid="stDataFrame"] {
+    border-radius: 8px;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+  }
+
+  /* Painel de auditoria */
   .audit-panel{background:#FFFFFF;border:1px solid #E6EBF1;border-radius:18px;padding:1rem 1.1rem;box-shadow:0 10px 28px rgba(15,23,42,.05);}
+
+  /* Abas */
   .stTabs [data-baseweb="tab-list"]{gap:.5rem;}
   .stTabs [data-baseweb="tab"]{background:#EAF3ED;border-radius:10px;padding:.55rem .95rem;font-weight:700;}
   .stTabs [aria-selected="true"]{background:#084D22!important;color:white!important;}
-</style>""", unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
+# ────────────────────────────────────────────────────────────────────────
 
 
 def card_inicio(titulo: str, texto: str):
@@ -206,8 +248,6 @@ def selecionar_base_automatica(nome_arquivo: str) -> str | None:
         for palavra in base_norm.split():
             if len(palavra) > 4 and palavra in nome_norm:
                 return base
-    # Fallback silencioso — exibe warning fora desta função para evitar
-    # chamadas duplicadas que geram warnings repetidos
     return bases_disponiveis[0]
 
 
@@ -328,7 +368,6 @@ elif modulo == "Medicina: PGR - PCMSO":
         if pdf_file:
             st.session_state["nome_pdf_atual"] = pdf_file.name
 
-        # FIX: usa on_click para setar flag auxiliar — nunca escreve direto na chave do widget
         def _marcar_extracao():
             st.session_state["_executar_extracao"] = True
 
@@ -347,7 +386,6 @@ elif modulo == "Medicina: PGR - PCMSO":
             nome_pdf = st.session_state.get("nome_pdf_atual", "")
             base_sel = selecionar_base_automatica(nome_pdf)
 
-            # Exibe aviso de fallback aqui, fora de selecionar_base_automatica
             palavras_base = set()
             for base in bases_disponiveis:
                 import unicodedata
@@ -432,9 +470,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                         auditar_pcmso, pcmso_df_para_dict,
                         formatar_relatorio_auditoria, obra_tem_matriz
                     )
-
                     tem_historico = obra_tem_matriz(banco_matrizes, base_sel)
-
                     if not tem_historico:
                         st.warning(
                             f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. "
