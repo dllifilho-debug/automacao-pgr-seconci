@@ -1,6 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.12 — Visual upgrade: tema corporativo, cards, métricas e abas no módulo médico
+app.py v5.13 — fix: usa flag auxiliar _executar_extracao para evitar StreamlitAPIException
+               ao tentar setar session_state["btn_extrair_pcmso"] = False
 """
 import json
 import os
@@ -205,11 +206,8 @@ def selecionar_base_automatica(nome_arquivo: str) -> str | None:
         for palavra in base_norm.split():
             if len(palavra) > 4 and palavra in nome_norm:
                 return base
-    st.warning(
-        f"⚠️ Nenhuma base detectada no nome '{nome_arquivo}'. "
-        f"Usando base padrão: **{bases_disponiveis[0]}**. "
-        "Renomeie o PDF com o nome da obra para detecção automática."
-    )
+    # Fallback silencioso — exibe warning fora desta função para evitar
+    # chamadas duplicadas que geram warnings repetidos
     return bases_disponiveis[0]
 
 
@@ -329,27 +327,52 @@ elif modulo == "Medicina: PGR - PCMSO":
         pdf_file = st.file_uploader("Arraste o PDF do PGR aqui", type=["pdf"])
         if pdf_file:
             st.session_state["nome_pdf_atual"] = pdf_file.name
-        st.button("Extrair Riscos e Gerar PCMSO", use_container_width=True, key="btn_extrair_pcmso")
+
+        # FIX: usa on_click para setar flag auxiliar — nunca escreve direto na chave do widget
+        def _marcar_extracao():
+            st.session_state["_executar_extracao"] = True
+
+        st.button(
+            "Extrair Riscos e Gerar PCMSO",
+            use_container_width=True,
+            on_click=_marcar_extracao,
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if st.session_state.get("btn_extrair_pcmso"):
-            pass
-
-        if st.session_state.get("btn_extrair_pcmso") is None:
-            st.session_state["btn_extrair_pcmso"] = False
-
-        if st.session_state.get("btn_extrair_pcmso") or st.session_state.get("executar_extracao_manual"):
-            st.session_state["executar_extracao_manual"] = False
-
-        if st.session_state.get("btn_extrair_pcmso"):
+        if st.session_state.pop("_executar_extracao", False):
             if not pdf_file:
                 st.error("Faca upload do PDF do PGR antes de continuar.")
                 st.stop()
 
             nome_pdf = st.session_state.get("nome_pdf_atual", "")
             base_sel = selecionar_base_automatica(nome_pdf)
-            if base_sel:
+
+            # Exibe aviso de fallback aqui, fora de selecionar_base_automatica
+            palavras_base = set()
+            for base in bases_disponiveis:
+                import unicodedata
+                def strip_acc(s):
+                    return ''.join(
+                        c for c in unicodedata.normalize('NFD', s)
+                        if unicodedata.category(c) != 'Mn'
+                    )
+                for p in strip_acc(base).upper().replace("_", " ").split():
+                    if len(p) > 4:
+                        palavras_base.add(p)
+            nome_norm_check = ''.join(
+                c for c in unicodedata.normalize('NFD', nome_pdf)
+                if unicodedata.category(c) != 'Mn'
+            ).upper().replace("-", " ").replace("_", " ")
+            detectado_exato = any(p in nome_norm_check for p in palavras_base)
+
+            if base_sel and detectado_exato:
                 st.info(f"🔍 Base de auditoria detectada automaticamente: **{base_sel}**")
+            elif base_sel and not detectado_exato:
+                st.warning(
+                    f"⚠️ Nenhuma base detectada no nome '{nome_pdf}'. "
+                    f"Usando base padrão: **{base_sel}**. "
+                    "Renomeie o PDF com o nome da obra para detecção automática."
+                )
             else:
                 st.caption("ℹ️ Nenhuma base de auditoria disponível — PCMSO gerado sem validação.")
 
@@ -399,7 +422,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
             st.success(f"PCMSO gerado preliminarmente com {len(df_pcmso)} linhas de exames.")
             st.session_state["df_pcmso_gerado"] = df_pcmso
-            st.session_state["base_auditoria_atual"] = selecionar_base_automatica(st.session_state.get("nome_pdf_atual", ""))
+            st.session_state["base_auditoria_atual"] = base_sel
             st.session_state["resultado_auditoria"] = None
             st.session_state["relatorio_auditoria_txt"] = None
 
@@ -414,7 +437,8 @@ elif modulo == "Medicina: PGR - PCMSO":
 
                     if not tem_historico:
                         st.warning(
-                            f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
+                            f"⚠️ Obra **{base_sel}** sem matriz validada no histórico. "
+                            "Matriz gerada pela IA — encaminhe para revisão médica antes de emitir."
                         )
                     else:
                         dados_para_auditoria = pcmso_df_para_dict(df_pcmso)
@@ -425,8 +449,6 @@ elif modulo == "Medicina: PGR - PCMSO":
                 except Exception as e:
                     st.error(f"❌ Erro na auditoria: {type(e).__name__}: {e}")
                     st.code(traceback.format_exc(), language="python")
-
-            st.session_state["btn_extrair_pcmso"] = False
 
     with tab2:
         st.markdown("<div class='audit-panel'>", unsafe_allow_html=True)
