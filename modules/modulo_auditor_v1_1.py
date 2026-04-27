@@ -4,6 +4,59 @@ import unicodedata
 from pathlib import Path
 from collections import defaultdict
 
+# ── rapidfuzz opcional (fuzzy matching) ────────────────────────────────────
+try:
+    from rapidfuzz import process as _rfprocess, fuzz as _rffuzz
+    _FUZZY_OK = True
+except ImportError:
+    _FUZZY_OK = False
+
+# ── Mapa CBO → cargo canônico (Camada 2) ──────────────────────────────────
+_CBO_PATH = Path(__file__).parent.parent / 'data' / 'mapa_cbo_cargo.json'
+try:
+    with _CBO_PATH.open('r', encoding='utf-8') as _f:
+        MAPA_CBO_CARGO: dict = json.load(_f)
+except Exception:
+    MAPA_CBO_CARGO = {}
+
+# ── Banco de aprendizado (Camada 3) ───────────────────────────────────────
+_APRENDIZADO_PATH = Path(__file__).parent.parent / 'data' / 'banco_aprendizado.json'
+
+
+def _carregar_aprendizado() -> dict:
+    try:
+        if _APRENDIZADO_PATH.exists():
+            with _APRENDIZADO_PATH.open('r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _salvar_aprendizado(dados: dict):
+    try:
+        _APRENDIZADO_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _APRENDIZADO_PATH.open('w', encoding='utf-8') as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def registrar_aprendizado(nome_cargo: str, exames: list):
+    """
+    Camada 3 — chamado na aprovação do PCMSO.
+    Salva o cargo + exames aprovados no banco_aprendizado.json para uso futuro.
+    Não sobrescreve se já existir entrada mais completa (mais exames = mais seguro).
+    """
+    if not nome_cargo or not exames:
+        return
+    dados = _carregar_aprendizado()
+    chave = norm(nome_cargo)
+    existente = dados.get(chave, [])
+    if len(exames) > len(existente):
+        dados[chave] = exames
+        _salvar_aprendizado(dados)
+
 
 def _strip(texto):
     return ''.join(c for c in unicodedata.normalize('NFD', str(texto or ''))
@@ -83,21 +136,27 @@ def normalizar_cargo(nome):
     """Normaliza nome de cargo para comparacao."""
     s = norm(nome)
     aliases = {
+        # ── canteiro ──────────────────────────────────────────────────────
         'MESTRE DE OBRA': 'Mestre de Obra',
         'MESTRE DE OBRAS': 'Mestre de Obra',
         'OPERADOR DE BETONEIRA': 'Operador de Betoneira',
         'OPERADOR DE GRUA': 'Operador de Grua',
         'OPERADOR DE CREMALHEIRA': 'Operador de Cremalheira',
+        'OPERADOR DE MUNCK': 'Operador de Grua',
         'MEIO OFICIAL DE PEDREIRO': 'Meio Oficial de Pedreiro',
         'MEIO OFICIAL DE ARMADOR': 'Meio Oficial de Armador',
         'MEIO OFICIAL DE CARPINTEIRO': 'Meio Oficial de Carpinteiro',
         'MEIO OFICIAL DE ELETRICISTA': 'Meio Oficial de Eletricista',
+        'MEIO OFICIAL DE ELETRICA': 'Meio Oficial de Eletricista',
         'MEIO OFICIAL DE ENCANADOR': 'Meio Oficial de Encanador',
+        'MEIO OFICIAL HIDRAULICO': 'Meio Oficial de Encanador',
+        'MEIO OFICIAL DE HIDRAULICA': 'Meio Oficial de Encanador',
         'MEIO OFICIAL DE SERRALHEIRO': 'Meio Oficial de Serralheiro',
         'MEIO OFICIAL DE PINTOR': 'Meio Oficial de Pintor',
         'SERVENTE DE ARMADOR': 'Servente de Armador',
         'SERVENTE DE CARPINTEIRO': 'Servente de Carpinteiro',
         'SERVENTE DE OBRA': 'Servente',
+        'SERVENTE DE OBRAS': 'Servente',
         'ELETRICISTA INDUSTRIAL': 'Eletricista Industrial',
         'ENCARREGADO DE IMPERMEABILIZACAO': 'Encarregado de Impermeabilização',
         'ENCARREGADO DE PEDREIRO': 'Encarregado de Pedreiro',
@@ -105,13 +164,45 @@ def normalizar_cargo(nome):
         'ENCARREGADO DE ELETRICISTA': 'Encarregado de Eletricista',
         'ENCARREGADO DE ENCANADOR': 'Encarregado de Encanador',
         'ENCARREGADO DE REJUNTE': 'Encarregado de Rejunte',
+        'ENCARREGADO DE OBRAS': 'Encarregado de Obras',
+        'ENCARREGADO DE OBRA': 'Encarregado de Obras',
+        'ENCARREGADO DE ACABAMENTO': 'Encarregado de Pedreiro',
+        'ENCARREGADO DE ARMACAO': 'Encarregado de Pedreiro',
+        'ENCARREGADO DE FORMA': 'Encarregado de Carpinteiro',
+        'ENCARREGADO DE INSTALACOES': 'Encarregado de Eletricista',
+        'ENCARREGADO DE INSTALAÇÕES': 'Encarregado de Eletricista',
+        'ENCARREGADO ADMINISTRATIVO DE OBRAS': 'Auxiliar Administrativo de Obras',
+        # ── estagiários ───────────────────────────────────────────────────
         'ESTAGIARIO DE ENGENHARIA': 'Estagiário de Engenharia',
         'ESTAGIARIO DE ENGENHARIA CIVIL': 'Estagiário de Engenharia',
         'ESTAGIARIO DE SEGURANCA DO TRABALHO': 'Estagiário de Segurança do Trabalho',
+        'ESTAGIARIO': 'Estagiário de Engenharia',
+        'ESTAGIÁRIO': 'Estagiário de Engenharia',
+        # ── técnicos ──────────────────────────────────────────────────────
         'TECNICO DE SEGURANCA DO TRABALHO': 'Técnico de Segurança do Trabalho',
+        'TECNICO DE SEGURANÇA DO TRABALHO': 'Técnico de Segurança do Trabalho',
+        'TÉCNICO DE SEGURANÇA DO TRABALHO': 'Técnico de Segurança do Trabalho',
+        'TECNICO EM EDIFICACOES': 'Técnico em Edificações',
+        'TECNICO EM EDIFICAÇÕES': 'Técnico em Edificações',
+        'TÉCNICO EM EDIFICAÇÕES': 'Técnico em Edificações',
+        # ── administrativo ────────────────────────────────────────────────
         'ADMINISTRATIVO DE OBRAS': 'Administrativo de Obras',
         'AUXILIAR ADMINISTRATIVO DE OBRAS': 'Auxiliar Administrativo de Obras',
+        'ASSISTENTE ADMINISTRATIVO': 'Assistente Administrativo',
+        'AUXILIAR ADMINISTRATIVO': 'Auxiliar Administrativo de Obras',
         'JOVEM APRENDIZ': 'Jovem Aprendiz',
+        'ALMOXARIFE': 'Almoxarife',
+        'AUXILIAR DE ALMOXARIFE': 'Almoxarife',
+        'AUXILIAR DE ALMOXARIFADO': 'Almoxarife',
+        # ── serviços gerais ───────────────────────────────────────────────
+        'AUXILIAR DE LIMPEZA': 'Servente',
+        'AUXILIAR DE SERVICOS GERAIS': 'Servente',
+        'AUXILIAR DE SERVIÇOS GERAIS': 'Servente',
+        'COPEIRA': 'Servente',
+        'VIGIA': 'Vigia',
+        'VIGIA DIURNO': 'Vigia',
+        'VIGIA NOTURNO': 'Vigia',
+        # ── engenharia ────────────────────────────────────────────────────
         'MECANICO DE MANUTENCAO': 'Mecânico de Manutenção',
         'SERRALHEIRO': 'Serralheiro',
         'PINTOR': 'Pintor',
@@ -125,11 +216,13 @@ def normalizar_cargo(nome):
         'SOLDADOR': 'Soldador',
         'ELETRICISTA': 'Eletricista',
         'SINALEIRO': 'Sinaleiro',
-        'ALMOXARIFE': 'Almoxarife',
         'ENGENHEIRO': 'Engenheiro',
         'ENGENHEIRO CIVIL': 'Engenheiro',
+        'AUXILIAR DE ENGENHARIA': 'Estagiário de Engenharia',
     }
-    return aliases.get(s, nome.strip().title())
+    if s in aliases:
+        return aliases[s]
+    return nome.strip().title()
 
 
 def carregar_banco_matrizes(caminho):
@@ -181,18 +274,76 @@ def _lista_de_exames(payload):
 
 
 # ───────────────────────────────────────────────────────────────────────────
+# Camada 2 — resolve cargo pelo CBO quando nome nao bate
+# ───────────────────────────────────────────────────────────────────────────
+
+def _resolver_por_cbo(cbo: str) -> str | None:
+    """
+    Recebe CBO string (ex: '715210') e retorna nome canônico do cargo
+    conforme mapa_cbo_cargo.json, ou None se não encontrar.
+    """
+    if not cbo:
+        return None
+    cbo_limpo = re.sub(r'[^\d]', '', str(cbo))
+    return MAPA_CBO_CARGO.get(cbo_limpo)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Camada 1b — fuzzy matching contra cargos do banco
+# ───────────────────────────────────────────────────────────────────────────
+
+def _buscar_fuzzy(nome_cargo: str, banco: dict, threshold: int = 82) -> list | None:
+    """
+    Tenta encontrar exames via similaridade de string (rapidfuzz).
+    Retorna lista de exames do melhor match ou None.
+    """
+    if not _FUZZY_OK:
+        return None
+
+    # Coleta todos os nomes de cargo do banco
+    candidatos = {}
+    for obra in banco.get('obras_referencia', {}).values():
+        for ghe in obra.values():
+            for cargo_ref, exames_ref in ghe.get('cargos', {}).items():
+                chave = normalizar_cargo(cargo_ref)
+                if chave not in candidatos or len(exames_ref) > len(candidatos[chave]):
+                    candidatos[chave] = exames_ref
+
+    if not candidatos:
+        return None
+
+    cargo_n = normalizar_cargo(nome_cargo)
+    resultado = _rfprocess.extractOne(
+        cargo_n,
+        list(candidatos.keys()),
+        scorer=_rffuzz.token_sort_ratio,
+    )
+    if resultado and resultado[1] >= threshold:
+        return list(candidatos[resultado[0]])
+    return None
+
+
+# ───────────────────────────────────────────────────────────────────────────
 # REFERENCIA TECNICA POR CARGO — independente do nome do arquivo
 # ───────────────────────────────────────────────────────────────────────────
 
-def buscar_exames_por_cargo(nome_cargo: str, banco: dict) -> list | None:
+def buscar_exames_por_cargo(
+    nome_cargo: str,
+    banco: dict,
+    cbo: str = '',
+) -> tuple[list | None, str]:
     """
-    Varre TODAS as obras do banco e retorna o pacote de exames mais completo
-    encontrado para o cargo informado (criterio: mais exames = mais seguro).
-    Retorna lista de dicts do JSON ou None se nao encontrar.
+    Busca exames em 4 camadas (retorna o primeiro match + origem):
+      1. Alias exato via normalizar_cargo()  → origem 'alias'
+      2. Aprendizado anterior (banco_aprendizado.json) → origem 'aprendizado'
+      3. Fallback CBO via mapa_cbo_cargo.json          → origem 'cbo'
+      4. Fuzzy matching via rapidfuzz                  → origem 'fuzzy'
+
+    Retorna (lista_exames | None, origem_str)
     """
+    # 1 — Alias + busca exata no banco
     cargo_norm = normalizar_cargo(nome_cargo)
     melhor = None
-
     for obra in banco.get('obras_referencia', {}).values():
         for ghe in obra.values():
             for cargo_ref, exames_ref in ghe.get('cargos', {}).items():
@@ -200,42 +351,77 @@ def buscar_exames_por_cargo(nome_cargo: str, banco: dict) -> list | None:
                     candidato = list(exames_ref)
                     if melhor is None or len(candidato) > len(melhor):
                         melhor = candidato
+    if melhor:
+        return melhor, 'alias'
 
-    return melhor
+    # 2 — Banco de aprendizado
+    aprendizado = _carregar_aprendizado()
+    chave_aprendizado = norm(nome_cargo)
+    if chave_aprendizado in aprendizado:
+        return aprendizado[chave_aprendizado], 'aprendizado'
+
+    # 3 — Fallback CBO
+    if cbo:
+        nome_por_cbo = _resolver_por_cbo(cbo)
+        if nome_por_cbo:
+            cargo_cbo_norm = normalizar_cargo(nome_por_cbo)
+            for obra in banco.get('obras_referencia', {}).values():
+                for ghe in obra.values():
+                    for cargo_ref, exames_ref in ghe.get('cargos', {}).items():
+                        if normalizar_cargo(cargo_ref) == cargo_cbo_norm:
+                            candidato = list(exames_ref)
+                            if melhor is None or len(candidato) > len(melhor):
+                                melhor = candidato
+            if melhor:
+                return melhor, f'cbo:{cbo}'
+
+    # 4 — Fuzzy
+    fuzzy = _buscar_fuzzy(nome_cargo, banco)
+    if fuzzy:
+        return fuzzy, 'fuzzy'
+
+    return None, 'nenhum'
 
 
 def enriquecer_ghe_com_banco(dados_ghe: list, banco: dict) -> tuple:
     """
-    Recebe dados_ghe no formato produzido por extrair_pgr_local():
-        [{'ghe': str, 'cargos': [str, str, ...], 'riscos_mapeados': [...]}, ...]
+    Para cada cargo, tenta resolver em 4 camadas (alias → aprendizado → CBO → fuzzy).
+    O campo 'cbo' pode vir no dict do GHE como 'cbo' ou embutido no nome do cargo
+    via regex 'CBO[:\s]*(\\d+)'.
 
-    Para cada cargo (string), consulta o banco de matrizes:
-    - Encontrou: guarda o pacote tecnico em session_state para uso posterior
-      (nao altera a lista de strings — processar_pcmso continua funcionando).
-    - Nao encontrou: registra para aviso ao usuario.
-
-    Retorna (dados_ghe_original, relatorio) onde relatorio contem:
-        'cargos_enriquecidos': lista de nomes com padrao tecnico disponivel
-        'cargos_mantidos':     lista de nomes sem correspondencia no banco
-        'mapa_exames_banco':   {nome_cargo_normalizado: [lista_exames_do_banco]}
+    Retorna (dados_ghe, relatorio) com relatorio contendo:
+        'cargos_enriquecidos': [(nome, origem), ...]
+        'cargos_mantidos':     [nome, ...]
+        'mapa_exames_banco':   {cargo_norm: [exames]}
     """
-    cargos_enriquecidos = []
+    cargos_enriquecidos = []   # lista de (nome, origem)
     cargos_mantidos = []
     mapa_exames_banco = {}
+    processados = set()
 
     for ghe in dados_ghe:
+        # CBO pode vir como campo explícito no dict do GHE
+        cbo_ghe = str(ghe.get('cbo', ''))
+
         for cargo in ghe.get('cargos', []):
-            # cargo e sempre uma string aqui
             nome_cargo = str(cargo)
             cargo_norm = normalizar_cargo(nome_cargo)
 
-            if cargo_norm in mapa_exames_banco or cargo_norm in [normalizar_cargo(c) for c in cargos_mantidos]:
-                continue  # ja processado
+            if cargo_norm in processados:
+                continue
+            processados.add(cargo_norm)
 
-            exames_banco = buscar_exames_por_cargo(nome_cargo, banco)
-            if exames_banco:
-                mapa_exames_banco[cargo_norm] = exames_banco
-                cargos_enriquecidos.append(nome_cargo)
+            # Tenta extrair CBO do nome do cargo se não veio como campo
+            cbo = cbo_ghe
+            if not cbo:
+                m_cbo = re.search(r'CBO[:\s]*(\d+)', nome_cargo, re.IGNORECASE)
+                cbo = m_cbo.group(1) if m_cbo else ''
+
+            exames, origem = buscar_exames_por_cargo(nome_cargo, banco, cbo=cbo)
+
+            if exames:
+                mapa_exames_banco[cargo_norm] = exames
+                cargos_enriquecidos.append((nome_cargo, origem))
             else:
                 cargos_mantidos.append(nome_cargo)
 
@@ -244,7 +430,6 @@ def enriquecer_ghe_com_banco(dados_ghe: list, banco: dict) -> tuple:
         'cargos_mantidos': cargos_mantidos,
         'mapa_exames_banco': mapa_exames_banco,
     }
-    # Retorna dados_ghe SEM modificacao — processar_pcmso usa cargos como strings
     return dados_ghe, relatorio
 
 
