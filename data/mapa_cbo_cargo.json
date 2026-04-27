@@ -12,7 +12,9 @@
   "724110": "Encanador",
   "724315": "Serralheiro",
   "725005": "Soldador",
-  "782305": "Operador de Grua",
+  "782305": "Operador de Munck",
+  "782205": "Operador de Grua",
+  "782305b": "Operador de Grua",
   "782510": "Operador de Cremalheira",
   "351605": "Técnico de Segurança do Trabalho",
   "312105": "Técnico em Edificações",
@@ -29,5 +31,16 @@
   "720205": "Montador",
   "721305": "Soldador",
   "711110": "Sinaleiro",
-  "391115": "Topógrafo"
+  "391115": "Topógrafo",
+  "862120": "Operador de Betoneira",
+  "715110": "Meio Oficial de Pedreiro",
+  "715115": "Meio Oficial de Carpinteiro",
+  "715615": "Meio Oficial de Eletricista",
+  "724115": "Meio Oficial de Encanador",
+  "516805": "Copeira",
+  "516810": "Copeira",
+  "375105": "Estagiário",
+  "141410": "Encarregado de Obras",
+  "622020": "Auxiliar de Limpeza",
+  "514225": "Auxiliar de Limpeza"
 }
