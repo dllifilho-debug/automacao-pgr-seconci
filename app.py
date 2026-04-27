@@ -1,7 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.18 — fix: remove open(regras_pcmso.json) — regras embutidas no parser_pgr
-               fix: Nenhum GHE identificado no formato CARGO/CBO (Porto Araras)
+app.py v5.19 — fix: converte dados_ghe (dict) → lista [{ghe, cargos}]
+               antes de chamar enriquecer_ghe_com_banco
 """
 import json
 import os
@@ -98,6 +98,32 @@ def render_auditoria_metrics(resultado_auditoria: dict):
     c2.metric("Exames faltando", faltando)
     c3.metric("Exames excedentes", excedente)
     c4.metric("Cargos sem match", cargo_faltando)
+
+
+# ── Helper: normaliza dados_ghe para o formato esperado pelo auditor ─────────────────────
+def _normalizar_dados_ghe_para_auditor(dados_ghe):
+    """
+    Garante que dados_ghe esteja no formato lista de dicts esperado por
+    enriquecer_ghe_com_banco:
+        [{'ghe': str, 'cargos': [str, ...], 'riscos_mapeados': [...]}, ...]
+
+    Aceita:
+      - lista ja nesse formato (pipeline antigo) → retorna sem alterar
+      - dict {nome_secao: {cargo, riscos, exames}} (saida do parser_pgr) → converte
+    """
+    if isinstance(dados_ghe, list):
+        return dados_ghe  # formato antigo, ja ok
+
+    # dict vindo do parser_pgr v2
+    resultado = []
+    for nome_secao, info in dados_ghe.items():
+        resultado.append({
+            "ghe": nome_secao,
+            "cargos": [info.get("cargo", nome_secao)],
+            "riscos_mapeados": info.get("riscos", []),
+            "exames": info.get("exames", []),
+        })
+    return resultado
 
 
 # ── Autenticacao ──────────────────────────────────────────────────────────────────────────────
@@ -347,14 +373,12 @@ elif modulo == "Medicina: PGR - PCMSO":
 
             # ───────────────────────────────────────────────────────────────────────────
             # PARSER v2 — sem arquivo externo de regras
-            # regras={} porque os exames vem do banco_matrizes via enriquecer_ghe_com_banco
             # ───────────────────────────────────────────────────────────────────────────
             with st.spinner("Identificando GHEs / Cargos e riscos..."):
                 _resultado_pgr = None
                 try:
                     from parser_pgr import parsear_pgr as _parsear_pgr
                     pdf_file.seek(0)
-                    # Passa regras={} — exames serão preenchidos pelo banco_matrizes depois
                     _resultado_pgr = _parsear_pgr(pdf_file.read(), regras={})
                 except Exception as _e_parser:
                     st.warning(
@@ -374,7 +398,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 if _resultado_pgr.get("aviso"):
                     st.warning(_resultado_pgr["aviso"])
 
-                # Converte ghe_blocos → dados_ghe
+                # Converte ghe_blocos → dados_ghe (dict, chave = nome da secão)
                 dados_ghe = {}
                 for _nome_sec, _info in _resultado_pgr["ghe_blocos"].items():
                     dados_ghe[_nome_sec] = {
@@ -384,11 +408,9 @@ elif modulo == "Medicina: PGR - PCMSO":
                     }
                 fonte = "local"
             else:
-                # Fallback: pipeline antigo
-                st.info("🔁 parser_pgr nao encontrou secões — usando pipeline Gemini...")
+                st.info("🔁 parser_pgr nao encontrou secoes — usando pipeline Gemini...")
                 dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
-            # ───────────────────────────────────────────────────────────────────────────
             st.session_state["dados_ghe_processados"] = dados_ghe
 
             if fonte == "local":
@@ -410,8 +432,10 @@ elif modulo == "Medicina: PGR - PCMSO":
             rel_banco = None
             if _banco_ativo:
                 from modules.modulo_auditor_v1_1 import enriquecer_ghe_com_banco
+                # Converte dados_ghe para o formato lista [{ghe, cargos}] esperado pelo auditor
+                dados_ghe_lista = _normalizar_dados_ghe_para_auditor(dados_ghe)
                 with st.spinner("Aplicando padrao tecnico de exames por cargo..."):
-                    dados_ghe, rel_banco = enriquecer_ghe_com_banco(dados_ghe, banco_matrizes)
+                    dados_ghe_lista, rel_banco = enriquecer_ghe_com_banco(dados_ghe_lista, banco_matrizes)
 
                 n_enr = len(rel_banco['cargos_enriquecidos'])
                 n_man = len(rel_banco['cargos_mantidos'])
@@ -425,6 +449,9 @@ elif modulo == "Medicina: PGR - PCMSO":
                         f"⚠️ {n_man} cargo(s) nao encontrados no banco — exames extraidos do PGR mantidos: "
                         f"{', '.join(dict.fromkeys(rel_banco['cargos_mantidos']))}"
                     )
+
+                # Repassa a lista normalizada para processar_pcmso
+                dados_ghe = dados_ghe_lista
 
             tipo_amb = st.session_state.get("tipo_ambiente", "escritorio")
             with st.spinner(f"Gerando matriz PCMSO ({tipo_amb})..."):
