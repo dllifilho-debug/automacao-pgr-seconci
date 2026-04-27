@@ -1,7 +1,7 @@
 """
 Automacao SST - Seconci GO
-app.py v5.17 — feat: integra parser_pgr v2 (suporte a GHE e CARGO/CBO)
-               badge de formato detectado no Passo 1
+app.py v5.18 — fix: remove open(regras_pcmso.json) — regras embutidas no parser_pgr
+               fix: Nenhum GHE identificado no formato CARGO/CBO (Porto Araras)
 """
 import json
 import os
@@ -346,27 +346,26 @@ elif modulo == "Medicina: PGR - PCMSO":
                     st.text(f"{i:3}: {linha}")
 
             # ───────────────────────────────────────────────────────────────────────────
-            # PARSER v2: GHE ou CARGO/CBO automatico
+            # PARSER v2 — sem arquivo externo de regras
+            # regras={} porque os exames vem do banco_matrizes via enriquecer_ghe_com_banco
             # ───────────────────────────────────────────────────────────────────────────
             with st.spinner("Identificando GHEs / Cargos e riscos..."):
                 _resultado_pgr = None
                 try:
                     from parser_pgr import parsear_pgr as _parsear_pgr
-                    with open("regras_pcmso.json", encoding="utf-8") as _f:
-                        _regras = json.load(_f)
-                    # Re-leitura dos bytes (file_uploader pode ter cursor no fim)
                     pdf_file.seek(0)
-                    _resultado_pgr = _parsear_pgr(pdf_file.read(), _regras)
+                    # Passa regras={} — exames serão preenchidos pelo banco_matrizes depois
+                    _resultado_pgr = _parsear_pgr(pdf_file.read(), regras={})
                 except Exception as _e_parser:
                     st.warning(
-                        f"⚠️ parser_pgr nao disponivel ({type(_e_parser).__name__}: {_e_parser}) — "
+                        f"⚠️ parser_pgr falhou ({type(_e_parser).__name__}: {_e_parser}) — "
                         "usando fallback Gemini."
                     )
 
-            if _resultado_pgr:
-                _fmt     = _resultado_pgr["formato"]
-                _n_sec   = len(_resultado_pgr["ghe_blocos"])
-                _metodo  = _resultado_pgr["metodo_extracao"]
+            if _resultado_pgr and _resultado_pgr.get("ghe_blocos"):
+                _fmt    = _resultado_pgr["formato"]
+                _n_sec  = len(_resultado_pgr["ghe_blocos"])
+                _metodo = _resultado_pgr["metodo_extracao"]
                 st.success(
                     f"✅ Formato detectado: **{_fmt}** | "
                     f"**{_n_sec}** seções encontradas | "
@@ -375,7 +374,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 if _resultado_pgr.get("aviso"):
                     st.warning(_resultado_pgr["aviso"])
 
-                # Converte ghe_blocos → dados_ghe (contrato do restante do app)
+                # Converte ghe_blocos → dados_ghe
                 dados_ghe = {}
                 for _nome_sec, _info in _resultado_pgr["ghe_blocos"].items():
                     dados_ghe[_nome_sec] = {
@@ -386,6 +385,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 fonte = "local"
             else:
                 # Fallback: pipeline antigo
+                st.info("🔁 parser_pgr nao encontrou secões — usando pipeline Gemini...")
                 dados_ghe, fonte = extrair_pgr_com_fallback(texto_pgr)
 
             # ───────────────────────────────────────────────────────────────────────────
@@ -407,6 +407,7 @@ elif modulo == "Medicina: PGR - PCMSO":
                 st.success(f"🧪 {len(resultados_fispq)} Agente(s) Químico(s) da FISPQ detectados! Injetando no PGR...")
                 dados_ghe = enriquecer_pgr_com_fispq(dados_ghe, resultados_fispq)
 
+            rel_banco = None
             if _banco_ativo:
                 from modules.modulo_auditor_v1_1 import enriquecer_ghe_com_banco
                 with st.spinner("Aplicando padrao tecnico de exames por cargo..."):
@@ -440,8 +441,7 @@ elif modulo == "Medicina: PGR - PCMSO":
 
             st.success(f"PCMSO gerado com {len(df_pcmso)} linhas de exames. Revise no Passo 2.")
             st.session_state["df_pcmso_gerado"] = df_pcmso
-            st.session_state["relatorio_banco"] = rel_banco if _banco_ativo else None
-            # Limpa XML anterior ao gerar novo PCMSO
+            st.session_state["relatorio_banco"] = rel_banco
             st.session_state.pop("med_xml_s2240_bytes", None)
 
     with tab2:
