@@ -1,13 +1,9 @@
 import re
-import json
-import unicodedata
 import io
+import unicodedata
 from pathlib import Path
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# MAPEAMENTO: termos livres do PGR → chave do regras_pcmso.json
-# ──────────────────────────────────────────────────────────────────────────────
 TERMOS_PARA_CHAVE = {
     r"ru[ii]do": "RUIDO",
     r"vibra.{0,10}corpo.*inteiro": "VIBRACAO_CORPO_INTEIRO",
@@ -47,25 +43,41 @@ TERMOS_PARA_CHAVE = {
     r"manipul.*alimento|alimento.*manipul": "MANIPULAR_ALIMENTOS",
 }
 
-# Químicos que também são ototóxicos — gera SUBSTANCIA_OTOTOXICA automaticamente
 OTOTOXICOS_COM_BIOLOGICO = {
     "TOLUENO", "XILENO", "ESTIRENO",
     "TRICLOROETILENO", "MONOXIDO_DE_CARBONO", "MANGANES",
 }
 
+# Codigos eSocial → chave interna (PGRs gerados pelo SistemaEso e similares)
+ESOCIAL_PARA_CHAVE = {
+    "02.01.001": "RUIDO",
+    "02.01.002": "RUIDO",
+    "02.03.001": "VIBRACAO_CORPO_INTEIRO",
+    "02.03.002": "VIBRACAO_CORPO_INTEIRO",
+    "01.18.001": "POEIRA_MINERAL_SILICA_QUARTZO_OPERADOR_BETONEIRA",
+    "01.02.001": "NEVOAS_TINTAS_COLAS_IMPERMEABILIZACAO",
+    "01.06.001": "BENZENO",
+    "01.06.002": "TOLUENO",
+    "01.06.003": "XILENO",
+    "01.06.004": "ESTIRENO",
+    "01.06.011": "MONOXIDO_DE_CARBONO",
+    "01.06.019": "MANGANES",
+    "01.06.020": "CROMO_HEXAVALENTE",
+    "01.06.031": "TRICLOROETILENO",
+    "01.06.040": "FENOL",
+    "01.06.048": "FLUOR_ACIDO_FLUORIDRICO_FLUORETOS",
+}
+
 
 # ──────────────────────────────────────────────────────────────────────────────
-# EXTRAÇÃO DE TEXTO (pdfplumber → OCR automático)
+# EXTRAÇÃO DE TEXTO
 # ──────────────────────────────────────────────────────────────────────────────
 def _eh_pdf_bloqueado(paginas_texto: list, limite_chars_media: int = 30) -> bool:
-    """Detecta PDF assinado/digitalizado pela baixa densidade de texto."""
     chars = sum(len(t.strip()) for t in paginas_texto)
-    media = chars / max(len(paginas_texto), 1)
-    return media < limite_chars_media
+    return (chars / max(len(paginas_texto), 1)) < limite_chars_media
 
 
 def _texto_via_pdfplumber(pdf_bytes: bytes) -> tuple:
-    """Tenta extrair texto com pdfplumber. Retorna (texto, sucesso)."""
     try:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -77,7 +89,6 @@ def _texto_via_pdfplumber(pdf_bytes: bytes) -> tuple:
 
 
 def _texto_via_ocr(pdf_bytes: bytes, lang: str = "por") -> str:
-    """Fallback OCR usando pdf2image + pytesseract."""
     try:
         import pytesseract
         from pdf2image import convert_from_bytes
@@ -93,49 +104,51 @@ def _texto_via_ocr(pdf_bytes: bytes, lang: str = "por") -> str:
 
 def extrair_texto_pgr(pdf_bytes: bytes, forcar_ocr: bool = False) -> dict:
     """
-    Extrai texto do PGR com detecção automática de PDF bloqueado.
-
-    Retorna:
-        {
-            "texto": str,         # texto completo extraído
-            "metodo": str,        # "pdfplumber" | "ocr"
-            "bloqueado": bool,    # True se PDF estava bloqueado
-            "aviso": str | None,  # mensagem de aviso para o usuário
-        }
+    Extrai texto do PGR com detecção automatica de PDF bloqueado.
+    Retorna: {texto, metodo, bloqueado, aviso}
     """
-    aviso = None
-
     if not forcar_ocr:
         texto, sucesso = _texto_via_pdfplumber(pdf_bytes)
         if sucesso and texto.strip():
             return {"texto": texto, "metodo": "pdfplumber", "bloqueado": False, "aviso": None}
         aviso = (
-            "⚠️ PDF com texto bloqueado ou digitalizado detectado. "
+            "PDF com texto bloqueado ou digitalizado detectado. "
             "Usando OCR automatico (pode ser mais lento)..."
         )
     else:
         aviso = "OCR forcado pelo usuario."
-
     texto = _texto_via_ocr(pdf_bytes)
     return {"texto": texto, "metodo": "ocr", "bloqueado": True, "aviso": aviso}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# PARSING DE GHEs E RISCOS
+# DETECCAO DE FORMATO
+# ──────────────────────────────────────────────────────────────────────────────
+def detectar_formato(texto: str) -> str:
+    """Retorna 'GHE' ou 'CARGO' conforme o padrao dominante no documento."""
+    n_ghe   = len(re.findall(r"\bGHE\s*\d+", texto, re.IGNORECASE))
+    n_cargo = len(re.findall(r"\bCARGO\s+[A-Z]{2}", texto, re.IGNORECASE))
+    return "CARGO" if n_cargo >= n_ghe else "GHE"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# NORMALIZACAO
 # ──────────────────────────────────────────────────────────────────────────────
 def _normalizar(texto: str) -> str:
-    texto = texto.lower()
-    nfkd = unicodedata.normalize("NFKD", texto)
+    nfkd = unicodedata.normalize("NFKD", texto.lower())
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
-def extrair_ghe_blocos(texto_pgr: str) -> dict:
-    """Divide o texto do PGR em blocos por GHE."""
+# ──────────────────────────────────────────────────────────────────────────────
+# EXTRATORES DE BLOCOS
+# ──────────────────────────────────────────────────────────────────────────────
+def extrair_blocos_ghe(texto: str) -> dict:
+    """Divide o texto em blocos iniciados por GHE NN - Nome."""
     padrao = re.compile(
         r"(GHE\s*\d+\s*[-:\u2013\u2014]+\s*[^\n]{3,80})",
         re.IGNORECASE
     )
-    partes = padrao.split(texto_pgr)
+    partes = padrao.split(texto)
     blocos = {}
     for i in range(1, len(partes), 2):
         nome = partes[i].strip()
@@ -144,27 +157,61 @@ def extrair_ghe_blocos(texto_pgr: str) -> dict:
     return blocos
 
 
+def extrair_blocos_cargo(texto: str) -> dict:
+    """
+    Divide o texto em blocos iniciados por:
+      CARGO <NOME> - CBO: XXXXXX
+    ou simplesmente CARGO <NOME> (sem CBO).
+    Captura o nome completo ate o fim da linha.
+    """
+    padrao = re.compile(
+        r"(CARGO[ \t]+[A-Z\xC0-\xFF][A-Z\xC0-\xFF \t\/\-]*?(?:[ \t]*-[ \t]*CBO[: \t]*\d{6})?)[ \t]*\n",
+        re.IGNORECASE
+    )
+    partes = padrao.split(texto)
+    blocos = {}
+    for i in range(1, len(partes), 2):
+        nome = re.sub(r"\s+", " ", partes[i]).strip()
+        conteudo = partes[i + 1] if i + 1 < len(partes) else ""
+        blocos[nome] = conteudo
+    return blocos
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# IDENTIFICACAO DE RISCOS
+# ──────────────────────────────────────────────────────────────────────────────
 def identificar_riscos(texto_bloco: str) -> list:
-    """Identifica riscos pelo TERMOS_PARA_CHAVE e retorna lista de chaves."""
     texto_norm = _normalizar(texto_bloco)
     chaves = set()
+
+    # 1. Codigos eSocial explícitos
+    for cod, chave in ESOCIAL_PARA_CHAVE.items():
+        if cod in texto_bloco:
+            chaves.add(chave)
+            if chave in OTOTOXICOS_COM_BIOLOGICO:
+                chaves.add("SUBSTANCIA_OTOTOXICA")
+
+    # 2. Termos livres (narrativo)
     for padrao, chave in TERMOS_PARA_CHAVE.items():
         if re.search(padrao, texto_norm):
             chaves.add(chave)
             if chave in OTOTOXICOS_COM_BIOLOGICO:
                 chaves.add("SUBSTANCIA_OTOTOXICA")
+
     return sorted(chaves)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# GERACAO DE EXAMES
+# ──────────────────────────────────────────────────────────────────────────────
 def gerar_exames_por_riscos(lista_riscos: list, regras: dict) -> list:
-    """Cruza lista de chaves de risco com o banco de regras e retorna exames."""
     vistos = set()
     lista = []
     for risco in lista_riscos:
         if risco not in regras:
             continue
         r = regras[risco]
-        itens = r["exames"] if "exames" in r else [r]
+        itens = r.get("exames", [r])
         for item in itens:
             nome = item.get("exame") or r.get("exame", "")
             if nome and nome not in vistos:
@@ -179,53 +226,55 @@ def gerar_exames_por_riscos(lista_riscos: list, regras: dict) -> list:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# FUNÇÃO PRINCIPAL
+# FUNCAO PRINCIPAL
 # ──────────────────────────────────────────────────────────────────────────────
 def parsear_pgr(fonte, regras: dict, forcar_ocr: bool = False) -> dict:
     """
-    Parseia um PGR e retorna GHEs com riscos e exames.
+    Parseia um PGR e retorna blocos com riscos e exames.
 
     Aceita:
       - bytes do PDF
-      - caminho str/Path para o arquivo PDF
-      - texto puro str (com newlines)
+      - caminho str/Path para o arquivo
+      - texto puro str
+
+    Detecta automaticamente o formato: GHE ou CARGO/CBO.
 
     Retorna:
         {
             "metodo_extracao": str,
-            "bloqueado": bool,
-            "aviso": str | None,
-            "ghe_blocos": {nome_ghe: {"riscos_identificados": [...], "exames_gerados": [...]}}
+            "bloqueado":       bool,
+            "aviso":           str | None,
+            "formato":         str,   # "GHE" | "CARGO"
+            "ghe_blocos":      dict,  # chave = nome do GHE ou CARGO
         }
     """
-    # Texto puro detectado pela presença de newlines
     if isinstance(fonte, str) and ("\n" in fonte or len(fonte) > 300):
         texto = fonte
         metodo, bloqueado, aviso = "texto_direto", False, None
-
     elif isinstance(fonte, (bytes, bytearray)):
         r = extrair_texto_pgr(bytes(fonte), forcar_ocr)
         texto, metodo, bloqueado, aviso = r["texto"], r["metodo"], r["bloqueado"], r["aviso"]
-
     elif isinstance(fonte, (str, Path)):
         with open(fonte, "rb") as f:
             pdf_bytes = f.read()
         r = extrair_texto_pgr(pdf_bytes, forcar_ocr)
         texto, metodo, bloqueado, aviso = r["texto"], r["metodo"], r["bloqueado"], r["aviso"]
-
     else:
         raise ValueError("fonte deve ser bytes, caminho de arquivo ou texto string.")
 
-    blocos = extrair_ghe_blocos(texto)
+    formato = detectar_formato(texto)
+    blocos  = extrair_blocos_cargo(texto) if formato == "CARGO" else extrair_blocos_ghe(texto)
+
     ghe_resultado = {}
-    for ghe, conteudo in blocos.items():
+    for nome, conteudo in blocos.items():
         riscos = identificar_riscos(conteudo)
         exames = gerar_exames_por_riscos(riscos, regras)
-        ghe_resultado[ghe] = {"riscos_identificados": riscos, "exames_gerados": exames}
+        ghe_resultado[nome] = {"riscos_identificados": riscos, "exames_gerados": exames}
 
     return {
         "metodo_extracao": metodo,
-        "bloqueado": bloqueado,
-        "aviso": aviso,
-        "ghe_blocos": ghe_resultado,
+        "bloqueado":       bloqueado,
+        "aviso":           aviso,
+        "formato":         formato,
+        "ghe_blocos":      ghe_resultado,
     }
