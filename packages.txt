@@ -1,3 +1,10 @@
+# Dependencias do sistema para Streamlit Cloud
+# OCR: tesseract + idioma portugues
 tesseract-ocr
 tesseract-ocr-por
+# PDF -> imagem (pdf2image usa poppler)
+libpoppler-dev
 poppler-utils
+# OpenCV (pre-processamento OCR)
+libgl1
+libglib2.0-0

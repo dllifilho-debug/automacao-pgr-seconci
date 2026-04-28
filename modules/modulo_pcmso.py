@@ -1,12 +1,11 @@
 # =============================================================================
-# MÓDULO PCMSO v7.0 — AgenteMedicoIA integrado
-# Mantém todas as funções públicas esperadas pelo app.py:
+# MÓDULO PCMSO v7.1 — OCR automatico + AgenteMedicoIA
+# Funções públicas:
 #   extrair_texto_pdf, extrair_pgr_com_fallback, enriquecer_pgr_com_fispq,
 #   processar_pcmso, gerar_html_pcmso, gerar_docx_rq61
 # =============================================================================
 
 import io
-import json
 import os
 import re
 import unicodedata
@@ -15,17 +14,17 @@ from datetime import date
 
 import pandas as pd
 
-VERSAO_MODULO_PCMSO = "7.0 (AgenteMedicoIA Universal)"
+VERSAO_MODULO_PCMSO = "7.1 (OCR + AgenteMedicoIA)"
 
 # ---------------------------------------------------------------------------
 # Import do Agente Médico IA
 # ---------------------------------------------------------------------------
 try:
-    from modules.agente_medico_ia import processar_cargo_ia, carregar_banco
+    from modules.agente_medico_ia import processar_cargo_ia
     _AGENTE_IA_DISPONIVEL = True
 except ImportError:
     try:
-        from agente_medico_ia import processar_cargo_ia, carregar_banco
+        from agente_medico_ia import processar_cargo_ia
         _AGENTE_IA_DISPONIVEL = True
     except ImportError:
         _AGENTE_IA_DISPONIVEL = False
@@ -37,40 +36,116 @@ except ImportError:
 
 
 # ============================================================================
-# 1 — EXTRACAO DE TEXTO DO PDF
+# 1 — EXTRACAO DE TEXTO DO PDF  (pdfplumber → PyMuPDF → OCR)
 # ============================================================================
 
-def extrair_texto_pdf(pdf_file) -> str:
+_MIN_CHARS_POR_PAGINA = 150  # menos que isso por página = provavel PDF protegido
+
+
+def _texto_esta_vazio(texto: str, num_paginas: int) -> bool:
+    """
+    Retorna True se o texto extraido for insuficiente para o numero de paginas.
+    Ex: PDF com 150 paginas, texto total < 22500 chars (150 * 150) → OCR necessario.
+    """
+    if not texto or not texto.strip():
+        return True
+    media_por_pagina = len(texto) / max(num_paginas, 1)
+    return media_por_pagina < _MIN_CHARS_POR_PAGINA
+
+
+def _extrair_ocr(data: bytes) -> str:
+    """
+    Fallback OCR: converte paginas do PDF em imagem e aplica pytesseract.
+    Usa pre-processamento (escala de cinza + binarizacao Otsu) para melhorar
+    a acuracia em documentos escaneados ou protegidos.
+    """
     texto = ""
     try:
+        from pdf2image import convert_from_bytes
+        import pytesseract
+        from PIL import Image
+        import numpy as np
+        import cv2
+    except ImportError as e:
+        return f"[OCR indisponivel: {e}]"
+
+    try:
+        paginas = convert_from_bytes(data, dpi=250)
+    except Exception as e:
+        return f"[OCR falhou na conversao de paginas: {e}]"
+
+    config_tess = "--psm 6 --oem 3"  # layout bloco unico, LSTM engine
+
+    for i, img in enumerate(paginas):
+        try:
+            # Pre-processamento para melhorar OCR
+            img_array = np.array(img.convert("RGB"))
+            cinza = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            _, binaria = cv2.threshold(cinza, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            img_proc = Image.fromarray(binaria)
+
+            t = pytesseract.image_to_string(img_proc, lang="por+eng", config=config_tess)
+            if t and t.strip():
+                texto += t + "\n"
+        except Exception:
+            # Fallback sem pre-processamento
+            try:
+                t = pytesseract.image_to_string(img, lang="por+eng", config=config_tess)
+                texto += (t or "") + "\n"
+            except Exception:
+                pass
+
+    return texto
+
+
+def extrair_texto_pdf(pdf_file) -> str:
+    """
+    Extrai texto de um PDF com 3 camadas de fallback:
+    1. pdfplumber
+    2. PyMuPDF (fitz)
+    3. OCR via pdf2image + pytesseract (ativa se texto < 150 chars/pagina)
+    """
+    if hasattr(pdf_file, "read"):
+        pdf_file.seek(0)
+        data = pdf_file.read()
+    else:
+        data = bytes(pdf_file)
+
+    num_paginas = 1
+    texto = ""
+
+    # --- Camada 1: pdfplumber ---
+    try:
         import pdfplumber
-        if hasattr(pdf_file, "read"):
-            pdf_file.seek(0)
-            data = pdf_file.read()
-        else:
-            data = pdf_file
         with pdfplumber.open(io.BytesIO(data)) as pdf:
+            num_paginas = max(len(pdf.pages), 1)
             for page in pdf.pages:
                 t = page.extract_text()
                 if t:
                     texto += t + "\n"
-        if texto.strip():
+        if not _texto_esta_vazio(texto, num_paginas):
             return texto
     except Exception:
         pass
+
+    # --- Camada 2: PyMuPDF ---
+    texto_fitz = ""
     try:
         import fitz
-        if hasattr(pdf_file, "read"):
-            pdf_file.seek(0)
-            data = pdf_file.read()
-        else:
-            data = pdf_file
         doc = fitz.open(stream=data, filetype="pdf")
+        num_paginas = max(len(doc), 1)
         for page in doc:
-            texto += page.get_text() + "\n"
+            t = page.get_text()
+            if t:
+                texto_fitz += t + "\n"
+        if not _texto_esta_vazio(texto_fitz, num_paginas):
+            return texto_fitz
     except Exception:
         pass
-    return texto
+
+    # --- Camada 3: OCR ---
+    texto_ocr = _extrair_ocr(data)
+    return texto_ocr if texto_ocr.strip() else (texto or texto_fitz or "")
 
 
 # ============================================================================
@@ -262,15 +337,13 @@ def processar_pcmso(dados_ghe: list, tipo_ambiente: str = "canteiro") -> pd.Data
 
         for cargo in cargos:
             if exames_pre:
-                # Banco já preencheu exames — normaliza para lista de dicts
-                if exames_pre and isinstance(exames_pre[0], dict):
+                if isinstance(exames_pre[0], dict):
                     exames_base = deepcopy(exames_pre)
                 else:
                     exames_base = [
                         {"nome": str(e), "adm": True, "per": "12", "mro": True, "ret": False, "dem": False}
                         for e in exames_pre
                     ]
-                # Agente IA complementa com riscos químicos
                 if _AGENTE_IA_DISPONIVEL:
                     res_ia = processar_cargo_ia(cargo=cargo, riscos=riscos_str, contexto=contexto, e_canteiro=e_canteiro)
                     nomes_ok = {_normalizar(e.get("nome", "")) for e in exames_base}
@@ -331,7 +404,7 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
     th = f"{cs}background:#084D22;color:white;text-align:center;"
     cols = ["GHE / Setor", "Cargo", "Exame", "ADM", "PER", "MRO", "RT", "DEM"]
 
-    cabecalho_html = f"""
+    cab_html = f"""
     <div style="font-family:Arial,sans-serif;margin:0 auto;max-width:1100px;padding:20px;">
     <h2 style="color:#084D22;text-align:center;">PROGRAMA DE CONTROLE M\u00c9DICO DE SA\u00daDE OCUPACIONAL</h2>
     <h3 style="color:#084D22;text-align:center;">NR-07 \u2014 PCMSO</h3>
@@ -342,13 +415,13 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
       <tr><td colspan="2"><b>Gerado em:</b> {hoje} \u2014 {VERSAO_MODULO_PCMSO}</td></tr>
     </table>
     <table style="width:100%;border-collapse:collapse;margin-bottom:30px;">
-      <thead><tr>{' '.join(f'<th style="{th}">{c}</th>' for c in cols)}</tr></thead>
+      <thead><tr>{''.join(f'<th style="{th}">{c}</th>' for c in cols)}</tr></thead>
       <tbody>
     """
 
-    linhas_html = ""
+    rows_html = ""
     for _, row in df.iterrows():
-        linhas_html += "<tr>" + "".join(
+        rows_html += "<tr>" + "".join(
             f"<td style='{cs}'>{row.get(c, '') if c in df.columns else ''}</td>"
             for c in cols
         ) + "</tr>\n"
@@ -359,7 +432,7 @@ def gerar_html_pcmso(df: pd.DataFrame, cabecalho: dict = None) -> str:
         Gerado pelo Sistema Automa\u00e7\u00e3o SST \u2014 Seconci GO | {hoje}
       </p></div>
     """
-    return f"<!DOCTYPE html><html><body>{cabecalho_html}{linhas_html}{rodape}</body></html>"
+    return f"<!DOCTYPE html><html><body>{cab_html}{rows_html}{rodape}</body></html>"
 
 
 # ============================================================================
@@ -371,7 +444,7 @@ def gerar_docx_rq61(df: pd.DataFrame, cabecalho: dict = None) -> bytes:
         cabecalho = {}
     try:
         from docx import Document
-        from docx.shared import Pt, RGBColor, Cm
+        from docx.shared import RGBColor, Cm
         from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.oxml.ns import qn
         from docx.oxml import OxmlElement
