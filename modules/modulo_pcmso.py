@@ -5,6 +5,7 @@ import re
 import unicodedata
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
 
 import pdfplumber
 import pandas as pd
@@ -15,7 +16,7 @@ from utils.exame_utils import adicionar_exame_dedup
 from utils.biologico_utils import CHAVES_BIOLOGICAS_MATRIZ, tem_risco_biologico_real
 from utils.fuzzy_utils import normalizar_agente
 
-VERSAO_MODULO_PCMSO = '6.4 (Universal)'
+VERSAO_MODULO_PCMSO = '6.5 (Universal + Banco perfis v2)'
 
 _INVALIDOS_GHE = [
     'QUANTIDADE', 'PREVISTOS', 'EXPOSTOS', 'TOTAL DE', 'NUMERO DE',
@@ -174,22 +175,31 @@ _EXAME_ALIAS = {
     'ANTI HBS HBSAG ANTI HCV': 'Anti-HBs + HBsAg + Anti-HCV',
 }
 
+
+# ───────────────────────────────────────────────────────────────────────────
+# Helpers básicos de normalização
+# ───────────────────────────────────────────────────────────────────────────
+
 def _sem_acentos(texto):
     return unicodedata.normalize('NFKD', str(texto)).encode('ascii', 'ignore').decode('ascii')
+
 
 def _norm(texto):
     texto = _sem_acentos(str(texto or '')).upper().strip()
     texto = re.sub(r'[^A-Z0-9]+', ' ', texto)
     return re.sub(r'\s+', ' ', texto).strip()
 
+
 def _ghe_codigo(nome):
     m = re.search(r'GHE\s*(\d{1,2})', str(nome or ''), re.IGNORECASE)
     return m.group(1).zfill(2) if m else ''
+
 
 def _nome_oficial_exame(nome):
     if not nome:
         return ''
     return _EXAME_ALIAS.get(_norm(nome), str(nome).strip())
+
 
 def _limpar_nome_ghe(nome):
     if len(nome) > 100:
@@ -199,6 +209,7 @@ def _limpar_nome_ghe(nome):
         if re.search(lixo, norm, re.IGNORECASE):
             return 'GHE (revisar nome)'
     return nome.strip()
+
 
 def _is_linha_ghe(linha):
     lu = normalizar_texto(linha.strip())
@@ -213,6 +224,7 @@ def _is_linha_ghe(linha):
         return True
     return False
 
+
 def _ghe_valido(nome_ghe):
     norm = normalizar_texto(nome_ghe)
     if len(nome_ghe.strip()) > 90 or len(norm.strip()) < 4:
@@ -220,6 +232,7 @@ def _ghe_valido(nome_ghe):
     if any(re.search(pat, norm, re.IGNORECASE) for pat in _INVALIDOS_GHE_REGEX):
         return False
     return not any(inv in norm for inv in _INVALIDOS_GHE)
+
 
 def _fmt_per(per):
     if per is None or per is False:
@@ -232,10 +245,12 @@ def _fmt_per(per):
     except ValueError:
         return per if per else '-'
 
+
 def _flag(val):
     if isinstance(val, bool):
         return 'X' if val else '-'
     return 'X' if str(val).strip().upper() in ('X', 'TRUE', '1', 'SIM') else '-'
+
 
 def _ghe_e_canteiro_misto(nome_ghe, riscos):
     norm = normalizar_texto(nome_ghe)
@@ -246,10 +261,16 @@ def _ghe_e_canteiro_misto(nome_ghe, riscos):
     texto_r = ' '.join(normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos)
     return any(rc in texto_r for rc in _RISCOS_CANTEIRO)
 
+
 def _ghe_e_energizado(nome_ghe):
     """Retorna True se o nome do GHE indica instalação elétrica ENERGIZADA (NR-10 pleno)."""
     norm = normalizar_texto(nome_ghe)
     return any(p in norm for p in _NOMES_GHE_ENERGIZADO)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Extração básica de texto do PGR
+# ───────────────────────────────────────────────────────────────────────────
 
 def extrair_texto_pdf(uploaded_file):
     texto = []
@@ -260,13 +281,17 @@ def extrair_texto_pdf(uploaded_file):
                 texto.append(t)
     return '\n'.join(texto)
 
+
 def extrair_pgr_local(texto):
     linhas = texto.split('\n')
     ghes, ghe_atual, agentes_set = [], None, set()
     for linha in linhas:
         lc = linha.strip()
-        if not lc: continue
+        if not lc:
+            continue
         lu = normalizar_texto(lc)
+
+        # Nova linha de GHE
         if _is_linha_ghe(lc) and len(lc) < 120 and len(lc.strip()) >= 4 and not lc.strip().endswith('.'):
             if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
                 ghes.append(ghe_atual)
@@ -274,22 +299,32 @@ def extrair_pgr_local(texto):
             ghe_atual = {'ghe': nome_ghe_limpo, 'cargos': [], 'riscos_mapeados': []}
             agentes_set = set()
             continue
-        if ghe_atual is None: continue
+
+        if ghe_atual is None:
+            continue
+
+        # Mapeia cargos conhecidos dentro do texto do GHE
         if not any(normalizar_texto(exc) in lu for exc in PALAVRAS_EXCLUIR_CARGO):
             for cargo in MAPA_CARGOS_CONHECIDOS:
                 if normalizar_texto(cargo) in lu and cargo not in ghe_atual['cargos']:
                     ghe_atual['cargos'].append(cargo)
                     break
+
+        # Mapeia agentes de risco (palavras com espaço primeiro)
         for palavra, chave_risco in _MAPA_AGENTES.items():
             if ' ' in palavra:
                 if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
                     agentes_set.add(chave_risco)
                     ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+
+        # Depois tokens unitários
         for palavra, chave_risco in _MAPA_AGENTES.items():
             if ' ' not in palavra:
                 if normalizar_texto(palavra) in lu and chave_risco not in agentes_set:
                     agentes_set.add(chave_risco)
                     ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+
+        # Fallback fuzzy por token
         for token in lu.split():
             if len(token) < 3:
                 continue
@@ -299,9 +334,11 @@ def extrair_pgr_local(texto):
                 if chave_risco not in agentes_set:
                     agentes_set.add(chave_risco)
                     ghe_atual['riscos_mapeados'].append({'nome_agente': chave_risco, 'perigo_especifico': lc[:200]})
+
     if ghe_atual and (ghe_atual['cargos'] or ghe_atual['riscos_mapeados']):
         ghes.append(ghe_atual)
     return _deduplicar_ghes(ghes)
+
 
 def _deduplicar_ghes(ghes):
     vistos = {}
@@ -326,35 +363,56 @@ def _deduplicar_ghes(ghes):
                     riscos_existentes.add(r['nome_agente'])
     return resultado
 
+
 def extrair_pgr_com_fallback(texto_pgr, chave_api=None):
     local = extrair_pgr_local(texto_pgr)
     return local, 'local'
 
+
+# ───────────────────────────────────────────────────────────────────────────
+# Construção de exames (objeto interno)
+# ───────────────────────────────────────────────────────────────────────────
+
 def _novo_exame(exame, adm=True, per=None, mro=True, rt=False, dem=False, obs='', motivo=''):
-    return {'exame': _nome_oficial_exame(exame), 'adm': adm, 'per': per, 'mro': mro, 'rt': rt, 'dem': dem, 'obs': obs, 'motivo': motivo}
+    return {
+        'exame': _nome_oficial_exame(exame),
+        'adm': adm,
+        'per': per,
+        'mro': mro,
+        'rt': rt,
+        'dem': dem,
+        'obs': obs,
+        'motivo': motivo,
+    }
+
 
 def _match_funcao_matriz(cargo_upper, funcao_matriz):
     alvo = _norm(funcao_matriz)
     cargo_n = _norm(cargo_upper)
     return alvo == cargo_n or alvo in cargo_n or cargo_n in alvo
 
+
 def _forcar_regras_universais(ex, cargo_norm, riscos=None):
-    if riscos is None: riscos = []
+    if riscos is None:
+        riscos = []
     ex = deepcopy(ex)
     nome = _nome_oficial_exame(ex.get('exame', ''))
     ex['exame'] = nome
     cargo_upper = cargo_norm.upper()
 
-    texto_riscos = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
+    texto_riscos = ' '.join([
+        normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', ''))
+        for r in riscos
+    ])
     _QUIMICOS_PESADOS = ['TOLUENO', 'XILENO', 'BENZENO', 'HEXANO', 'TRICLOROETILENO', 'CETONA', 'SOLVENTE', 'QUIMICO']
     tem_quimico = any(q in texto_riscos for q in _QUIMICOS_PESADOS)
 
     if nome == 'Exame Clinico':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, True, True
         if tem_quimico or any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR', 'ENCANADOR', 'SERRALHEIRO', 'MONTADOR', 'MECANICO']):
-            ex['per'] = '6'
+            ex['per'] = ex.get('per') or '6'
         elif 'ENERGIZADO' in cargo_upper:
-            ex['per'] = '6'
+            ex['per'] = ex.get('per') or '6'
         elif not ex.get('per'):
             ex['per'] = '12'
 
@@ -362,8 +420,10 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
         ex['adm'], ex['mro'], ex['dem'] = True, True, True
         ex['rt'] = False
         if not ex.get('per'):
-            if nome == 'Audiometria': ex['per'] = '12'
-            elif nome == 'Espirometria': ex['per'] = '24'
+            if nome == 'Audiometria':
+                ex['per'] = '12'
+            elif nome == 'Espirometria':
+                ex['per'] = '24'
             elif nome == 'RX de Tórax OIT':
                 tem_poeira_pesada = any(x in texto_riscos for x in ['SILICA', 'ASBESTO'])
                 if tem_poeira_pesada or any(x in cargo_upper for x in ['PEDREIRO', 'BETONEIRA']):
@@ -374,18 +434,23 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     elif nome in ['Acuidade Visual', 'ECG', 'Glicemia em Jejum', 'Hemograma', 'Hemograma Completo']:
         ex['adm'], ex['mro'] = True, True
         ex['rt'], ex['dem'] = False, False
-        if nome in ['Hemograma', 'Hemograma Completo'] and tem_quimico and any(c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']):
+        if nome in ['Hemograma', 'Hemograma Completo'] and tem_quimico and any(
+            c in cargo_upper for c in ['PINTOR', 'IMPERMEABILIZADOR']
+        ):
             ex['per'] = '6'
             ex['dem'] = True
         elif not ex.get('per'):
             ex['per'] = '12'
 
-    elif nome in {'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona',
-                  'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina',
-                  'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina',
-                  'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina'}:
+    elif nome in {
+        'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona',
+        'Metiletilcetona na urina', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina',
+        'Carboxiemoglobina', 'Ácido trans-trans mucônico', 'Ortocresol na urina',
+        'Ác. Metil-hipúrico na urina', '2,5 Hexanodiona na Urina',
+    }:
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = False, False, False, False
-        if not ex.get('per'): ex['per'] = '6'
+        if not ex.get('per'):
+            ex['per'] = '6'
 
     elif nome == 'Manganês sanguíneo':
         ex['adm'], ex['mro'], ex['rt'], ex['dem'] = True, True, False, False
@@ -393,15 +458,16 @@ def _forcar_regras_universais(ex, cargo_norm, riscos=None):
     elif nome == 'Avaliação Psicossocial':
         ex['adm'], ex['mro'] = True, True
         ex['rt'], ex['dem'] = False, False
-        ex['per'] = '12'
+        ex['per'] = ex.get('per') or '12'
 
-    if cargo_upper in ['OPERADOR DE GRUA', 'GRUEIRO']:
-        if nome == 'Audiometria':
-            ex['per'] = None
-            ex['rt'] = False
-            ex['dem'] = False
+    # Casos específicos de Operador de Grua — sem audiometria periódica
+    if cargo_upper in ['OPERADOR DE GRUA', 'GRUEIRO'] and nome == 'Audiometria':
+        ex['per'] = None
+        ex['rt'] = False
+        ex['dem'] = False
 
     return ex
+
 
 def _aplicar_funcao_matriz(exames, cargo_norm, riscos):
     for funcao, lista_ex in MATRIZ_FUNCAO_EXAME.items():
@@ -410,11 +476,17 @@ def _aplicar_funcao_matriz(exames, cargo_norm, riscos):
         if _match_funcao_matriz(cargo_norm, funcao):
             for ex in lista_ex:
                 exame = _novo_exame(
-                    ex.get('exame', ''), adm=ex.get('adm', True), per=ex.get('per'),
-                    mro=ex.get('mro', True), rt=ex.get('rt', False), dem=ex.get('dem', False),
-                    obs=ex.get('obs', ''), motivo=f'Matriz de Função: {funcao.title()}',
+                    ex.get('exame', ''),
+                    adm=ex.get('adm', True),
+                    per=ex.get('per'),
+                    mro=ex.get('mro', True),
+                    rt=ex.get('rt', False),
+                    dem=ex.get('dem', False),
+                    obs=ex.get('obs', ''),
+                    motivo=f'Matriz de Função: {funcao.title()}',
                 )
                 adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
+
 
 def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
     bio_real = tem_risco_biologico_real(riscos)
@@ -422,16 +494,41 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
         chave_r = normalizar_texto(risco.get('nome_agente', ''))
         cas_r = str(risco.get('cas', '')).strip()
 
+        # Gatilhos diretos por CAS (IBE NR-07)
         if cas_r in ['79-01-6', '71-55-6'] or chave_r in ['TRICLOROETILENO', '1,1,1-TRICLOROETANO', 'TRICLOROETANO']:
-            exame = _novo_exame('Ácido tricloroacético na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
+            exame = _novo_exame(
+                'Ácido tricloroacético na urina',
+                adm=False,
+                per='6',
+                mro=False,
+                rt=False,
+                dem=False,
+                motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})",
+            )
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
         elif cas_r == '110-54-3' or chave_r in ['N-HEXANO', 'HEXANO']:
-            exame = _novo_exame('2,5 Hexanodiona na Urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
+            exame = _novo_exame(
+                '2,5 Hexanodiona na Urina',
+                adm=False,
+                per='6',
+                mro=False,
+                rt=False,
+                dem=False,
+                motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})",
+            )
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
         elif cas_r == '108-88-3' or chave_r == 'TOLUENO':
-            exame = _novo_exame('Ortocresol na urina', adm=False, per='6', mro=False, rt=False, dem=False, motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})")
+            exame = _novo_exame(
+                'Ortocresol na urina',
+                adm=False,
+                per='6',
+                mro=False,
+                rt=False,
+                dem=False,
+                motivo=f"IBE NR-07 (CAS: {cas_r or chave_r})",
+            )
             adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm))
             continue
 
@@ -443,45 +540,142 @@ def _aplicar_riscos_matriz(exames, riscos, cargo_norm):
             continue
 
         exame = _novo_exame(
-            regra['exame'], adm=regra.get('adm', True), per=regra.get('per'), mro=regra.get('mro', True),
-            rt=regra.get('rt', False), dem=regra.get('dem', False), obs=regra.get('obs', ''),
+            regra['exame'],
+            adm=regra.get('adm', True),
+            per=regra.get('per'),
+            mro=regra.get('mro', True),
+            rt=regra.get('rt', False),
+            dem=regra.get('dem', False),
+            obs=regra.get('obs', ''),
             motivo=f"Risco Mapeado: {chave_r.title()}",
         )
         adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
 
+
+# ───────────────────────────────────────────────────────────────────────────
+# Banco de perfis (banco_matrizes_v2.json) — integração CMO Dra. Patrícia
+# ───────────────────────────────────────────────────────────────────────────
+
+_BANCO_PERFIS = None
+
+
+def _carregar_banco_perfis():
+    """Carrega banco_matrizes_v2.json uma única vez.
+
+    O arquivo é o mesmo usado pelo módulo de auditoria e foi
+    validado pelas médicas (Dra. Patrícia / Dra. Carolini).
+    """
+    global _BANCO_PERFIS
+    if _BANCO_PERFIS is not None:
+        return _BANCO_PERFIS
+
+    candidatos = [
+        Path(__file__).parent.parent / 'data' / 'banco_matrizes_v2.json',
+        Path('data') / 'banco_matrizes_v2.json',
+    ]
+    for p in candidatos:
+        try:
+            if p.exists():
+                with p.open('r', encoding='utf-8') as f:
+                    _BANCO_PERFIS = json.load(f)
+                return _BANCO_PERFIS
+        except Exception:
+            continue
+
+    _BANCO_PERFIS = {}
+    return _BANCO_PERFIS
+
+
+def _aplicar_banco_perfil(exames, cargo_norm, riscos):
+    """Injeta exames do banco_matrizes_v2 para o cargo, se existir perfil.
+
+    Usa mapear_chave_mestra(cargo) para obter a chave do perfil
+    (ADMINISTRATIVO, PRODUCAO_GERAL, PINTOR, etc.) e aplica os exames
+    exatamente como definidos no banco, apenas reforçando regras
+    universais de PER/flags quando algum campo vier em branco.
+    """
+    try:
+        chave = mapear_chave_mestra(cargo_norm)
+    except Exception:
+        chave = None
+
+    if not chave or chave == 'CARGO_NAO_MAPEADO':
+        return
+
+    banco = _carregar_banco_perfis()
+    perfil = banco.get(chave)
+    if not perfil:
+        return
+
+    for ex in perfil.get('exames', []):
+        nome = ex.get('nome') or ex.get('exame') or ex.get('Exame') or ''
+        if not nome:
+            continue
+        exame = _novo_exame(
+            nome,
+            adm=ex.get('adm', True),
+            per=ex.get('per'),
+            mro=ex.get('mro', True),
+            rt=ex.get('ret', ex.get('rt', False)),
+            dem=ex.get('dem', False),
+            obs=ex.get('obs', ''),
+            motivo=f'Banco matriz perfis: {chave}',
+        )
+        adicionar_exame_dedup(exames, _forcar_regras_universais(exame, cargo_norm, riscos))
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Ordenação e enriquecimento com FISPQ
+# ───────────────────────────────────────────────────────────────────────────
+
 def _ordenar_exames(rows):
-    ordem = ['Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma', 'Glicemia em Jejum', 'ECG',
-             'Anti-HBs + HBsAg + Anti-HCV', 'Ácido tricloroacético na urina', 'Acetona na urina',
-             'Metil-Etil-Cetona', 'Ciclohexanol na urina', 'Tetrahidrofurnano na urina',
-             'Manganês sanguíneo', 'Carboxiemoglobina', 'Contagem de Reticulócitos',
-             'Ácido trans-trans mucônico', 'Ortocresol na urina', 'Ác. Metil-hipúrico na urina',
-             'Avaliação Psicossocial', 'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT']
+    ordem = [
+        'Exame Clinico', 'Audiometria', 'Acuidade Visual', 'Hemograma',
+        'Glicemia em Jejum', 'ECG', 'Anti-HBs + HBsAg + Anti-HCV',
+        'Ácido tricloroacético na urina', 'Acetona na urina', 'Metil-Etil-Cetona',
+        'Ciclohexanol na urina', 'Tetrahidrofurnano na urina', 'Manganês sanguíneo',
+        'Carboxiemoglobina', 'Contagem de Reticulócitos', 'Ácido trans-trans mucônico',
+        'Ortocresol na urina', 'Ác. Metil-hipúrico na urina', 'Avaliação Psicossocial',
+        'Espirometria', 'RX de coluna lombo-sacra', 'RX de Tórax OIT',
+    ]
     peso = {nome: i for i, nome in enumerate(ordem)}
     return sorted(rows, key=lambda r: (peso.get(_nome_oficial_exame(r['Exame']), 999), _norm(r['Exame'])))
+
 
 def enriquecer_pgr_com_fispq(dados_pgr, resultados_medicos_fispq):
     if not resultados_medicos_fispq:
         return dados_pgr
+
     for ghe_pgr in dados_pgr:
         nome_ghe_pgr = normalizar_texto(ghe_pgr.get('ghe', ''))
         agentes_para_injetar = []
+
         for item_fispq in resultados_medicos_fispq:
             nome_ghe_fispq = normalizar_texto(item_fispq.get('GHE', ''))
             if nome_ghe_fispq in nome_ghe_pgr or nome_ghe_pgr in nome_ghe_fispq:
                 agentes_para_injetar.append(item_fispq)
+
         riscos_existentes = {normalizar_texto(r['nome_agente']) for r in ghe_pgr.get('riscos_mapeados', [])}
         for item in agentes_para_injetar:
             agente = item.get('Agente Quimico', '')
             cas = item.get('N CAS', '')
             agente_norm = normalizar_texto(agente)
             if agente_norm not in riscos_existentes:
-                ghe_pgr['riscos_mapeados'].append({
-                    'nome_agente': agente,
-                    'cas': cas,
-                    'perigo_especifico': f'Mapeado via FISPQ (CAS: {cas})'
-                })
+                ghe_pgr['riscos_mapeados'].append(
+                    {
+                        'nome_agente': agente,
+                        'cas': cas,
+                        'perigo_especifico': f'Mapeado via FISPQ (CAS: {cas})',
+                    }
+                )
                 riscos_existentes.add(agente_norm)
+
     return dados_pgr
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Núcleo do PCMSO — monta DataFrame (matriz função × exames)
+# ───────────────────────────────────────────────────────────────────────────
 
 def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
     linhas = []
@@ -494,6 +688,7 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         if not _ghe_valido(nome_ghe):
             continue
 
+        # Classificação ambiente
         if tipo_ambiente == 'canteiro':
             e_canteiro = True
         elif tipo_ambiente == 'escritorio':
@@ -501,67 +696,140 @@ def processar_pcmso(dados_pgr, tipo_ambiente='misto'):
         else:
             e_canteiro = _ghe_e_canteiro_misto(nome_ghe, riscos)
 
-        texto_riscos_ghe = " ".join([normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', '')) for r in riscos])
+        texto_riscos_ghe = ' '.join(
+            normalizar_texto(r.get('nome_agente', '') + ' ' + r.get('perigo_especifico', ''))
+            for r in riscos
+        )
         tem_altura_confinado = any(x in texto_riscos_ghe for x in ['QUEDA DE ALTURA', 'ESPACO CONFINADO'])
         tem_eletricidade = 'ELETRIC' in texto_riscos_ghe
-        # Detecta se o GHE é de eletricidade ENERGIZADA para sobrescrever perfil ELETRICISTA
         ghe_energizado = _ghe_e_energizado(nome_ghe)
 
         for cargo in cargos:
             cargo_norm = normalizar_cargo(cargo)
             cargo_efetivo = cargo_norm
 
-            # Se o GHE é energizado e o cargo é ELETRICISTA (base), sobe para ENERGIZADO
+            # Se GHE for energizado, especializa ELETRICISTA → ELETRICISTA_ENERGIZADO
             if ghe_energizado and 'ELETRICISTA' in cargo_norm and 'ENERGIZADO' not in cargo_norm:
                 cargo_efetivo = cargo_norm + ' ENERGIZADO'
 
             exames = {}
 
-            clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
-            adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_efetivo, riscos))
+            # 1) Tenta perfil oficial no banco_matrizes_v2 (validado pelas médicas)
+            _aplicar_banco_perfil(exames, cargo_efetivo, riscos)
 
-            e_cargo_adm = any(adm in cargo_norm for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO'])
-            if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
-                e_cargo_adm = True
+            # 2) Se não houver perfil mapeado, cai na lógica universal antiga
+            if not exames:
+                clinico = _novo_exame('Exame Clinico', motivo='Obrigatório NR-07')
+                adicionar_exame_dedup(exames, _forcar_regras_universais(clinico, cargo_efetivo, riscos))
 
-            operador_maquina = any(x in cargo_norm for x in ['OPERADOR DE GRUA', 'OPERADOR DE CREMALHEIRA', 'MOTORISTA', 'GUINDASTE', 'EMPILHADEIRA'])
+                e_cargo_adm = any(
+                    adm in cargo_norm
+                    for adm in ['RH', 'SUPERINTENDENTE', 'RECEPCIONISTA', 'DIRETOR', 'ADVOGADO', 'JURIDICO']
+                )
+                if 'ADMINISTRATIVO' in cargo_norm and 'OBRA' not in cargo_norm:
+                    e_cargo_adm = True
 
-            if e_canteiro and not e_cargo_adm:
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Audiometria', motivo='Base Canteiro/Ruído'), cargo_efetivo, riscos))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Espirometria', motivo='Base Canteiro/Poeira'), cargo_efetivo, riscos))
-                adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'), cargo_efetivo, riscos))
+                operador_maquina = any(
+                    x in cargo_norm
+                    for x in ['OPERADOR DE GRUA', 'OPERADOR DE CREMALHEIRA', 'MOTORISTA', 'GUINDASTE', 'EMPILHADEIRA']
+                )
 
-                if tem_altura_confinado or tem_eletricidade or operador_maquina:
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
-                    adicionar_exame_dedup(exames, _forcar_regras_universais(_novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'), cargo_efetivo, riscos))
+                if e_canteiro and not e_cargo_adm:
+                    adicionar_exame_dedup(
+                        exames,
+                        _forcar_regras_universais(
+                            _novo_exame('Audiometria', motivo='Base Canteiro/Ruído'),
+                            cargo_efetivo,
+                            riscos,
+                        ),
+                    )
+                    adicionar_exame_dedup(
+                        exames,
+                        _forcar_regras_universais(
+                            _novo_exame('Espirometria', motivo='Base Canteiro/Poeira'),
+                            cargo_efetivo,
+                            riscos,
+                        ),
+                    )
+                    adicionar_exame_dedup(
+                        exames,
+                        _forcar_regras_universais(
+                            _novo_exame('RX de Tórax OIT', motivo='Base Canteiro/Poeira'),
+                            cargo_efetivo,
+                            riscos,
+                        ),
+                    )
 
-            _aplicar_funcao_matriz(exames, cargo_efetivo, riscos)
+                    if tem_altura_confinado or tem_eletricidade or operador_maquina:
+                        adicionar_exame_dedup(
+                            exames,
+                            _forcar_regras_universais(
+                                _novo_exame('Acuidade Visual', motivo='Op. Máquina/Altura/Elétrica'),
+                                cargo_efetivo,
+                                riscos,
+                            ),
+                        )
+                        adicionar_exame_dedup(
+                            exames,
+                            _forcar_regras_universais(
+                                _novo_exame('ECG', motivo='Op. Máquina/Altura/Elétrica'),
+                                cargo_efetivo,
+                                riscos,
+                            ),
+                        )
+                        adicionar_exame_dedup(
+                            exames,
+                            _forcar_regras_universais(
+                                _novo_exame('Glicemia em Jejum', motivo='Op. Máquina/Altura/Elétrica'),
+                                cargo_efetivo,
+                                riscos,
+                            ),
+                        )
+                        adicionar_exame_dedup(
+                            exames,
+                            _forcar_regras_universais(
+                                _novo_exame('Hemograma', motivo='Op. Máquina/Altura/Elétrica'),
+                                cargo_efetivo,
+                                riscos,
+                            ),
+                        )
+
+                _aplicar_funcao_matriz(exames, cargo_efetivo, riscos)
+
+            # 3) Sempre complementar com exames por risco NR-7 (IBE / matriz risco-exame)
             _aplicar_riscos_matriz(exames, riscos, cargo_efetivo)
 
+            # 4) Monta linhas (DataFrame)
             rows_cargo = []
             for ex_info in exames.values():
                 nome_exame = _nome_oficial_exame(ex_info.get('exame', ''))
                 rt = bool(ex_info.get('rt', False))
                 dem = bool(ex_info.get('dem', False))
-                rows_cargo.append({
-                    'GHE / Setor': nome_ghe,
-                    'Cargo': cargo,
-                    'Exame': nome_exame,
-                    'ADM': _flag(ex_info.get('adm', True)),
-                    'PER': _fmt_per(ex_info.get('per')),
-                    'MRO': _flag(ex_info.get('mro', True)),
-                    'RT': _flag(rt),
-                    'DEM': _flag(dem),
-                    'Justificativa': ex_info.get('motivo', ''),
-                })
+                rows_cargo.append(
+                    {
+                        'GHE / Setor': nome_ghe,
+                        'Cargo': cargo,
+                        'Exame': nome_exame,
+                        'ADM': _flag(ex_info.get('adm', True)),
+                        'PER': _fmt_per(ex_info.get('per')),
+                        'MRO': _flag(ex_info.get('mro', True)),
+                        'RT': _flag(rt),
+                        'DEM': _flag(dem),
+                        'Justificativa': ex_info.get('motivo', ''),
+                    }
+                )
             linhas.extend(_ordenar_exames(rows_cargo))
 
     return pd.DataFrame(linhas)
 
+
+# ───────────────────────────────────────────────────────────────────────────
+# Saídas: HTML PCMSO e DOCX no layout RQ.61
+# ───────────────────────────────────────────────────────────────────────────
+
 def gerar_html_pcmso(df, cabecalho=None):
-    if not cabecalho: cabecalho = {}
+    if not cabecalho:
+        cabecalho = {}
     razao = cabecalho.get('razao_social', 'Empresa não informada')
     cnpj = cabecalho.get('cnpj', '---')
     obra = cabecalho.get('obra', '---')
@@ -569,9 +837,11 @@ def gerar_html_pcmso(df, cabecalho=None):
     vig_i = cabecalho.get('vig_ini', '---')
     vig_f = cabecalho.get('vig_fim', '---')
     tec = cabecalho.get('responsavel_tec', '---')
+
     ghe_grupos = {}
     for _, row in df.iterrows():
         ghe_grupos.setdefault(row['GHE / Setor'], {}).setdefault(row['Cargo'], []).append(row)
+
     linhas_html = ''
     for ghe_nome, cargos_dict in ghe_grupos.items():
         total_rows = sum(len(v) for v in cargos_dict.values())
@@ -580,18 +850,39 @@ def gerar_html_pcmso(df, cabecalho=None):
             primeiro_cargo = True
             for row in rows:
                 def cel(val, bg='#d4edda'):
-                    return f'<td style="text-align:center;background:{bg};">X</td>' if val == 'X' else '<td style="text-align:center;color:#999;">-</td>'
-                per_td = f'<td style="text-align:center;font-weight:bold;">{row["PER"]}</td>' if row['PER'] != '-' else '<td style="text-align:center;color:#999;">-</td>'
+                    return f'<td style="text-align:center;background:{bg};">X</td>' if val == 'X' else "<td style='text-align:center;color:#999;'>-</td>"
+
+                per_td = (
+                    f'<td style="text-align:center;font-weight:bold;">{row["PER"]}</td>'
+                    if row['PER'] != '-'
+                    else "<td style='text-align:center;color:#999;'>-</td>"
+                )
+
                 ghe_td = ''
                 if primeiro_ghe:
-                    ghe_td = f'<td rowspan="{total_rows}" style="background:#084D22;color:#fff;font-weight:bold;vertical-align:middle;text-align:center;padding:8px;">{ghe_nome}</td>'
+                    ghe_td = (
+                        f'<td rowspan="{total_rows}" '
+                        f'style="background:#084D22;color:#fff;font-weight:bold;vertical-align:middle;text-align:center;padding:8px;">'
+                        f'{ghe_nome}</td>'
+                    )
                     primeiro_ghe = False
+
                 cargo_td = ''
                 if primeiro_cargo:
-                    cargo_td = f'<td rowspan="{len(rows)}" style="vertical-align:middle;font-weight:bold;">{cargo}</td>'
+                    cargo_td = (
+                        f'<td rowspan="{len(rows)}" '
+                        f'style="vertical-align:middle;font-weight:bold;">{cargo}</td>'
+                    )
                     primeiro_cargo = False
-                linhas_html += f"<tr>{ghe_td}{cargo_td}<td>{row['Exame']}</td>{cel(row['ADM'])}{per_td}{cel(row['MRO'])}{cel(row['RT'])}{cel(row['DEM'])}<td style='font-size:11px;color:#555;'>{row['Justificativa']}</td></tr>"
+
+                linhas_html += (
+                    f"<tr>{ghe_td}{cargo_td}<td>{row['Exame']}</td>"
+                    f"{cel(row['ADM'])}{per_td}{cel(row['MRO'])}{cel(row['RT'])}{cel(row['DEM'])}"
+                    f"<td style='font-size:11px;color:#555;'>{row['Justificativa']}</td></tr>"
+                )
+
     return f'''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><style>body{{font-family:Arial,sans-serif;font-size:13px;margin:20px;}}table{{width:100%;border-collapse:collapse;margin-top:10px;}}th{{background:#1AA04B;color:#fff;padding:10px 6px;border:1px solid #084D22;font-size:12px;}}th.c{{text-align:center;}}td{{border:1px solid #ccc;padding:8px 6px;vertical-align:middle;}}tr:nth-child(even) td{{background:#F4F8F5;}}</style></head><body><table style="margin-bottom:12px;border:2px solid #084D22;"><tr style="background:#084D22;color:#fff;"><td colspan="5" style="padding:8px;font-size:12pt;font-weight:bold;text-align:center;">PROGRAMA DE CONTROLE MÉDICO DE SAÚDE OCUPACIONAL — PCMSO</td></tr><tr><td><b>Empresa:</b> {razao}</td><td><b>CNPJ:</b> {cnpj}</td><td><b>Obra:</b> {obra}</td><td><b>Vigência:</b> {vig_i} a {vig_f}</td><td><b>Emissão:</b> {datetime.now().strftime('%d/%m/%Y')}</td></tr><tr><td colspan="3"><b>Médico(a):</b> {medico}</td><td colspan="2"><b>Técnico SST:</b> {tec}</td></tr></table><table><tr><th style="width:12%">GHE</th><th style="width:14%">Função</th><th style="width:30%">Exame Solicitado</th><th class="c" style="width:5%">ADM</th><th class="c" style="width:6%">PER</th><th class="c" style="width:5%">MRO</th><th class="c" style="width:4%">RT</th><th class="c" style="width:5%">DEM</th><th style="width:19%">Justificativa</th></tr>{linhas_html}</table><p style="font-size:8pt;color:#555;margin-top:12px;">Gerado por Sistema Automação SST Seconci-GO.</p></body></html>'''
+
 
 def gerar_docx_rq61(df, cabecalho=None):
     from docx import Document
@@ -600,7 +891,8 @@ def gerar_docx_rq61(df, cabecalho=None):
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt, RGBColor
 
-    if not cabecalho: cabecalho = {}
+    if not cabecalho:
+        cabecalho = {}
     razao = cabecalho.get('razao_social', 'Empresa não informada')
     obra = cabecalho.get('obra', '---')
     medico = cabecalho.get('medico_rt', 'Não informado')
@@ -608,10 +900,10 @@ def gerar_docx_rq61(df, cabecalho=None):
     vig_i = cabecalho.get('vig_ini', '---')
     tipo = cabecalho.get('tipo_obra', 'Renovação')
 
-    AZUL_GHE  = '4472C4'
+    AZUL_GHE = '4472C4'
     CINZA_COL = 'D9D9D9'
-    BRANCO    = RGBColor(0xFF, 0xFF, 0xFF)
-    PRETO     = RGBColor(0x00, 0x00, 0x00)
+    BRANCO = RGBColor(0xFF, 0xFF, 0xFF)
+    PRETO = RGBColor(0x00, 0x00, 0x00)
 
     def shd(cell, hex_color):
         tc = cell._tc
@@ -676,7 +968,14 @@ def gerar_docx_rq61(df, cabecalho=None):
     cab.style = 'Table Grid'
     cab.rows[0].cells[0].merge(cab.rows[0].cells[3])
     shd(cab.rows[0].cells[0], '084D22')
-    txt(cab.rows[0].cells[0], 'MATRIZ FUNÇÃO – EXAMES PCMSO', bold=True, color=BRANCO, size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
+    txt(
+        cab.rows[0].cells[0],
+        'MATRIZ FUNÇÃO – EXAMES PCMSO',
+        bold=True,
+        color=BRANCO,
+        size=13,
+        align=WD_ALIGN_PARAGRAPH.CENTER,
+    )
 
     cab.rows[1].cells[0].merge(cab.rows[1].cells[1])
     cab.rows[1].cells[2].merge(cab.rows[1].cells[3])
@@ -691,7 +990,12 @@ def gerar_docx_rq61(df, cabecalho=None):
 
     cab.rows[3].cells[0].merge(cab.rows[3].cells[3])
     crm_txt = f'  CRM-GO {crm}' if crm else ''
-    txt(cab.rows[3].cells[0], f'Médico(a) Coordenador(a) do PCMSO: {medico}{crm_txt}', size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    txt(
+        cab.rows[3].cells[0],
+        f'Médico(a) Coordenador(a) do PCMSO: {medico}{crm_txt}',
+        size=9,
+        align=WD_ALIGN_PARAGRAPH.CENTER,
+    )
 
     doc.add_paragraph()
 
@@ -709,15 +1013,36 @@ def gerar_docx_rq61(df, cabecalho=None):
         row_ghe.cells[0].merge(row_ghe.cells[1])
         shd(row_ghe.cells[0], AZUL_GHE)
         set_borders(row_ghe.cells[0])
-        txt(row_ghe.cells[0], ghe_nome.upper(), bold=True, color=BRANCO, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
+        txt(
+            row_ghe.cells[0],
+            ghe_nome.upper(),
+            bold=True,
+            color=BRANCO,
+            size=10,
+            align=WD_ALIGN_PARAGRAPH.CENTER,
+        )
 
         row_h = tbl.add_row()
         shd(row_h.cells[0], CINZA_COL)
         shd(row_h.cells[1], CINZA_COL)
         set_borders(row_h.cells[0])
         set_borders(row_h.cells[1])
-        txt(row_h.cells[0], 'FUNÇÃO', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
-        txt(row_h.cells[1], 'EXAMES SOLICITADOS', bold=True, color=PRETO, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+        txt(
+            row_h.cells[0],
+            'FUNÇÃO',
+            bold=True,
+            color=PRETO,
+            size=9,
+            align=WD_ALIGN_PARAGRAPH.CENTER,
+        )
+        txt(
+            row_h.cells[1],
+            'EXAMES SOLICITADOS',
+            bold=True,
+            color=PRETO,
+            size=9,
+            align=WD_ALIGN_PARAGRAPH.CENTER,
+        )
 
         for cargo, rows_cargo in cargos_dict.items():
             exames_fmt = [_fmt_exame_rq61(r) for r in rows_cargo]
@@ -737,7 +1062,11 @@ def gerar_docx_rq61(df, cabecalho=None):
 
         doc.add_paragraph()
 
-    p = doc.add_paragraph(f"Responsável pelo preenchimento: {cabecalho.get('responsavel_tec', '---')}\nMédico(a) Responsável pela validação: {medico}{(' CRM-GO ' + crm) if crm else ''}\nData do PCMAT/PGR: {vig_i}")
+    p = doc.add_paragraph(
+        f"Responsável pelo preenchimento: {cabecalho.get('responsavel_tec', '---')}\n"
+        f"Médico(a) Responsável pela validação: {medico}{(' CRM-GO ' + crm) if crm else ''}\n"
+        f"Data do PCMAT/PGR: {vig_i}"
+    )
     p.runs[0].font.size = Pt(8)
 
     buf = io.BytesIO()
